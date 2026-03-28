@@ -6,6 +6,14 @@ Use the root verification flow before committing changes:
 ./scripts/verify.sh
 ```
 
+Optional local hook setup:
+
+```bash
+npm install
+```
+
+That enables the Husky `pre-push` hook, which runs `./scripts/verify.sh`.
+
 That script mirrors the local release-confidence gate:
 
 - Rust format, clippy, and tests
@@ -20,6 +28,13 @@ cargo run --manifest-path core-rs/Cargo.toml -- validate
 cargo run --manifest-path core-rs/Cargo.toml -- sync --check
 cargo run --manifest-path core-rs/Cargo.toml -- sync
 ```
+
+Release bump rules:
+
+- `feat:` triggers a minor bump
+- `fix:`, `docs:`, `refactor:`, `test:`, `chore:`, `build:`, `ci:` and similar commits trigger a patch bump
+- `!` in a conventional commit header or `BREAKING CHANGE` in the body triggers a major bump
+- `[major]`, `[minor]`, and `[patch]` override the inferred bump level
 
 Read this next:
 

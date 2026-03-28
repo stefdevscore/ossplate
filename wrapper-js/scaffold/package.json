@@ -1,0 +1,11 @@
+{
+  "name": "ossplate-devtools",
+  "private": true,
+  "scripts": {
+    "prepare": "husky",
+    "verify": "./scripts/verify.sh"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7"
+  }
+}

@@ -41,12 +41,19 @@ After updating versions, rerun:
 
 ## Release Flow
 
-1. Commit the version bump and any release notes.
-2. Push `dev`.
-3. Create a GitHub release that targets `dev`, or manually dispatch the publish workflows.
-4. Monitor:
+1. Merge or push work to `main`.
+2. Let [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) pass on that commit.
+3. [`.github/workflows/release.yml`](../.github/workflows/release.yml) computes the next version from commit messages, bumps versions, commits the release, tags it, and creates a GitHub release.
+4. The published GitHub release triggers:
    - [`.github/workflows/publish.yml`](../.github/workflows/publish.yml)
    - [`.github/workflows/publish-npm.yml`](../.github/workflows/publish-npm.yml)
+
+## Bump Rules
+
+- `feat:` => minor
+- `fix:`, `docs:`, `refactor:`, `test:`, `chore:`, `build:`, `ci:` => patch
+- `!` in the conventional commit header or `BREAKING CHANGE` in the body => major
+- `[major]`, `[minor]`, `[patch]` override the inferred bump
 
 ## Rerun Behavior
 
