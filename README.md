@@ -17,7 +17,7 @@ A practical baseline for shipping one project across Cargo, npm, and PyPI withou
 
 This project is intentionally small.
 
-It exists to validate and synchronize the shared identity of a multi-registry OSS scaffold before broader scaffolding features are added.
+It exists to validate, synchronize, and distribute a real multi-registry OSS scaffold with one canonical core and thin wrapper packages.
 
 ## Core Commands
 

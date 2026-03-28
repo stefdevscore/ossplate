@@ -5,6 +5,7 @@ This docs area explains how to use `ossplate` as a real tool for validating, syn
 ## Start Here
 
 - [Customizing The Template](./customizing-the-template.md)
+- [Architecture](./architecture.md)
 - [Testing Guide](./testing.md)
 - [Release Guide](./releases.md)
 - [Phase 1 Contract](./phase-1-contract.md)
