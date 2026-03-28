@@ -9,10 +9,11 @@ Use the root verification flow before committing changes:
 Optional local hook setup:
 
 ```bash
-npm install
+python -m pip install pre-commit
+pre-commit install --hook-type pre-push
 ```
 
-That enables the Husky `pre-push` hook, which runs `./scripts/verify.sh`.
+That enables a local `pre-push` hook which runs `./scripts/verify.sh`.
 
 That script mirrors the local release-confidence gate:
 
