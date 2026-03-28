@@ -1508,7 +1508,7 @@ name = "Stef"
 email = "stefdevscore@github.com"
 
 [packages]
-rust_crate = "ossplate-core"
+rust_crate = "ossplate"
 npm_package = "ossplate"
 python_package = "ossplate"
 command = "ossplate"
@@ -1521,7 +1521,7 @@ command = "ossplate"
         fs::write(
             root.join("core-rs/Cargo.toml"),
             r#"[package]
-name = "ossplate-core"
+name = "ossplate"
 version = "0.1.0"
 edition = "2021"
 authors = ["Stef <stefdevscore@github.com>"]

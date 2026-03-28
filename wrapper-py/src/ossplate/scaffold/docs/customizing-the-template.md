@@ -37,7 +37,7 @@ Replace these defaults before reuse:
 
 | Surface | Current placeholder | Where it lives |
 | --- | --- | --- |
-| Rust crate name | `ossplate-core` | `core-rs/Cargo.toml` |
+| Rust crate name | `ossplate` | `core-rs/Cargo.toml` |
 | npm package name | `ossplate` | `wrapper-js/package.json` |
 | PyPI package name | `ossplate` | `wrapper-py/pyproject.toml` |
 | CLI command | `ossplate` | `ossplate.toml`, `wrapper-js/package.json`, `wrapper-py/pyproject.toml` |

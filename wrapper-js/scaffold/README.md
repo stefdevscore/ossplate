@@ -38,7 +38,7 @@ cargo run --manifest-path core-rs/Cargo.toml -- create ../my-new-project \
   --repository "https://github.com/acme/my-project" \
   --author-name "Acme" \
   --author-email "oss@acme.dev" \
-  --rust-crate "my-project-core" \
+  --rust-crate "my-project" \
   --npm-package "@acme/my-project" \
   --python-package "my-project-py" \
   --command "my-project"

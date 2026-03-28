@@ -9,7 +9,7 @@ name = "Stef"
 email = "stefdevscore@github.com"
 
 [packages]
-rust_crate = "ossplate-core"
+rust_crate = "ossplate"
 npm_package = "ossplate"
 python_package = "ossplate"
 command = "ossplate"
