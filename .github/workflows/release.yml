@@ -18,8 +18,12 @@ permissions:
 jobs:
   release:
     if: >
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'main'
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event_name == 'workflow_run' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main'
+      )
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -33,17 +37,24 @@ jobs:
         id: validated
         run: |
           HEAD_SHA=$(git rev-parse HEAD)
-          if [ "$HEAD_SHA" != "${{ github.event.workflow_run.head_sha }}" ]; then
-            echo "::notice title=release::main advanced beyond the validated commit; waiting for the newer CI run."
-            echo "proceed=false" >> "$GITHUB_OUTPUT"
-          else
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "::notice title=release::manual dispatch requested; validating current main HEAD."
+            echo "validated_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
             echo "proceed=true" >> "$GITHUB_OUTPUT"
+          else
+            if [ "$HEAD_SHA" != "${{ github.event.workflow_run.head_sha }}" ]; then
+              echo "::notice title=release::main advanced beyond the validated commit; waiting for the newer CI run."
+              echo "proceed=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "validated_sha=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+              echo "proceed=true" >> "$GITHUB_OUTPUT"
+            fi
           fi
       - name: Skip release commits
         id: commit
         if: steps.validated.outputs.proceed == 'true'
         run: |
-          SUBJECT=$(git log -1 --pretty=%s "${{ github.event.workflow_run.head_sha }}")
+          SUBJECT=$(git log -1 --pretty=%s "${{ steps.validated.outputs.validated_sha }}")
           echo "subject=$SUBJECT" >> "$GITHUB_OUTPUT"
           if echo "$SUBJECT" | grep -q '^Release ossplate '; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
@@ -56,8 +67,8 @@ jobs:
         run: |
           PLAN=$(node ./scripts/release-plan.mjs)
           echo "$PLAN"
-          echo "should_release=$(echo "$PLAN" | node -p 'JSON.parse(require(\"fs\").readFileSync(0, \"utf8\")).shouldRelease')" >> "$GITHUB_OUTPUT"
-          echo "next_version=$(echo "$PLAN" | node -p 'JSON.parse(require(\"fs\").readFileSync(0, \"utf8\")).nextVersion')" >> "$GITHUB_OUTPUT"
+          echo "should_release=$(printf '%s' "$PLAN" | node -e "process.stdout.write(String(JSON.parse(require('fs').readFileSync(0, 'utf8')).shouldRelease))")" >> "$GITHUB_OUTPUT"
+          echo "next_version=$(printf '%s' "$PLAN" | node -e "process.stdout.write(JSON.parse(require('fs').readFileSync(0, 'utf8')).nextVersion)")" >> "$GITHUB_OUTPUT"
       - name: Set up git identity
         if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
         run: |
