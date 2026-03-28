@@ -12,11 +12,11 @@ jobs:
   template-readiness:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '24'
       - run: cargo run --quiet --manifest-path core-rs/Cargo.toml -- validate
       - run: cargo run --quiet --manifest-path core-rs/Cargo.toml -- sync --check
       - run: node --test ./scripts/validate-template-readiness.test.mjs
@@ -25,7 +25,7 @@ jobs:
     needs: template-readiness
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo fmt --check
         working-directory: ./core-rs
@@ -38,11 +38,11 @@ jobs:
     needs: template-readiness
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '24'
           cache: npm
           cache-dependency-path: ./wrapper-js/package-lock.json
       - run: npm ci
@@ -58,12 +58,12 @@ jobs:
     needs: template-readiness
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: '20'
-      - uses: actions/setup-python@v5
+          node-version: '24'
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
       - name: Test and build
