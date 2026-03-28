@@ -5,10 +5,21 @@ name: Ossplate publishing
 on:
   release:
     types: [published]
+  workflow_run:
+    workflows: ["Ossplate release"]
+    types: [completed]
   workflow_dispatch:
 
 jobs:
   publish-pypi:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'release' ||
+      (
+        github.event_name == 'workflow_run' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main'
+      )
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -31,6 +42,14 @@ jobs:
           skip-existing: true
 
   publish-cargo:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'release' ||
+      (
+        github.event_name == 'workflow_run' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main'
+      )
     runs-on: ubuntu-latest
     permissions:
       contents: read
