@@ -4,7 +4,7 @@
     ".github/workflows/publish.yml",
     ".github/workflows/publish-npm.yml",
     ".gitignore",
-    "assets/illustrations/armour05platemail.png",
+    "assets/illustrations/chestplate.svg",
     "CONTRIBUTING.md",
     "LICENSE",
     "README.md",

@@ -1044,7 +1044,7 @@ fn render_wrapper_readme(_language: &str, config: &ToolConfig) -> String {
     let image_url = github_raw_url(
         &config.project.repository,
         "dev",
-        "assets/illustrations/armour05platemail.png",
+        "assets/illustrations/chestplate.svg",
     );
     format!(
         r#"# {name}
@@ -1424,7 +1424,7 @@ mod tests {
             target.join("core-rs/Cargo.toml"),
             r#"[package]
 name = "bad-core"
-version = "0.1.3"
+version = "0.1.4"
 "#,
         )
         .unwrap();
@@ -1560,7 +1560,7 @@ command = "ossplate"
             root.join("core-rs/Cargo.toml"),
             r#"[package]
 name = "ossplate"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2021"
 authors = ["Stef <stefdevscore@github.com>"]
 description = "A practical baseline for shipping one project across Cargo, npm, and PyPI without starting from scratch every time."

@@ -86,7 +86,9 @@ class CliTests(unittest.TestCase):
     def test_packaged_python_wrapper_can_create_from_scaffold_payload(self) -> None:
         repo_root = self.repo_root
         build_venv_dir = repo_root / "wrapper-py" / ".tmp-build-venv"
+        dist_dir = repo_root / "wrapper-py" / "dist"
         subprocess.run(["rm", "-rf", str(build_venv_dir)], check=True)
+        subprocess.run(["rm", "-rf", str(dist_dir)], check=True)
         subprocess.run(["cargo", "build"], cwd=repo_root / "core-rs", check=True)
         subprocess.run([sys.executable, "-m", "venv", str(build_venv_dir)], check=True)
         build_python = build_venv_dir / "bin" / "python"
@@ -100,7 +102,7 @@ class CliTests(unittest.TestCase):
             cwd=repo_root / "wrapper-py",
             check=True,
         )
-        wheel = next((repo_root / "wrapper-py" / "dist").glob("ossplate-*.whl"))
+        wheel = dist_dir / "ossplate-0.1.4-py3-none-any.whl"
         self.assert_wheel_contents(wheel)
         venv_dir = repo_root / "wrapper-py" / ".tmp-wheel-venv"
         target_dir = repo_root / "wrapper-py" / ".tmp-wheel-created"
