@@ -38,9 +38,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - name: Authenticate with crates.io
-        uses: rust-lang/crates-io-auth-action@v1
+      - name: Authenticate with crates.io via OIDC
         id: auth
+        continue-on-error: true
+        uses: rust-lang/crates-io-auth-action@v1
       - name: Detect published crate version
         id: version
         working-directory: ./core-rs
@@ -71,8 +72,13 @@ jobs:
         if: steps.version.outputs.already != 'true'
         working-directory: ./core-rs
         env:
-          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token || secrets.CARGO_TOKEN }}
         run: |
+          if [ -n "${{ steps.auth.outputs.token }}" ]; then
+            echo "::notice title=cargo::using crates.io OIDC token from trusted publishing."
+          else
+            echo "::notice title=cargo::OIDC token unavailable; falling back to CARGO_TOKEN secret."
+          fi
           set +e
           cargo publish 2>&1 | tee cargo-publish.log
           status=${PIPESTATUS[0]}

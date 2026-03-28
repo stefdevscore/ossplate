@@ -62,6 +62,12 @@ This is the recommended local mirror of the CI gate.
 - `ossplate sync --check` fails if owned metadata would be rewritten
 - JS and Python artifact tests prove installed distributions can run `version`, `create`, and `validate`
 
+## Release Auth
+
+- PyPI publishes from [`.github/workflows/publish.yml`](./.github/workflows/publish.yml) via GitHub OIDC trusted publishing
+- Cargo publishes from [`.github/workflows/publish.yml`](./.github/workflows/publish.yml) via OIDC trusted publishing with `secrets.CARGO_TOKEN` as fallback
+- npm publishes from [`.github/workflows/publish-npm.yml`](./.github/workflows/publish-npm.yml) via OIDC trusted publishing with `secrets.NPM_TOKEN` as fallback
+
 ## License
 
 Licensed under the [Unlicense](LICENSE).

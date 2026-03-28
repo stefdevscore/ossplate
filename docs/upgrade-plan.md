@@ -17,7 +17,7 @@ The product behavior is now real in the core maintenance and scaffold paths. Rem
 - Keep one source of truth for CLI behavior and output contracts.
 - Prefer thin wrappers over duplicated implementations.
 - Fail early when template placeholders were not replaced.
-- Treat OIDC as the default publish path, with explicit token fallbacks.
+- Use OIDC where the registry path is configured and supported, with explicit token fallbacks elsewhere.
 - Require install/build/test/package checks before any publish step.
 - Keep the starter small, but not fake in the critical paths.
 
@@ -115,7 +115,9 @@ Purpose: keep publishing reliable even when registry auth or registry behavior i
 ### P0
 
 - Keep publish workflows rerun-safe with published-version detection before attempting release.
-- Use OIDC or trusted publishing as the default path for npm, PyPI, and crates.io where supported.
+- Use OIDC or trusted publishing where supported and configured.
+- For the current `ossplate` baseline:
+  PyPI uses OIDC, Cargo uses OIDC with `CARGO_TOKEN` fallback, and npm uses OIDC with `NPM_TOKEN` fallback.
 - Add explicit secret-based fallbacks:
   `NPM_TOKEN`, PyPI API token, and `CARGO_REGISTRY_TOKEN`.
 - Make auth mode selection visible in workflow logs.
