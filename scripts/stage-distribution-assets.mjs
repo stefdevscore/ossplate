@@ -57,9 +57,7 @@ function stageBinary(destinationRoot) {
     : `wrapper-py/src/ossplate/bin/${currentTarget.folder}/ossplate`;
   const targets = [
     join(repoRoot, "wrapper-js", "bin", currentTarget.folder, currentBinaryName),
-    join(repoRoot, relativePath),
-    join(destinationRoot, `wrapper-js/bin/${currentTarget.folder}/${currentBinaryName}`),
-    join(destinationRoot, relativePath)
+    join(repoRoot, relativePath)
   ];
 
   for (const destination of targets) {

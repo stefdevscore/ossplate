@@ -31,19 +31,11 @@
     "wrapper-js/tsconfig.json",
     "wrapper-js/src/index.ts",
     "wrapper-js/bin/ossplate.js",
-    "wrapper-js/bin/darwin-arm64/ossplate",
-    "wrapper-js/bin/darwin-x64/ossplate",
-    "wrapper-js/bin/linux-x64/ossplate",
-    "wrapper-js/bin/win32-x64/ossplate.exe",
     "wrapper-py/README.md",
     "wrapper-py/pyproject.toml",
     "wrapper-py/hatch_build.py",
     "wrapper-py/src/ossplate/__init__.py",
-    "wrapper-py/src/ossplate/cli.py",
-    "wrapper-py/src/ossplate/bin/darwin-arm64/ossplate",
-    "wrapper-py/src/ossplate/bin/darwin-x64/ossplate",
-    "wrapper-py/src/ossplate/bin/linux-x64/ossplate",
-    "wrapper-py/src/ossplate/bin/win32-x64/ossplate.exe"
+    "wrapper-py/src/ossplate/cli.py"
   ],
   "excludedPrefixes": [
     "wrapper-js/test/",
