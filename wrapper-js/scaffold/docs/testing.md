@@ -69,3 +69,5 @@ CI currently enforces:
 - Python tests and wheel build
 
 The current artifact tests are the required release-confidence floor. Future phases can add broader platform coverage or slower end-to-end suites without changing the basic layered model.
+
+For release-specific operator steps, version bumps, and rerun-safe publish expectations, see [`docs/releases.md`](./releases.md).

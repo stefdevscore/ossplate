@@ -13,6 +13,9 @@ const stubBinary = path.join(__dirname, "fixtures", "ossplate-stub.sh");
 const scaffoldManifest = JSON.parse(
   fs.readFileSync(path.join(repoRoot, "scaffold-manifest.json"), "utf8")
 );
+const packageJson = JSON.parse(
+  fs.readFileSync(path.join(wrapperRoot, "package.json"), "utf8")
+);
 
 async function loadModule() {
   return import(pathToFileURL(distModule).href);
@@ -106,7 +109,7 @@ test("packaged js wrapper can create from scaffold payload", () => {
     cwd: wrapperRoot,
     stdio: "ignore"
   });
-  const tarball = path.join(wrapperRoot, "ossplate-0.1.0.tgz");
+  const tarball = path.join(wrapperRoot, `${packageJson.name}-${packageJson.version}.tgz`);
   const unpackDir = path.join(wrapperRoot, ".tmp-pack");
   const targetDir = path.join(wrapperRoot, ".tmp-created");
   execFileSync("rm", ["-rf", unpackDir, targetDir], { cwd: wrapperRoot });

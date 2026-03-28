@@ -1,7 +1,26 @@
-# Python Wrapper For Ossplate
+# Ossplate
 
-This package is the Python wrapper surface for Ossplate.
+`ossplate` helps you start and maintain a project that ships the same CLI through Rust, npm, and PyPI.
 
-It delegates to the canonical Rust binary instead of implementing its own CLI behavior.
+Use it to:
 
-Use `OSSPLATE_BINARY` during local development to point the wrapper at a specific binary.
+- create a new scaffolded project
+- initialize an existing directory
+- validate project identity and metadata
+- keep owned files in sync
+
+Common commands:
+
+```bash
+ossplate version
+ossplate create <target>
+ossplate init --path <dir>
+ossplate validate
+ossplate sync --check
+```
+
+Learn more:
+
+- [Main documentation](../docs/README.md)
+- [Testing guide](../docs/testing.md)
+- [Architecture](../docs/architecture.md)

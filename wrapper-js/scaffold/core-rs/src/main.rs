@@ -1040,18 +1040,37 @@ fn validate_wrapper_readme(
     }
 }
 
-fn render_wrapper_readme(language: &str, config: &ToolConfig) -> String {
+fn render_wrapper_readme(_language: &str, config: &ToolConfig) -> String {
     format!(
-        r#"# {language} Wrapper For {name}
+        r#"# {name}
 
-This package is the {language} wrapper surface for {name}.
+`{command}` helps you start and maintain a project that ships the same CLI through Rust, npm, and PyPI.
 
-It delegates to the canonical Rust binary instead of implementing its own CLI behavior.
+Use it to:
 
-Use `OSSPLATE_BINARY` during local development to point the wrapper at a specific binary.
+- create a new scaffolded project
+- initialize an existing directory
+- validate project identity and metadata
+- keep owned files in sync
+
+Common commands:
+
+```bash
+{command} version
+{command} create <target>
+{command} init --path <dir>
+{command} validate
+{command} sync --check
+```
+
+Learn more:
+
+- [Main documentation](../docs/README.md)
+- [Testing guide](../docs/testing.md)
+- [Architecture](../docs/architecture.md)
 "#,
-        language = language,
         name = config.project.name,
+        command = config.packages.command,
     )
 }
 
@@ -1266,7 +1285,7 @@ mod tests {
         let root = make_fixture_root();
         fs::write(
             root.join("wrapper-js/package.json"),
-            "{\n  \"name\": \"bad\",\n  \"description\": \"A practical baseline for shipping one project across Cargo, npm, and PyPI without starting from scratch every time.\",\n  \"bin\": { \"ossplate\": \"bin/ossplate.js\" },\n  \"author\": \"Stef <stefdevscore@github.com>\",\n  \"license\": \"Unlicense\",\n  \"repository\": { \"url\": \"https://github.com/stefdevscore/ossplate\" }\n}\n",
+            "{\n  \"name\": \"bad\",\n  \"description\": \"Build one project, ship it everywhere.\",\n  \"bin\": { \"ossplate\": \"bin/ossplate.js\" },\n  \"author\": \"Stef <stefdevscore@github.com>\",\n  \"license\": \"Unlicense\",\n  \"repository\": { \"url\": \"https://github.com/stefdevscore/ossplate\" }\n}\n",
         )
         .unwrap();
         let output = validate_repo(&root).unwrap();
@@ -1386,7 +1405,7 @@ mod tests {
             target.join("core-rs/Cargo.toml"),
             r#"[package]
 name = "bad-core"
-version = "0.1.0"
+version = "0.1.1"
 "#,
         )
         .unwrap();
@@ -1440,7 +1459,7 @@ version = "0.1.0"
         fs::write(
             root.join("README.md"),
             original.replace(
-                "A practical baseline for shipping one project",
+                "Build one project, ship it everywhere",
                 "Changed identity text",
             ),
         )
@@ -1449,7 +1468,7 @@ version = "0.1.0"
         sync_repo(&root, false).unwrap();
         let synced = fs::read_to_string(root.join("README.md")).unwrap();
         assert!(synced.contains("## What This Tool Gives You"));
-        assert!(synced.contains("A practical baseline for shipping one project"));
+        assert!(synced.contains("Build one project, ship it everywhere"));
     }
 
     #[test]
@@ -1499,7 +1518,7 @@ version = "0.1.0"
         let config = r#"[project]
 name = "Ossplate"
 slug = "ossplate"
-description = "A practical baseline for shipping one project across Cargo, npm, and PyPI without starting from scratch every time."
+description = "Build one project, ship it everywhere."
 repository = "https://github.com/stefdevscore/ossplate"
 license = "Unlicense"
 
@@ -1522,7 +1541,7 @@ command = "ossplate"
             root.join("core-rs/Cargo.toml"),
             r#"[package]
 name = "ossplate"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["Stef <stefdevscore@github.com>"]
 description = "A practical baseline for shipping one project across Cargo, npm, and PyPI without starting from scratch every time."
@@ -1535,14 +1554,14 @@ homepage = "https://github.com/stefdevscore/ossplate"
         .unwrap();
         fs::write(
             root.join("wrapper-js/package.json"),
-            "{\n  \"name\": \"ossplate\",\n  \"description\": \"A practical baseline for shipping one project across Cargo, npm, and PyPI without starting from scratch every time.\",\n  \"bin\": { \"ossplate\": \"bin/ossplate.js\" },\n  \"author\": \"Stef <stefdevscore@github.com>\",\n  \"license\": \"Unlicense\",\n  \"repository\": { \"url\": \"https://github.com/stefdevscore/ossplate\" }\n}\n",
+            "{\n  \"name\": \"ossplate\",\n  \"description\": \"Build one project, ship it everywhere.\",\n  \"bin\": { \"ossplate\": \"bin/ossplate.js\" },\n  \"author\": \"Stef <stefdevscore@github.com>\",\n  \"license\": \"Unlicense\",\n  \"repository\": { \"url\": \"https://github.com/stefdevscore/ossplate\" }\n}\n",
         )
         .unwrap();
         fs::write(
             root.join("wrapper-py/pyproject.toml"),
             r#"[project]
 name = "ossplate"
-description = "A practical baseline for shipping one project across Cargo, npm, and PyPI without starting from scratch every time."
+description = "Build one project, ship it everywhere."
 license = { text = "Unlicense" }
 authors = [
   { name = "Stef", email = "stefdevscore@github.com" }

@@ -1,6 +1,6 @@
-# Customizing The Template
+# Adopting The Scaffold
 
-Use this checklist after creating or cloning a scaffold managed by `ossplate`. The goal is to replace inherited identity deliberately and then use the tool to keep owned metadata in sync.
+Use this checklist after creating or cloning a scaffold managed by `ossplate`. The goal is to adopt the scaffold under your own project identity and then use the tool to keep owned metadata in sync.
 
 ## Canonical Source Of Truth
 
@@ -24,18 +24,18 @@ It currently owns:
 
 ## Validation Policy
 
-- Placeholder identities are allowed only when the repository is discussing the template itself.
-- Placeholder identities are not allowed in shipping metadata or package-facing docs for an adopted project.
+- Template-source identities are allowed only when the repository is discussing `ossplate` itself.
+- Inherited identities are not allowed in shipping metadata or package-facing docs for an adopted project.
 - Command and package naming must be chosen intentionally before release.
 - Author, repository, and license fields must be set explicitly rather than inherited accidentally.
 
 The current validator follows this policy through the Rust core rather than a standalone JS rule engine.
 
-## Required Renames
+## Required Identity Changes
 
-Replace these defaults before reuse:
+Replace these inherited defaults before reuse:
 
-| Surface | Current placeholder | Where it lives |
+| Surface | Current scaffold value | Where it lives |
 | --- | --- | --- |
 | Rust crate name | `ossplate` | `core-rs/Cargo.toml` |
 | npm package name | `ossplate` | `wrapper-js/package.json` |
@@ -43,7 +43,7 @@ Replace these defaults before reuse:
 | CLI command | `ossplate` | `ossplate.toml`, `wrapper-js/package.json`, `wrapper-py/pyproject.toml` |
 | Repository URL | `https://github.com/stefdevscore/ossplate` | Rust, npm, Python metadata |
 | Author/email | `Stef <stefdevscore@github.com>` / `stefdevscore@github.com` | Rust, npm, Python metadata |
-| Package-facing template branding | `OSS template`, `template` identity in wrapper docs | `wrapper-js/README.md`, `wrapper-py/README.md` |
+| Package-facing scaffold branding | `ossplate` identity in wrapper docs | `wrapper-js/README.md`, `wrapper-py/README.md` |
 
 ## Files To Review
 
@@ -139,6 +139,6 @@ cargo run --manifest-path core-rs/Cargo.toml -- init \
 
 This tool is trying to optimize for a real delivery baseline:
 
-- CI should fail before placeholder identity reaches a release path.
+- CI should fail before inherited identity reaches a release path.
 - package metadata should not be inherited by accident
 - future phases can add richer scaffold creation and maintenance without first cleaning up metadata drift

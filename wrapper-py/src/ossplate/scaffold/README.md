@@ -1,36 +1,32 @@
 <!-- ossplate:readme-identity:start -->
 # Ossplate
 
-A practical baseline for shipping one project across Cargo, npm, and PyPI without starting from scratch every time.
+Build one project, ship it everywhere.
 <!-- ossplate:readme-identity:end -->
 
-## What This Tool Gives You
+![Ossplate chestplate](./assets/illustrations/chestplate.svg)
 
-- a canonical Rust CLI in [`core-rs/`](./core-rs)
-- a thin npm wrapper in [`wrapper-js/`](./wrapper-js)
-- a thin Python wrapper in [`wrapper-py/`](./wrapper-py)
-- normal `push` / `pull_request` CI
-- rerun-safe publish workflows for npm, PyPI, and Cargo
-- setup and upgrade docs in [`docs/`](./docs/README.md)
+`ossplate` helps you start and maintain a project that ships the same CLI through Rust, npm, and PyPI.
 
-## Philosophy
+It gives you a working baseline with:
 
-This project is intentionally small.
+- one real core CLI
+- thin JavaScript and Python wrappers
+- release-ready workflows for Cargo, npm, and PyPI
+- a scaffold you can create, adopt, and keep in sync
 
-It exists to validate and synchronize the shared identity of a multi-registry OSS scaffold before broader scaffolding features are added.
+## What It Does
 
-## Core Commands
+Use `ossplate` when you want a single command-line tool to exist cleanly in multiple ecosystems without maintaining three separate implementations.
 
-```bash
-cargo run --manifest-path core-rs/Cargo.toml -- validate
-cargo run --manifest-path core-rs/Cargo.toml -- sync --check
-cargo run --manifest-path core-rs/Cargo.toml -- create ../my-new-project
-cargo run --manifest-path core-rs/Cargo.toml -- init --path ../existing-project
-```
+It can:
 
-Wrapper installs expose the same command surface as `ossplate`.
+- create a new scaffolded project
+- initialize an existing directory with the expected structure
+- validate project identity and metadata
+- synchronize the files it owns
 
-`create` and `init` now work from packaged wrapper artifacts as well as a source checkout. Installed wrappers carry a curated scaffold payload rather than a broad repo snapshot. Use flags to set the project identity during scaffold creation instead of editing `ossplate.toml` by hand first:
+## Quick Start
 
 ```bash
 cargo run --manifest-path core-rs/Cargo.toml -- create ../my-new-project \
@@ -44,29 +40,38 @@ cargo run --manifest-path core-rs/Cargo.toml -- create ../my-new-project \
   --command "my-project"
 ```
 
-## Local Verify
-
-Run the full local verification flow with:
+Then check that everything is aligned:
 
 ```bash
-./scripts/verify.sh
+cargo run --manifest-path core-rs/Cargo.toml -- validate
+cargo run --manifest-path core-rs/Cargo.toml -- sync --check
 ```
 
-This is the recommended local mirror of the CI gate.
+## Core Commands
 
-## Verification
+```bash
+ossplate version
+ossplate create <target>
+ossplate init --path <dir>
+ossplate validate
+ossplate sync --check
+```
 
-- local workflow and layered testing guidance live in [docs/testing.md](./docs/testing.md)
-- contributor workflow lives in [CONTRIBUTING.md](./CONTRIBUTING.md)
-- `ossplate validate` reports owned metadata drift
-- `ossplate sync --check` fails if owned metadata would be rewritten
-- JS and Python artifact tests prove installed distributions can run `version`, `create`, and `validate`
+The same command surface is available through the Rust binary and the packaged JS/Python wrappers.
 
-## Release Auth
+## Why It’s Useful
 
-- PyPI publishes from [`.github/workflows/publish.yml`](./.github/workflows/publish.yml) via GitHub OIDC trusted publishing
-- Cargo publishes from [`.github/workflows/publish.yml`](./.github/workflows/publish.yml) via OIDC trusted publishing with `secrets.CARGO_TOKEN` as fallback
-- npm publishes from [`.github/workflows/publish-npm.yml`](./.github/workflows/publish-npm.yml) via OIDC trusted publishing with `secrets.NPM_TOKEN` as fallback
+- You keep one source of truth for CLI behavior.
+- You avoid drift between Rust, npm, and PyPI releases.
+- You get a real scaffold instead of a fake demo project.
+- You can publish with modern registry workflows instead of assembling release plumbing from scratch.
+
+## Learn More
+
+- [Documentation](./docs/README.md)
+- [Testing Guide](./docs/testing.md)
+- [Release Guide](./docs/releases.md)
+- [Architecture](./docs/architecture.md)
 
 ## License
 

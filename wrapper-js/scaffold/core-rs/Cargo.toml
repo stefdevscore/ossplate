@@ -1,9 +1,9 @@
 [package]
 name = "ossplate"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["Stef <stefdevscore@github.com>"]
-description = "A practical baseline for shipping one project across Cargo, npm, and PyPI without starting from scratch every time."
+description = "Build one project, ship it everywhere."
 license = "Unlicense"
 readme = "../README.md"
 repository = "https://github.com/stefdevscore/ossplate"

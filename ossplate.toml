@@ -1,6 +1,6 @@
 [project]
 name = "Ossplate"
-description = "A practical baseline for shipping one project across Cargo, npm, and PyPI without starting from scratch every time."
+description = "Build one project, ship it everywhere."
 repository = "https://github.com/stefdevscore/ossplate"
 license = "Unlicense"
 

@@ -21,6 +21,8 @@ cargo run --manifest-path core-rs/Cargo.toml -- sync --check
 cargo run --manifest-path core-rs/Cargo.toml -- sync
 ```
 
+Release workflow guidance lives in [`docs/releases.md`](./docs/releases.md).
+
 Current ownership model:
 
 - `ossplate.toml` is the canonical identity source
