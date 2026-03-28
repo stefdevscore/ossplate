@@ -6,6 +6,7 @@ on:
   workflow_run:
     workflows: ["Ossplate CI"]
     types: [completed]
+  workflow_dispatch:
 
 concurrency:
   group: release-main
