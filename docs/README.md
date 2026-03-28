@@ -6,6 +6,7 @@ This docs area explains how to use `ossplate` as a real tool for validating, syn
 
 - [Customizing The Template](./customizing-the-template.md)
 - [Testing Guide](./testing.md)
+- [Release Guide](./releases.md)
 - [Phase 1 Contract](./phase-1-contract.md)
 - [Upgrade Plan](./upgrade-plan.md)
 - `ossplate validate` checks owned metadata drift
@@ -18,4 +19,5 @@ This docs area explains how to use `ossplate` as a real tool for validating, syn
 - the canonical config and command surface
 - the required rename and customization surface before first release
 - the layered testing and packaging workflow
+- the release operator flow and rerun-safe publish expectations
 - the phased plan for turning this tool into a broader scaffold product

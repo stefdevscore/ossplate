@@ -57,6 +57,7 @@ This is the recommended local mirror of the CI gate.
 ## Verification
 
 - local workflow and layered testing guidance live in [docs/testing.md](./docs/testing.md)
+- release workflow guidance lives in [docs/releases.md](./docs/releases.md)
 - contributor workflow lives in [CONTRIBUTING.md](./CONTRIBUTING.md)
 - `ossplate validate` reports owned metadata drift
 - `ossplate sync --check` fails if owned metadata would be rewritten
