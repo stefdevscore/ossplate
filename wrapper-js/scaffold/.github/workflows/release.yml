@@ -77,6 +77,9 @@ jobs:
       - name: Bump versions
         if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
         run: node ./scripts/bump-version.mjs "${{ steps.plan.outputs.next_version }}"
+      - name: Install JavaScript dependencies
+        if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
+        run: npm ci --prefix wrapper-js
       - name: Verify release state
         if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
         run: ./scripts/verify.sh
