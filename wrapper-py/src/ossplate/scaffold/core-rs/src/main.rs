@@ -1049,7 +1049,9 @@ fn render_wrapper_readme(_language: &str, config: &ToolConfig) -> String {
     format!(
         r#"# {name}
 
-![{name} armor]({image_url})
+<p align="center">
+  <img src="{image_url}" alt="{name} armor" width="320">
+</p>
 
 `{command}` helps you start and maintain a project that ships the same CLI through Rust, npm, and PyPI.
 
@@ -1422,7 +1424,7 @@ mod tests {
             target.join("core-rs/Cargo.toml"),
             r#"[package]
 name = "bad-core"
-version = "0.1.2"
+version = "0.1.3"
 "#,
         )
         .unwrap();
@@ -1558,7 +1560,7 @@ command = "ossplate"
             root.join("core-rs/Cargo.toml"),
             r#"[package]
 name = "ossplate"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2021"
 authors = ["Stef <stefdevscore@github.com>"]
 description = "A practical baseline for shipping one project across Cargo, npm, and PyPI without starting from scratch every time."

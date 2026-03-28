@@ -4,7 +4,9 @@
 Build one project, ship it everywhere.
 <!-- ossplate:readme-identity:end -->
 
-![Ossplate armor](https://raw.githubusercontent.com/stefdevscore/ossplate/dev/assets/illustrations/armour05platemail.png)
+<p align="center">
+  <img src="https://raw.githubusercontent.com/stefdevscore/ossplate/dev/assets/illustrations/armour05platemail.png" alt="Ossplate armor" width="360">
+</p>
 
 `ossplate` helps you start and maintain a project that ships the same CLI through Rust, npm, and PyPI.
 
@@ -69,6 +71,7 @@ The same command surface is available through the Rust binary and the packaged J
 ## Learn More
 
 - [Documentation](./docs/README.md)
+- [Adoption Guide](./docs/customizing-the-template.md)
 - [Testing Guide](./docs/testing.md)
 - [Release Guide](./docs/releases.md)
 - [Architecture](./docs/architecture.md)

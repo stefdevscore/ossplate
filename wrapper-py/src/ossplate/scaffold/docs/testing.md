@@ -1,8 +1,8 @@
-# Testing Guide
+# Testing
 
 `ossplate` uses layered verification so the scaffold stays usable as both a source checkout and an installed wrapper distribution.
 
-## Default Layers
+## Layers
 
 ### Smoke
 
@@ -39,7 +39,7 @@ Artifact assertions are part of the required packaging layer:
 - Python wheel content must include the curated scaffold files from `scaffold-manifest.json`
 - Python wheel content must exclude wrapper test files and repo-only validation scripts
 
-## Recommended Local Order
+## Default Local Flow
 
 Default path:
 
@@ -59,7 +59,7 @@ Underlying command order:
 8. `PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py'`
 9. `python -m build --wheel`
 
-## CI Expectations
+## CI
 
 CI currently enforces:
 
@@ -68,6 +68,6 @@ CI currently enforces:
 - JS build, tests, and package dry-run
 - Python tests and wheel build
 
-The current artifact tests are the required release-confidence floor. Future phases can add broader platform coverage or slower end-to-end suites without changing the basic layered model.
+The current artifact tests are the required release-confidence floor.
 
 For release-specific operator steps, version bumps, and rerun-safe publish expectations, see [`docs/releases.md`](./releases.md).

@@ -1,24 +1,16 @@
 # Documentation
 
-This docs area explains how to use `ossplate` as a real tool for validating, synchronizing, and now creating a multi-registry scaffold.
+`ossplate` is a tool for shipping one CLI across Cargo, npm, and PyPI without maintaining three separate implementations.
 
-## Start Here
+Start here:
 
-- [Customizing The Template](./customizing-the-template.md)
+- [Adoption Guide](./customizing-the-template.md)
 - [Architecture](./architecture.md)
-- [Testing Guide](./testing.md)
-- [Release Guide](./releases.md)
-- [Phase 1 Contract](./phase-1-contract.md)
-- [Upgrade Plan](./upgrade-plan.md)
-- `ossplate validate` checks owned metadata drift
-- `ossplate sync --check` verifies the repo is already synchronized
-- `ossplate create <target>` scaffolds a clean target directory and can apply identity overrides from flags
-- `ossplate init --path <dir>` hydrates an existing directory in place and can apply identity overrides from flags
+- [Testing](./testing.md)
+- [Releases](./releases.md)
 
-## What These Docs Cover
+Decision records:
 
-- the canonical config and command surface
-- the required rename and customization surface before first release
-- the layered testing and packaging workflow
-- the release operator flow and rerun-safe publish expectations
-- the phased plan for turning this tool into a broader scaffold product
+- [ADR 0001: Rust Core, Thin Wrappers](./adrs/0001-rust-core-thin-wrappers.md)
+- [ADR 0002: Sync Owns Bounded Identity Surfaces](./adrs/0002-sync-owns-bounded-identity.md)
+- [ADR 0003: Ship A Curated Scaffold Payload](./adrs/0003-curated-scaffold-payload.md)

@@ -21,7 +21,12 @@ cargo run --manifest-path core-rs/Cargo.toml -- sync --check
 cargo run --manifest-path core-rs/Cargo.toml -- sync
 ```
 
-Release workflow guidance lives in [`docs/releases.md`](./docs/releases.md).
+Read this next:
+
+- [`docs/architecture.md`](./docs/architecture.md)
+- [`docs/testing.md`](./docs/testing.md)
+- [`docs/releases.md`](./docs/releases.md)
+- [`docs/adrs/0002-sync-owns-bounded-identity.md`](./docs/adrs/0002-sync-owns-bounded-identity.md)
 
 Current ownership model:
 

@@ -1,6 +1,6 @@
-# Adopting The Scaffold
+# Adoption Guide
 
-Use this checklist after creating or cloning a scaffold managed by `ossplate`. The goal is to adopt the scaffold under your own project identity and then use the tool to keep owned metadata in sync.
+Use this guide after creating or cloning a project managed by `ossplate`. The goal is to adopt the scaffold under your own identity and then let the tool keep owned metadata aligned.
 
 ## Canonical Source Of Truth
 
@@ -22,15 +22,6 @@ It currently owns:
 
 `ossplate sync` rewrites the owned surfaces back into alignment.
 
-## Validation Policy
-
-- Template-source identities are allowed only when the repository is discussing `ossplate` itself.
-- Inherited identities are not allowed in shipping metadata or package-facing docs for an adopted project.
-- Command and package naming must be chosen intentionally before release.
-- Author, repository, and license fields must be set explicitly rather than inherited accidentally.
-
-The current validator follows this policy through the Rust core rather than a standalone JS rule engine.
-
 ## Required Identity Changes
 
 Replace these inherited defaults before reuse:
@@ -44,17 +35,6 @@ Replace these inherited defaults before reuse:
 | Repository URL | `https://github.com/stefdevscore/ossplate` | Rust, npm, Python metadata |
 | Author/email | `Stef <stefdevscore@github.com>` / `stefdevscore@github.com` | Rust, npm, Python metadata |
 | Package-facing scaffold branding | `ossplate` identity in wrapper docs | `wrapper-js/README.md`, `wrapper-py/README.md` |
-
-## Files To Review
-
-- `README.md`
-- `ossplate.toml`
-- `core-rs/Cargo.toml`
-- `wrapper-js/package.json`
-- `wrapper-js/README.md`
-- `wrapper-py/pyproject.toml`
-- `wrapper-py/README.md`
-- `.github/workflows/*.yml`
 
 ## What `ossplate validate` Enforces
 
@@ -81,15 +61,15 @@ The workflow files now expose a similarly bounded identity surface:
 
 `sync` owns only the display name between `ossplate:workflow-name` markers. Trigger logic, jobs, auth, and shell steps remain manual.
 
-## First-Run Sequence After Cloning
+## First Run
 
 1. Either update `ossplate.toml` directly or use `create` / `init` with identity flags.
 2. Run `cargo run --manifest-path core-rs/Cargo.toml -- sync`.
 3. Run `cargo run --manifest-path core-rs/Cargo.toml -- validate`.
-4. Run the layered verification flow from [Testing Guide](./testing.md).
+4. Run the verification flow from [Testing](./testing.md).
 5. Only then expand product code or publish configuration.
 
-## Create Workflow
+## Create A New Project
 
 To scaffold a fresh target from the current template tree:
 
@@ -107,9 +87,9 @@ cargo run --manifest-path core-rs/Cargo.toml -- create ../my-new-project \
 
 That copies the curated scaffold payload into the target directory, applies any identity overrides to `ossplate.toml`, then runs `sync` on the new target.
 
-The packaged scaffold intentionally excludes wrapper test suites and maintainer-only validation scripts. Generated projects get the delivery baseline and operator docs, not the source repo's internal test harness.
+The packaged scaffold intentionally excludes wrapper test suites and maintainer-only utilities. Generated projects get the delivery baseline and operator docs, not the source repo's internal harness.
 
-## Init Workflow
+## Adopt An Existing Directory
 
 To hydrate an existing directory in place:
 
@@ -122,7 +102,7 @@ cargo run --manifest-path core-rs/Cargo.toml -- init \
 
 `init` ensures the expected scaffold layout exists, copies any missing scaffold files, applies any requested identity overrides, and then runs `sync` so owned metadata matches `ossplate.toml`.
 
-## Supported Identity Flags
+## Identity Flags
 
 - `--name`
 - `--description`
@@ -135,10 +115,7 @@ cargo run --manifest-path core-rs/Cargo.toml -- init \
 - `--python-package`
 - `--command`
 
-## Why This Exists
+## Related Decisions
 
-This tool is trying to optimize for a real delivery baseline:
-
-- CI should fail before inherited identity reaches a release path.
-- package metadata should not be inherited by accident
-- future phases can add richer scaffold creation and maintenance without first cleaning up metadata drift
+- [ADR 0002: Sync Owns Bounded Identity Surfaces](./adrs/0002-sync-owns-bounded-identity.md)
+- [ADR 0003: Ship A Curated Scaffold Payload](./adrs/0003-curated-scaffold-payload.md)

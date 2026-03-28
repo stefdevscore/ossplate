@@ -1,4 +1,4 @@
-# Release Guide
+# Releases
 
 Use this guide when cutting a new `ossplate` release.
 
@@ -8,7 +8,7 @@ Use this guide when cutting a new `ossplate` release.
 - crates.io publishes from [`.github/workflows/publish.yml`](../.github/workflows/publish.yml) via OIDC trusted publishing with `CARGO_TOKEN` fallback.
 - npm publishes from [`.github/workflows/publish-npm.yml`](../.github/workflows/publish-npm.yml) via OIDC trusted publishing with `NPM_TOKEN` fallback.
 
-## Local Pre-Release Checklist
+## Before Release
 
 Run the full gate before creating a release:
 
@@ -25,7 +25,7 @@ cd wrapper-js && npm pack --dry-run
 cd ../wrapper-py && python -m build --wheel
 ```
 
-## Version Bump
+## Versioning
 
 Keep the registry versions aligned across:
 
@@ -48,7 +48,7 @@ After updating versions, rerun:
    - [`.github/workflows/publish.yml`](../.github/workflows/publish.yml)
    - [`.github/workflows/publish-npm.yml`](../.github/workflows/publish-npm.yml)
 
-## Expected Skip Behavior
+## Rerun Behavior
 
 The publish jobs are intentionally rerun-safe.
 
@@ -65,7 +65,7 @@ So a second run for the same version should usually succeed by skipping work rat
 - PyPI: `ossplate`
 - CLI: `ossplate`
 
-## Maintenance Follow-Ups
+## Maintenance
 
 - Refresh GitHub Actions dependencies before the Node 20 runner deprecation becomes a problem.
 - Keep the release auth docs aligned with real registry configuration whenever trusted publishing or token fallback changes.

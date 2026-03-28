@@ -1,19 +1,25 @@
 # Architecture
 
-`ossplate` is intentionally small, but its boundaries are already explicit.
+`ossplate` is intentionally small. The design goal is simple: one real CLI, three distribution channels.
 
-## Core Shape
+## Runtime Shape
 
-- Rust in [`core-rs/`](../core-rs) is the only source of product logic.
-- JavaScript in [`wrapper-js/`](../wrapper-js) is an adapter that resolves the packaged binary and forwards arguments.
-- Python in [`wrapper-py/`](../wrapper-py) is an adapter that resolves the packaged binary and forwards arguments.
-- The scaffold payload bundled into the wrappers is a distribution asset, not a second implementation.
+- Rust in [`core-rs/`](../core-rs) is the product.
+- JavaScript in [`wrapper-js/`](../wrapper-js) is a package adapter.
+- Python in [`wrapper-py/`](../wrapper-py) is a package adapter.
+- The scaffold payload bundled into the wrappers is a distribution asset, not another implementation.
+
+The main commands are:
+
+- `version`
+- `validate`
+- `sync`
+- `create`
+- `init`
 
 ## Responsibilities
 
-### Rust Core
-
-The Rust core owns:
+### Rust
 
 - command parsing
 - project identity loading from `ossplate.toml`
@@ -21,16 +27,16 @@ The Rust core owns:
 - metadata synchronization
 - scaffold creation and initialization
 
-It is the only layer that should know the semantics of project identity and owned metadata surfaces.
+Rust is the only layer that should know the semantics of project identity and owned metadata surfaces.
 
-### JS And Python Wrappers
+### JavaScript and Python
 
 The wrappers own:
 
 - packaged binary lookup
 - platform/architecture target resolution
 - local binary override support
-- forwarding stdout, stderr, and exit code
+- forwarding stdout, stderr, and exit code unchanged
 
 They should not implement separate business logic, metadata rules, or command behavior.
 
@@ -48,7 +54,7 @@ It is curated by manifest and shipped as part of the wrapper artifacts so `creat
 
 ## Ownership Boundaries
 
-`ossplate sync` owns only bounded identity-bearing surfaces.
+`ossplate sync` owns only bounded identity-bearing surfaces. The details are in the ADRs, but the practical rule is simple: if a surface is not explicitly bounded, `sync` should not rewrite it.
 
 Today that includes:
 
@@ -64,12 +70,18 @@ It does not own:
 - arbitrary prose outside bounded markers
 - separate wrapper-specific product behavior
 
-## Scaling Direction
+## Why It Scales
 
-If the tool grows, keep the current rule:
+If the tool grows, keep the current rules:
 
 - add product behavior in Rust
 - treat wrappers as delivery adapters
 - expand scaffold ownership only where the boundary is explicit and non-destructive
 
 That gives the project a clean path toward a fuller hexagonal structure without forcing that complexity into the current starter.
+
+## Related Decisions
+
+- [ADR 0001: Rust Core, Thin Wrappers](./adrs/0001-rust-core-thin-wrappers.md)
+- [ADR 0002: Sync Owns Bounded Identity Surfaces](./adrs/0002-sync-owns-bounded-identity.md)
+- [ADR 0003: Ship A Curated Scaffold Payload](./adrs/0003-curated-scaffold-payload.md)
