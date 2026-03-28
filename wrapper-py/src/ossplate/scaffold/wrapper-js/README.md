@@ -1,5 +1,7 @@
 # Ossplate
 
+![Ossplate armor](https://raw.githubusercontent.com/stefdevscore/ossplate/dev/assets/illustrations/armour05platemail.png)
+
 `ossplate` helps you start and maintain a project that ships the same CLI through Rust, npm, and PyPI.
 
 Use it to:

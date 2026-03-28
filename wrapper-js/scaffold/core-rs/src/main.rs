@@ -1041,8 +1041,15 @@ fn validate_wrapper_readme(
 }
 
 fn render_wrapper_readme(_language: &str, config: &ToolConfig) -> String {
+    let image_url = github_raw_url(
+        &config.project.repository,
+        "dev",
+        "assets/illustrations/armour05platemail.png",
+    );
     format!(
         r#"# {name}
+
+![{name} armor]({image_url})
 
 `{command}` helps you start and maintain a project that ships the same CLI through Rust, npm, and PyPI.
 
@@ -1071,6 +1078,7 @@ Learn more:
 "#,
         name = config.project.name,
         command = config.packages.command,
+        image_url = image_url,
     )
 }
 
@@ -1079,6 +1087,15 @@ fn render_root_readme_identity(config: &ToolConfig) -> String {
         "# {}\n\n{}\n",
         config.project.name, config.project.description
     )
+}
+
+fn github_raw_url(repository: &str, branch: &str, path: &str) -> String {
+    let trimmed = repository.trim_end_matches('/');
+    if let Some(rest) = trimmed.strip_prefix("https://github.com/") {
+        format!("https://raw.githubusercontent.com/{rest}/{branch}/{path}")
+    } else {
+        format!("{trimmed}/{path}")
+    }
 }
 
 fn validate_workflow_name(
@@ -1405,7 +1422,7 @@ mod tests {
             target.join("core-rs/Cargo.toml"),
             r#"[package]
 name = "bad-core"
-version = "0.1.1"
+version = "0.1.2"
 "#,
         )
         .unwrap();
@@ -1541,7 +1558,7 @@ command = "ossplate"
             root.join("core-rs/Cargo.toml"),
             r#"[package]
 name = "ossplate"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 authors = ["Stef <stefdevscore@github.com>"]
 description = "A practical baseline for shipping one project across Cargo, npm, and PyPI without starting from scratch every time."

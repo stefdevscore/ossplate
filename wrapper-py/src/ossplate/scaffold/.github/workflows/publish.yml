@@ -74,23 +74,28 @@ jobs:
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token || secrets.CARGO_TOKEN }}
         run: |
+          logfile=$(mktemp)
+          cleanup() {
+            rm -f "$logfile"
+          }
+          trap cleanup EXIT
           if [ -n "${{ steps.auth.outputs.token }}" ]; then
             echo "::notice title=cargo::using crates.io OIDC token from trusted publishing."
           else
             echo "::notice title=cargo::OIDC token unavailable; falling back to CARGO_TOKEN secret."
           fi
           set +e
-          cargo publish 2>&1 | tee cargo-publish.log
+          cargo publish 2>&1 | tee "$logfile"
           status=${PIPESTATUS[0]}
           set -e
           if [ "$status" -eq 0 ]; then
             exit 0
           fi
-          if grep -q "status 429 Too Many Requests" cargo-publish.log; then
+          if grep -q "status 429 Too Many Requests" "$logfile"; then
             echo "::warning title=cargo::crates.io rate limit hit. Treating this publish attempt as non-blocking."
             exit 0
           fi
-          if grep -qi "already exists on crates.io index" cargo-publish.log; then
+          if grep -qi "already exists on crates.io index" "$logfile"; then
             echo "::notice title=cargo::crate version already exists; skipping."
             exit 0
           fi

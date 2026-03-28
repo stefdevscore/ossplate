@@ -44,8 +44,13 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          logfile=$(mktemp)
+          cleanup() {
+            rm -f "$logfile"
+          }
+          trap cleanup EXIT
           set +e
-          npm publish --access public --provenance 2>&1 | tee npm-publish.log
+          npm publish --access public --provenance 2>&1 | tee "$logfile"
           status=${PIPESTATUS[0]}
           set -e
           if [ "$status" -eq 0 ]; then
@@ -56,7 +61,7 @@ jobs:
             echo "::error title=npm::OIDC publish failed and NPM_TOKEN is not configured."
             exit "$status"
           fi
-          if grep -qiE "already exists|cannot publish over|previously published" npm-publish.log; then
+          if grep -qiE "already exists|cannot publish over|previously published" "$logfile"; then
             echo "::notice title=npm::package version already exists; skipping."
             exit 0
           fi
