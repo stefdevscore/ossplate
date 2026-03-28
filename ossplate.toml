@@ -1,0 +1,15 @@
+[project]
+name = "Ossplate"
+description = "A practical baseline for shipping one project across Cargo, npm, and PyPI without starting from scratch every time."
+repository = "https://github.com/stefdevscore/ossplate"
+license = "Unlicense"
+
+[author]
+name = "Stef"
+email = "stefdevscore@github.com"
+
+[packages]
+rust_crate = "ossplate-core"
+npm_package = "ossplate"
+python_package = "ossplate"
+command = "ossplate"

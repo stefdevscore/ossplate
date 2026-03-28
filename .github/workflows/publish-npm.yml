@@ -1,0 +1,45 @@
+# ossplate:workflow-name:start
+name: Ossplate publish-npm
+# ossplate:workflow-name:end
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  publish-npm:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          cache: npm
+          cache-dependency-path: ./wrapper-js/package-lock.json
+      - name: Detect published version
+        id: published
+        working-directory: ./wrapper-js
+        run: |
+          NAME=$(node -p "require('./package.json').name")
+          VERSION=$(node -p "require('./package.json').version")
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+            echo "already=true" >> "$GITHUB_OUTPUT"
+            echo "::notice title=npm::${NAME}@${VERSION} is already published; skipping."
+          else
+            echo "already=false" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.published.outputs.already != 'true'
+        run: npm ci
+        working-directory: ./wrapper-js
+      - if: steps.published.outputs.already != 'true'
+        run: npm publish --access public
+        working-directory: ./wrapper-js
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

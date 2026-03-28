@@ -1,0 +1,37 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ossplate"
+version = "0.1.0"
+description = "A practical baseline for shipping one project across Cargo, npm, and PyPI without starting from scratch every time."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Unlicense" }
+authors = [
+  { name = "Stef", email = "stefdevscore@github.com" }
+]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: Public Domain",
+  "Operating System :: OS Independent"
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/stefdevscore/ossplate"
+Repository = "https://github.com/stefdevscore/ossplate"
+
+[project.scripts]
+ossplate = "ossplate.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ossplate"]
+artifacts = [
+  "src/ossplate/bin/**",
+  "src/ossplate/scaffold/**",
+]
+
+[tool.hatch.build.hooks.custom]
+path = "hatch_build.py"

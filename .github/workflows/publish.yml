@@ -1,0 +1,91 @@
+# ossplate:workflow-name:start
+name: Ossplate publishing
+# ossplate:workflow-name:end
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  publish-pypi:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Build wheel
+        run: |
+          python -m pip install --upgrade pip
+          pip install build
+          python -m build --wheel
+        working-directory: ./wrapper-py
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: ./wrapper-py/dist/
+          skip-existing: true
+
+  publish-cargo:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Authenticate with crates.io
+        uses: rust-lang/crates-io-auth-action@v1
+        id: auth
+      - name: Detect published crate version
+        id: version
+        working-directory: ./core-rs
+        run: |
+          CRATE_NAME=$(python3 - <<'PY'
+          import tomllib
+          with open("Cargo.toml", "rb") as f:
+              data = tomllib.load(f)
+          print(data["package"]["name"])
+          PY
+          )
+          CRATE_VERSION=$(python3 - <<'PY'
+          import tomllib
+          with open("Cargo.toml", "rb") as f:
+              data = tomllib.load(f)
+          print(data["package"]["version"])
+          PY
+          )
+          echo "name=$CRATE_NAME" >> "$GITHUB_OUTPUT"
+          echo "version=$CRATE_VERSION" >> "$GITHUB_OUTPUT"
+          if curl -fsSL "https://crates.io/api/v1/crates/${CRATE_NAME}/${CRATE_VERSION}" >/dev/null 2>&1; then
+            echo "already=true" >> "$GITHUB_OUTPUT"
+            echo "::notice title=cargo::${CRATE_NAME} ${CRATE_VERSION} is already published; skipping."
+          else
+            echo "already=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Publish to crates.io
+        if: steps.version.outputs.already != 'true'
+        working-directory: ./core-rs
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+        run: |
+          set +e
+          cargo publish 2>&1 | tee cargo-publish.log
+          status=${PIPESTATUS[0]}
+          set -e
+          if [ "$status" -eq 0 ]; then
+            exit 0
+          fi
+          if grep -q "status 429 Too Many Requests" cargo-publish.log; then
+            echo "::warning title=cargo::crates.io rate limit hit. Treating this publish attempt as non-blocking."
+            exit 0
+          fi
+          if grep -qi "already exists on crates.io index" cargo-publish.log; then
+            echo "::notice title=cargo::crate version already exists; skipping."
+            exit 0
+          fi
+          exit "$status"

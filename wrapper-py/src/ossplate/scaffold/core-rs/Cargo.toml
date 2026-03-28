@@ -1,0 +1,28 @@
+[package]
+name = "ossplate-core"
+version = "0.1.0"
+edition = "2021"
+authors = ["Stef <stefdevscore@github.com>"]
+description = "A practical baseline for shipping one project across Cargo, npm, and PyPI without starting from scratch every time."
+license = "Unlicense"
+readme = "../README.md"
+repository = "https://github.com/stefdevscore/ossplate"
+homepage = "https://github.com/stefdevscore/ossplate"
+default-run = "ossplate"
+
+[dependencies]
+anyhow = "1.0"
+clap = { version = "4.5", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+
+[[bin]]
+name = "ossplate"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true

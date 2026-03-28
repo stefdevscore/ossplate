@@ -1,0 +1,43 @@
+{
+  "author": "Stef <stefdevscore@github.com>",
+  "bin": {
+    "ossplate": "bin/ossplate.js"
+  },
+  "description": "A practical baseline for shipping one project across Cargo, npm, and PyPI without starting from scratch every time.",
+  "devDependencies": {
+    "@types/node": "^24.6.0",
+    "typescript": "^5.9.3"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "README.md",
+    "scaffold",
+    "scaffold/.gitignore"
+  ],
+  "keywords": [
+    "oss",
+    "ossplate",
+    "cli"
+  ],
+  "license": "Unlicense",
+  "main": "./dist/index.js",
+  "name": "ossplate",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "directory": "wrapper-js",
+    "type": "git",
+    "url": "https://github.com/stefdevscore/ossplate"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "pack:check": "npm pack --dry-run",
+    "prepack": "node ../scripts/stage-distribution-assets.mjs",
+    "stage:dist": "node ../scripts/stage-distribution-assets.mjs",
+    "test": "npm run build && node --test test/cli.test.js"
+  },
+  "type": "module",
+  "version": "0.1.0"
+}

@@ -1,0 +1,3 @@
+#!/bin/sh
+
+printf '{"status":"packaged-stub"}\n'
