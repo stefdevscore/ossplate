@@ -5,6 +5,9 @@ import pathlib
 import json
 import subprocess
 import sys
+import platform
+import shutil
+import tempfile
 import unittest
 import zipfile
 from unittest import mock
@@ -21,9 +24,8 @@ class CliTests(unittest.TestCase):
     )
 
     def setUp(self) -> None:
-        self.fixture = str(
-            pathlib.Path(__file__).with_name("fixtures").joinpath("ossplate-stub.sh")
-        )
+        self.fixture_dir = tempfile.TemporaryDirectory()
+        self.fixture = self.create_stub_binary(pathlib.Path(self.fixture_dir.name))
         self.repo_root = pathlib.Path(__file__).resolve().parents[2]
         self.scaffold_manifest = json.loads(
             (self.repo_root / "scaffold-manifest.json").read_text()
@@ -31,6 +33,8 @@ class CliTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         os.environ.pop("OSSPLATE_BINARY", None)
+        os.environ.pop("OSSPLATE_PY_TARGET", None)
+        self.fixture_dir.cleanup()
 
     def test_env_override_takes_precedence(self) -> None:
         os.environ["OSSPLATE_BINARY"] = self.fixture
@@ -87,34 +91,39 @@ class CliTests(unittest.TestCase):
         repo_root = self.repo_root
         build_venv_dir = repo_root / "wrapper-py" / ".tmp-build-venv"
         dist_dir = repo_root / "wrapper-py" / "dist"
-        subprocess.run(["rm", "-rf", str(build_venv_dir)], check=True)
-        subprocess.run(["rm", "-rf", str(dist_dir)], check=True)
+        shutil.rmtree(build_venv_dir, ignore_errors=True)
+        shutil.rmtree(dist_dir, ignore_errors=True)
         subprocess.run(["cargo", "build"], cwd=repo_root / "core-rs", check=True)
         subprocess.run([sys.executable, "-m", "venv", str(build_venv_dir)], check=True)
-        build_python = build_venv_dir / "bin" / "python"
+        build_python = self.venv_executable(build_venv_dir, "python")
         subprocess.run(
             [str(build_python), "-m", "pip", "install", "build"],
             check=True,
             stdout=subprocess.DEVNULL,
         )
+        os.environ["OSSPLATE_PY_TARGET"] = self.current_target()[0]
         subprocess.run(
             [str(build_python), "-m", "build", "--wheel"],
             cwd=repo_root / "wrapper-py",
             check=True,
+            env=os.environ.copy(),
         )
         wheels = sorted(dist_dir.glob("ossplate-*.whl"))
         self.assertEqual(len(wheels), 1, f"expected one built wheel in {dist_dir}")
         wheel = wheels[0]
-        self.assert_wheel_contents(wheel)
+        self.assertNotIn("py3-none-any", wheel.name)
+        self.assert_wheel_contents(wheel, self.current_target()[0])
         venv_dir = repo_root / "wrapper-py" / ".tmp-wheel-venv"
         target_dir = repo_root / "wrapper-py" / ".tmp-wheel-created"
-        subprocess.run(["rm", "-rf", str(venv_dir), str(target_dir)], check=True)
+        shutil.rmtree(venv_dir, ignore_errors=True)
+        shutil.rmtree(target_dir, ignore_errors=True)
         subprocess.run([sys.executable, "-m", "venv", str(venv_dir)], check=True)
-        pip = venv_dir / "bin" / "pip"
-        tool = venv_dir / "bin" / "ossplate"
+        pip = self.venv_executable(venv_dir, "pip")
+        tool = self.venv_executable(venv_dir, "ossplate")
         subprocess.run([str(pip), "install", str(wheel)], check=True, stdout=subprocess.DEVNULL)
+        _, host_executable = self.current_target()
         direct_version = subprocess.run(
-            [str(repo_root / "core-rs" / "target" / "debug" / "ossplate"), "version"],
+            [str(repo_root / "core-rs" / "target" / "debug" / host_executable), "version"],
             check=True,
             capture_output=True,
             text=True,
@@ -134,14 +143,19 @@ class CliTests(unittest.TestCase):
             text=True,
         )
         self.assertEqual(output.stdout.strip(), '{"ok":true,"issues":[]}')
-        subprocess.run(
-            ["rm", "-rf", str(build_venv_dir), str(venv_dir), str(target_dir)],
-            check=True,
-        )
+        shutil.rmtree(build_venv_dir, ignore_errors=True)
+        shutil.rmtree(venv_dir, ignore_errors=True)
+        shutil.rmtree(target_dir, ignore_errors=True)
 
-    def assert_wheel_contents(self, wheel: pathlib.Path) -> None:
+    def assert_wheel_contents(self, wheel: pathlib.Path, target: str) -> None:
         with zipfile.ZipFile(wheel) as archive:
             names = archive.namelist()
+
+        packaged_binaries = sorted(
+            name for name in names if name.startswith("ossplate/bin/") and not name.endswith("/")
+        )
+        expected_binary = f"ossplate/bin/{target}/{self.target_executable(target)}"
+        self.assertEqual(packaged_binaries, [expected_binary])
 
         prefix = "ossplate/scaffold/"
         for relative_path in self.scaffold_manifest["requiredPaths"]:
@@ -156,6 +170,38 @@ class CliTests(unittest.TestCase):
                 any(name.startswith(f"{prefix}{excluded_prefix}") for name in names),
                 f"unexpected wheel scaffold file under {excluded_prefix}",
             )
+
+    def create_stub_binary(self, directory: pathlib.Path) -> str:
+        if os.name == "nt":
+            path = directory / "ossplate-stub.cmd"
+            path.write_text("@echo {\"tool\":\"stub-tool\",\"version\":\"9.9.9\"}\r\n")
+            return str(path)
+
+        path = directory / "ossplate-stub.sh"
+        path.write_text("#!/usr/bin/env sh\necho '{\"tool\":\"stub-tool\",\"version\":\"9.9.9\"}'\n")
+        path.chmod(0o755)
+        return str(path)
+
+    def current_target(self) -> tuple[str, str]:
+        machine = platform.machine()
+        if (platform.system(), machine) == ("Windows", "x86_64"):
+            machine = "AMD64"
+
+        for system, host_machine, target, executable in self.supported_targets:
+            if (system, host_machine) == (platform.system(), machine):
+                return target, executable
+        raise AssertionError(f"unsupported host for test wheel build: {platform.system()}/{machine}")
+
+    def target_executable(self, target: str) -> str:
+        for _, _, supported_target, executable in self.supported_targets:
+            if supported_target == target:
+                return executable
+        raise AssertionError(f"unknown target {target}")
+
+    def venv_executable(self, venv_dir: pathlib.Path, name: str) -> pathlib.Path:
+        scripts_dir = "Scripts" if os.name == "nt" else "bin"
+        suffix = ".exe" if os.name == "nt" else ""
+        return venv_dir / scripts_dir / f"{name}{suffix}"
 
 
 if __name__ == "__main__":

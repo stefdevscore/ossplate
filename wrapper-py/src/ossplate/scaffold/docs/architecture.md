@@ -38,6 +38,8 @@ The wrappers own:
 - local binary override support
 - forwarding stdout, stderr, and exit code unchanged
 
+Python publishes platform-specific wheels because each wheel bundles one native `ossplate` executable for its target.
+
 They should not implement separate business logic, metadata rules, or command behavior.
 
 ### Scaffold Payload

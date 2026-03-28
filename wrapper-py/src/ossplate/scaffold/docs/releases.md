@@ -22,7 +22,8 @@ Optional local packaging confidence checks:
 cargo package --manifest-path core-rs/Cargo.toml
 cargo publish --manifest-path core-rs/Cargo.toml --dry-run
 cd wrapper-js && npm pack --dry-run
-cd ../wrapper-py && python -m build --wheel
+cd ../wrapper-py && OSSPLATE_PY_TARGET=linux-x64 python -m build --wheel
+cd ../wrapper-py && python -m build --sdist
 ```
 
 ## Versioning
@@ -44,7 +45,7 @@ After updating versions, rerun:
 1. Merge or push work to `main`.
 2. Let [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) pass on that commit.
 3. [`.github/workflows/release.yml`](../.github/workflows/release.yml) computes the next version from commit messages, bumps versions, commits the release, tags it, and creates a GitHub release.
-4. The published GitHub release triggers:
+4. Successful completion of the release workflow triggers:
    - [`.github/workflows/publish.yml`](../.github/workflows/publish.yml)
    - [`.github/workflows/publish-npm.yml`](../.github/workflows/publish-npm.yml)
 
@@ -66,6 +67,16 @@ The publish jobs are intentionally rerun-safe.
 - PyPI uses `skip-existing: true`.
 
 So a second run for the same version should usually succeed by skipping work rather than failing destructively.
+
+## Python Wheels
+
+- PyPI publishes one wheel per supported target and one sdist.
+- Current target runners are:
+  - `ubuntu-latest` -> `linux-x64`
+  - `macos-14` -> `darwin-arm64`
+  - `macos-13` -> `darwin-x64`
+  - `windows-latest` -> `win32-x64`
+- Each wheel bundles exactly one native `ossplate` executable for its target, so wheel filenames are platform-specific.
 
 ## Current Published Names
 

@@ -29,9 +29,13 @@ ossplate = "ossplate.cli:main"
 [tool.hatch.build.targets.wheel]
 packages = ["src/ossplate"]
 artifacts = [
-  "src/ossplate/bin/**",
   "src/ossplate/scaffold/**",
 ]
+exclude = [
+  "src/ossplate/bin/**",
+]
+pure_python = false
+infer_tag = true
 
 [tool.hatch.build.hooks.custom]
 path = "hatch_build.py"

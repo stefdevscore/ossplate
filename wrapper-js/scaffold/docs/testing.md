@@ -26,7 +26,8 @@ These suites cover:
 ### Packaging
 
 - `npm pack --dry-run` in `wrapper-js/`
-- `python -m build --wheel` in `wrapper-py/`
+- `OSSPLATE_PY_TARGET=<target> python -m build --wheel` in `wrapper-py/`
+- `python -m build --sdist` in `wrapper-py/`
 
 JavaScript packaging stages distribution assets through `prepack`.
 
@@ -37,7 +38,10 @@ Artifact assertions are part of the required packaging layer:
 - npm tarball content must include the curated scaffold files from `scaffold-manifest.json`
 - npm tarball content must exclude wrapper test files and repo-only validation scripts
 - Python wheel content must include the curated scaffold files from `scaffold-manifest.json`
+- Python wheel content must include exactly one runtime binary for its target
+- Python wheel content must exclude binaries for all other targets
 - Python wheel content must exclude wrapper test files and repo-only validation scripts
+- Python wheel filenames must be platform-specific rather than `py3-none-any`
 
 ## Default Local Flow
 
@@ -57,8 +61,6 @@ Underlying command order:
 6. `npm test`
 7. `npm pack --dry-run`
 8. `PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py'`
-9. `python -m build --wheel`
-
 ## CI
 
 CI currently enforces:
@@ -66,7 +68,8 @@ CI currently enforces:
 - template readiness via `validate` and `sync --check`
 - Rust formatting, clippy, and tests
 - JS build, tests, and package dry-run
-- Python tests and wheel build
+- Python source tests on Linux
+- Python wheel validation on `linux-x64`, `darwin-arm64`, `darwin-x64`, and `win32-x64`
 
 The current artifact tests are the required release-confidence floor.
 
