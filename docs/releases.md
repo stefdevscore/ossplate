@@ -74,7 +74,7 @@ So a second run for the same version should usually succeed by skipping work rat
 - Current target runners are:
   - `ubuntu-latest` -> `linux-x64`
   - `macos-14` -> `darwin-arm64`
-  - `macos-13` -> `darwin-x64`
+  - `macos-15-intel` -> `darwin-x64`
   - `windows-latest` -> `win32-x64`
 - Each wheel bundles exactly one native `ossplate` executable for its target, so wheel filenames are platform-specific.
 
