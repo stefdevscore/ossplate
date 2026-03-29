@@ -1,12 +1,13 @@
 use anyhow::{anyhow, bail, Context, Result};
-use clap::{Args, Parser, Subcommand, ValueEnum};
+use clap::{Args, Parser, Subcommand};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
+mod release;
 mod sync;
 
+use release::{publish_repo, PublishRegistry};
 use sync::{format_human_issues, sync_repo, validate_repo};
 
 #[cfg(test)]
@@ -69,14 +70,6 @@ enum Commands {
         #[arg(long)]
         skip_existing: bool,
     },
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
-enum PublishRegistry {
-    All,
-    Npm,
-    Pypi,
-    Cargo,
 }
 
 #[derive(Debug, Clone, Default, Args)]
@@ -186,56 +179,6 @@ fn run() -> Result<()> {
             registry,
             skip_existing,
         } => publish_repo(&path, dry_run, registry, skip_existing),
-    }
-}
-
-fn publish_repo(
-    root: &Path,
-    dry_run: bool,
-    registry: PublishRegistry,
-    skip_existing: bool,
-) -> Result<()> {
-    ensure_scaffold_source_root(root)?;
-    let script_path = root.join("scripts/publish-local.mjs");
-    if !script_path.is_file() {
-        bail!(
-            "publish requires a full scaffold source checkout; missing {}",
-            script_path.display()
-        );
-    }
-
-    let root = root
-        .canonicalize()
-        .with_context(|| format!("failed to canonicalize publish path {}", root.display()))?;
-    let mut args = vec![
-        script_path.to_string_lossy().to_string(),
-        "--root".to_string(),
-        root.to_string_lossy().to_string(),
-        "--registry".to_string(),
-        match registry {
-            PublishRegistry::All => "all",
-            PublishRegistry::Npm => "npm",
-            PublishRegistry::Pypi => "pypi",
-            PublishRegistry::Cargo => "cargo",
-        }
-        .to_string(),
-    ];
-    if dry_run {
-        args.push("--dry-run".to_string());
-    }
-    if skip_existing {
-        args.push("--skip-existing".to_string());
-    }
-
-    let status = Command::new("node")
-        .args(&args)
-        .current_dir(&root)
-        .status()
-        .context("failed to start local publish helper via node")?;
-    if status.success() {
-        Ok(())
-    } else {
-        bail!("publish failed")
     }
 }
 
