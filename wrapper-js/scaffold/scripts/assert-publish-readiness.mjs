@@ -58,7 +58,7 @@ function assertNpmVersionState() {
 
 function npmVersionExists(packageName, packageVersion) {
   try {
-    execFileSync(npmCommand(), ["view", `${packageName}@${packageVersion}`, "version"], {
+    execNpm(["view", `${packageName}@${packageVersion}`, "version"], {
       cwd: repoRoot,
       stdio: "ignore"
     });
@@ -74,6 +74,13 @@ function readJson(relativePath) {
 
 function npmCommand() {
   return process.platform === "win32" ? "npm.cmd" : "npm";
+}
+
+function execNpm(args, options = {}) {
+  if (process.platform === "win32") {
+    return execFileSync(process.env.ComSpec ?? "cmd.exe", ["/d", "/s", "/c", "npm", ...args], options);
+  }
+  return execFileSync(npmCommand(), args, options);
 }
 
 function fail(message) {
