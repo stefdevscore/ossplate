@@ -1757,7 +1757,7 @@ mod tests {
             target.join("core-rs/Cargo.toml"),
             r#"[package]
 name = "bad-core"
-version = "0.1.20"
+version = "0.1.21"
 "#,
         )
         .unwrap();
@@ -2004,7 +2004,7 @@ command = "ossplate"
             root.join("core-rs/Cargo.toml"),
             r#"[package]
 name = "ossplate"
-version = "0.1.20"
+version = "0.1.21"
 edition = "2021"
 authors = ["Stef <stefdevscore@github.com>"]
 description = "Build one project, ship it everywhere."
