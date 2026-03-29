@@ -143,6 +143,10 @@ jobs:
             }
           }
           NODE
+      - name: Build top-level npm package
+        if: steps.published.outputs.already != 'true'
+        working-directory: ./wrapper-js
+        run: npm run build
       - name: Publish to npm
         if: steps.published.outputs.already != 'true'
         working-directory: ./wrapper-js

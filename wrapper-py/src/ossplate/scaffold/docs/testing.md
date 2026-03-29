@@ -75,6 +75,23 @@ Underlying command order:
 7. `npm test`
 8. `npm pack --dry-run`
 9. `PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py'`
+
+## Live Installed Flow
+
+To test the published registries rather than the source checkout, run:
+
+```bash
+./scripts/live-e2e.sh
+```
+
+That covers the installed CLI through:
+
+- `cargo install ossplate`
+- `npm install ossplate`
+- `pip install ossplate`
+
+Each installed CLI must successfully run `version`, `create`, `init`, `validate --json`, and `sync --check` from an isolated temporary environment.
+
 ## CI
 
 CI currently enforces:
