@@ -73,9 +73,20 @@ jobs:
       - name: Assert release state
         if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
         run: node ./scripts/assert-release-state.mjs
+      - name: Determine JS lockfile mode
+        if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
+        id: js_mode
+        shell: bash
+        run: |
+          VERSION=$(node -p "require('./wrapper-js/package.json').version")
+          if npm view "ossplate@$VERSION" version >/dev/null 2>&1; then
+            echo "lockfile_mode=resolved" >> "$GITHUB_OUTPUT"
+          else
+            echo "lockfile_mode=placeholder" >> "$GITHUB_OUTPUT"
+          fi
       - name: Assert JS lockfile state
         if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
-        run: node ./scripts/assert-js-lockfile-state.mjs resolved
+        run: node ./scripts/assert-js-lockfile-state.mjs "${{ steps.js_mode.outputs.lockfile_mode }}"
       - name: Assert publish readiness
         if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
         run: node ./scripts/assert-publish-readiness.mjs release "${{ steps.plan.outputs.next_version }}"
