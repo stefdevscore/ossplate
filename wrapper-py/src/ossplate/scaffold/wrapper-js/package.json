@@ -24,10 +24,10 @@
   "main": "./dist/index.js",
   "name": "ossplate",
   "optionalDependencies": {
-    "ossplate-darwin-arm64": "0.1.17",
-    "ossplate-darwin-x64": "0.1.17",
-    "ossplate-linux-x64": "0.1.17",
-    "ossplate-windows-x64": "0.1.17"
+    "ossplate-darwin-arm64": "0.1.18",
+    "ossplate-darwin-x64": "0.1.18",
+    "ossplate-linux-x64": "0.1.18",
+    "ossplate-windows-x64": "0.1.18"
   },
   "publishConfig": {
     "access": "public"
@@ -45,5 +45,5 @@
     "test": "npm run build && node --test test/cli.test.js"
   },
   "type": "module",
-  "version": "0.1.17"
+  "version": "0.1.18"
 }
