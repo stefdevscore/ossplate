@@ -40,6 +40,7 @@ Release bump rules:
 Release automation note:
 
 - the release workflow commits version bumps directly onto `origin/main`
+- after npm publish succeeds, the workflow may add a second commit to refresh `wrapper-js/package-lock.json`
 - after a green release, your local branch can be behind even if you did not make another commit
 - if a push is rejected as non-fast-forward after CI/release, refresh first:
 

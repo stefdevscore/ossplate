@@ -23,6 +23,8 @@
     "core-rs/Cargo.lock",
     "core-rs/src/main.rs",
     "scripts/bump-version.mjs",
+    "scripts/assert-release-state.mjs",
+    "scripts/assert-publish-readiness.mjs",
     "scripts/release-plan.mjs",
     "scripts/verify.sh",
     "wrapper-js/README.md",

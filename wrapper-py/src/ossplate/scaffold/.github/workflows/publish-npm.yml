@@ -37,6 +37,12 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       - name: Build core binary
         run: cargo build --manifest-path core-rs/Cargo.toml
+      - name: Assert release state
+        run: node ./scripts/assert-release-state.mjs
+      - name: Assert JS lockfile state
+        run: node ./scripts/assert-js-lockfile-state.mjs
+      - name: Assert publish readiness
+        run: node ./scripts/assert-publish-readiness.mjs publish
       - name: Detect published version
         id: published
         shell: bash
@@ -100,6 +106,12 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
           cache: npm
           cache-dependency-path: ./wrapper-js/package-lock.json
+      - name: Assert release state
+        run: node ./scripts/assert-release-state.mjs
+      - name: Assert JS lockfile state
+        run: node ./scripts/assert-js-lockfile-state.mjs
+      - name: Assert publish readiness
+        run: node ./scripts/assert-publish-readiness.mjs publish
       - name: Detect published version
         id: published
         working-directory: ./wrapper-js
@@ -114,9 +126,23 @@ jobs:
           else
             echo "already=false" >> "$GITHUB_OUTPUT"
           fi
-      - if: steps.published.outputs.already != 'true'
-        run: npm ci --omit=optional
+      - name: Verify runtime package availability
+        if: steps.published.outputs.already != 'true'
         working-directory: ./wrapper-js
+        run: |
+          node - <<'NODE'
+          const pkg = require("./package.json");
+          const { execFileSync } = require("node:child_process");
+          for (const [name, version] of Object.entries(pkg.optionalDependencies ?? {})) {
+            try {
+              execFileSync("npm", ["view", `${name}@${version}`, "version"], {
+                stdio: "ignore"
+              });
+            } catch {
+              throw new Error(`required runtime package ${name}@${version} is not available on npm`);
+            }
+          }
+          NODE
       - name: Publish to npm
         if: steps.published.outputs.already != 'true'
         working-directory: ./wrapper-js

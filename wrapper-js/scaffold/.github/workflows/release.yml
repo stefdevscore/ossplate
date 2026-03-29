@@ -70,6 +70,15 @@ jobs:
           echo "$PLAN"
           echo "should_release=$(printf '%s' "$PLAN" | node -e "process.stdout.write(String(JSON.parse(require('fs').readFileSync(0, 'utf8')).shouldRelease))")" >> "$GITHUB_OUTPUT"
           echo "next_version=$(printf '%s' "$PLAN" | node -e "process.stdout.write(JSON.parse(require('fs').readFileSync(0, 'utf8')).nextVersion)")" >> "$GITHUB_OUTPUT"
+      - name: Assert release state
+        if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
+        run: node ./scripts/assert-release-state.mjs
+      - name: Assert JS lockfile state
+        if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
+        run: node ./scripts/assert-js-lockfile-state.mjs
+      - name: Assert publish readiness
+        if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
+        run: node ./scripts/assert-publish-readiness.mjs release "${{ steps.plan.outputs.next_version }}"
       - name: Set up git identity
         if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
         run: |
@@ -78,12 +87,9 @@ jobs:
       - name: Bump versions
         if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
         run: node ./scripts/bump-version.mjs "${{ steps.plan.outputs.next_version }}"
-      - name: Install JavaScript dependencies
-        if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
-        run: npm ci --prefix wrapper-js
       - name: Verify release state
         if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
-        run: ./scripts/verify.sh
+        run: ./scripts/verify-release.sh
       - name: Commit and tag release
         if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
         run: |
@@ -93,6 +99,85 @@ jobs:
           git tag "v${VERSION}"
           git push origin main
           git push origin "v${VERSION}"
+      - name: Dispatch publish workflows
+        if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
+        id: dispatch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.plan.outputs.next_version }}"
+          RELEASE_SHA=$(git rev-parse HEAD)
+          DISPATCHED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          gh workflow run publish.yml --ref main
+          gh workflow run publish-npm.yml --ref main
+          echo "release_sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
+          echo "dispatched_at=$DISPATCHED_AT" >> "$GITHUB_OUTPUT"
+          echo "::notice title=release::dispatched publish workflows for v${VERSION}."
+      - name: Wait for publish workflows
+        if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.plan.outputs.next_version }}"
+          RELEASE_SHA="${{ steps.dispatch.outputs.release_sha }}"
+          DISPATCHED_AT="${{ steps.dispatch.outputs.dispatched_at }}"
+
+          find_run_id() {
+            local workflow_name="$1"
+            gh run list \
+              --workflow "$workflow_name" \
+              --branch main \
+              --event workflow_dispatch \
+              --json databaseId,createdAt,headSha \
+            | node -e '
+              const fs = require("node:fs");
+              const workflowRuns = JSON.parse(fs.readFileSync(0, "utf8"));
+              const dispatchedAt = Date.parse(process.argv[1]);
+              const releaseSha = process.argv[2];
+              const match = workflowRuns.find((run) =>
+                run.headSha === releaseSha && Date.parse(run.createdAt) >= dispatchedAt
+              );
+              if (match) process.stdout.write(String(match.databaseId));
+            ' "$DISPATCHED_AT" "$RELEASE_SHA"
+          }
+
+          wait_for_run() {
+            local workflow_name="$1"
+            local run_id=""
+            for _ in $(seq 1 40); do
+              run_id="$(find_run_id "$workflow_name")"
+              if [ -n "$run_id" ]; then
+                break
+              fi
+              sleep 5
+            done
+            if [ -z "$run_id" ]; then
+              echo "::error title=release::failed to find $workflow_name run for v${VERSION}."
+              exit 1
+            fi
+            echo "::notice title=release::$workflow_name run https://github.com/${{ github.repository }}/actions/runs/${run_id}"
+            gh run watch "$run_id" --exit-status
+          }
+
+          wait_for_run "Ossplate publishing"
+          wait_for_run "Ossplate publish-npm"
+      - name: Refresh JS lockfile after publish
+        if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
+        run: |
+          npm install --package-lock-only --prefix wrapper-js
+          cargo run --quiet --manifest-path core-rs/Cargo.toml -- sync --path .
+          node ./scripts/stage-distribution-assets.mjs
+      - name: Commit post-publish lockfile sync
+        if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
+        run: |
+          VERSION="${{ steps.plan.outputs.next_version }}"
+          if git diff --quiet -- wrapper-js/package-lock.json wrapper-js/scaffold/wrapper-js/package-lock.json wrapper-py/src/ossplate/scaffold/wrapper-js/package-lock.json; then
+            echo "::notice title=release::post-publish JS lockfile already up to date."
+            exit 0
+          fi
+          git add wrapper-js/package-lock.json wrapper-js/scaffold/wrapper-js/package-lock.json wrapper-py/src/ossplate/scaffold/wrapper-js/package-lock.json
+          git commit -m "Sync JS lockfile after ossplate ${VERSION} release [skip ci]"
+          git push origin main
       - name: Create GitHub release
         if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
         env:
@@ -106,12 +191,3 @@ jobs:
           gh release create "v${VERSION}" \
             --title "v${VERSION}" \
             --notes "Automated release for ossplate ${VERSION}."
-      - name: Dispatch publish workflows
-        if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          VERSION="${{ steps.plan.outputs.next_version }}"
-          gh workflow run publish.yml --ref main
-          gh workflow run publish-npm.yml --ref main
-          echo "::notice title=release::dispatched publish workflows for v${VERSION}."

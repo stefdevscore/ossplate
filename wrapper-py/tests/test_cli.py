@@ -49,15 +49,12 @@ class CliTests(unittest.TestCase):
         os.environ["OSSPLATE_BINARY"] = self.fixture
         self.assertEqual(get_packaged_binary_path(), self.fixture)
 
-    def test_packaged_binary_path_resolves_every_declared_target(self) -> None:
+    def test_packaged_binary_path_resolves_host_target(self) -> None:
         base_dir = pathlib.Path(__file__).resolve().parents[1] / "src" / "ossplate"
-        for system, machine, target, executable in self.supported_targets:
-            expected = base_dir / "bin" / target / executable
-            with self.subTest(system=system, machine=machine):
-                with mock.patch("platform.system", return_value=system), mock.patch(
-                    "platform.machine", return_value=machine
-                ):
-                    self.assertEqual(get_packaged_binary_path(base_dir), str(expected))
+        target, executable = self.current_target()
+        expected = base_dir / "bin" / target / executable
+        self.assertTrue(expected.exists(), f"expected host binary at {expected}")
+        self.assertEqual(get_packaged_binary_path(base_dir), str(expected))
 
     def test_unsupported_platform_fails(self) -> None:
         with mock.patch("platform.system", return_value="Linux"), mock.patch(

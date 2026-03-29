@@ -36,13 +36,25 @@ const packageLock = JSON.parse(readFileSync(packageLockPath, "utf8"));
 packageLock.version = nextVersion;
 if (packageLock.packages?.[""]) {
   packageLock.packages[""].version = nextVersion;
+  packageLock.packages[""].optionalDependencies = {
+    ...(packageJson.optionalDependencies ?? {})
+  };
+}
+for (const packageName of Object.keys(packageLock.packages ?? {})) {
+  if (packageName.startsWith("node_modules/ossplate-")) {
+    delete packageLock.packages[packageName];
+  }
+}
+for (const packageName of Object.keys(packageJson.optionalDependencies ?? {})) {
+  packageLock.packages[`node_modules/${packageName}`] = {
+    optional: true
+  };
 }
 writeJson(packageLockPath, packageLock);
 
 replaceInFile(joinPath("core-rs", "src", "main.rs"), /version = "\d+\.\d+\.\d+"/g, `version = "${nextVersion}"`);
 
 exec("cargo", ["generate-lockfile", "--manifest-path", joinPath("core-rs", "Cargo.toml")]);
-exec("npm", ["install", "--package-lock-only", "--omit=optional"], joinPath("wrapper-js"));
 exec("cargo", ["run", "--quiet", "--manifest-path", joinPath("core-rs", "Cargo.toml"), "--", "sync", "--path", joinPath()]);
 exec("node", [joinPath("scripts", "stage-distribution-assets.mjs")]);
 

@@ -17,6 +17,12 @@ Run the full gate before creating a release:
 ./scripts/verify.sh
 ```
 
+The release gate now includes:
+
+- `scripts/assert-release-state.mjs` for internal version and artifact invariants
+- `scripts/assert-js-lockfile-state.mjs` for the checked-in JS lockfile contract
+- `scripts/assert-publish-readiness.mjs` for external npm publish readiness
+
 Optional local packaging confidence checks:
 
 ```bash
@@ -53,8 +59,13 @@ After updating versions, rerun:
 
 1. Merge or push work to `main`.
 2. Let [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) pass on that commit.
-3. [`.github/workflows/release.yml`](../.github/workflows/release.yml) computes the next version from commit messages, bumps versions, commits the release, tags it, and creates a GitHub release.
-4. Successful completion of the release workflow triggers:
+3. [`.github/workflows/release.yml`](../.github/workflows/release.yml) computes the next version from commit messages, runs release-state and publish-readiness preflight checks, then bumps versions, commits the release, and tags it.
+4. The release workflow dispatches the publish workflows and waits for both of them to finish successfully.
+5. After downstream publish success, the release workflow refreshes `wrapper-js/package-lock.json` against the now-published runtime packages and commits that lockfile sync back to `main`.
+6. Only after downstream publish success does the release workflow create the GitHub release.
+7. Successful completion of the release workflow means all intended registry publishes either completed or skipped safely.
+
+The downstream publish workflows are:
    - [`.github/workflows/publish.yml`](../.github/workflows/publish.yml)
    - [`.github/workflows/publish-npm.yml`](../.github/workflows/publish-npm.yml)
 
@@ -63,6 +74,7 @@ After updating versions, rerun:
 The release pipeline mutates `main` on GitHub.
 
 - After CI passes, [`.github/workflows/release.yml`](../.github/workflows/release.yml) commits the version bump directly to `origin/main`.
+- After npm publish succeeds, the same workflow may add a second commit that refreshes `wrapper-js/package-lock.json` to the published runtime package versions.
 - That means a local checkout that was clean before release can become behind `origin/main` without any new manual commits from you.
 - Before pushing follow-up work, always refresh your branch first:
 
@@ -72,6 +84,7 @@ git rebase origin/main
 ```
 
 - If a push is rejected as non-fast-forward right after a green release, this version-bump commit is the expected cause.
+- If npm published successfully, the post-publish lockfile sync commit can also be the expected cause.
 
 Optional local hook setup uses [`pre-commit`](https://pre-commit.com/) through [`.pre-commit-config.yaml`](../.pre-commit-config.yaml). It is not required for CI or release automation.
 
@@ -93,6 +106,8 @@ The publish jobs are intentionally rerun-safe.
 
 So a second run for the same version should usually succeed by skipping work rather than failing destructively.
 
+If a release created the bump commit/tag but one registry publish failed, treat that version as a failed release candidate. Fix the pipeline and cut the next patch release instead of trying to normalize the broken version in place.
+
 ## Python Wheels
 
 - PyPI publishes one wheel per supported target and one sdist.
@@ -111,8 +126,11 @@ So a second run for the same version should usually succeed by skipping work rat
   - `ossplate-linux-x64`
   - `ossplate-darwin-arm64`
   - `ossplate-darwin-x64`
-  - `ossplate-win32-x64`
+  - `ossplate-windows-x64`
 - Users still install `ossplate`; npm resolves the matching runtime package through `optionalDependencies`.
+- The top-level npm publish now checks that every expected runtime package version is visible on npm before publishing `ossplate`.
+- Release preflight fails if the next npm version is already partially published or the runtime package names are not publishable on the public registry.
+- The checked-in `wrapper-js/package-lock.json` is a source/CI artifact. Release commits carry a placeholder-compatible lockfile, then the workflow refreshes it after the runtime packages are published so future CI can keep using `npm ci`.
 
 ## Current Published Names
 

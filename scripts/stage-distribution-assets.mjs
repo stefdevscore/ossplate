@@ -17,11 +17,17 @@ const manifest = JSON.parse(
 );
 const requiredPaths = manifest.requiredPaths;
 const excludedPrefixes = manifest.excludedPrefixes;
-const runtimePackages = {
+const runtimePackageFolders = {
   "darwin-arm64": "ossplate-darwin-arm64",
   "darwin-x64": "ossplate-darwin-x64",
   "linux-x64": "ossplate-linux-x64",
   "win32-x64": "ossplate-win32-x64"
+};
+const runtimePackageNames = {
+  "darwin-arm64": "ossplate-darwin-arm64",
+  "darwin-x64": "ossplate-darwin-x64",
+  "linux-x64": "ossplate-linux-x64",
+  "win32-x64": "ossplate-windows-x64"
 };
 
 const wrapperTargets = [
@@ -54,14 +60,14 @@ function stageDefault() {
   if (existsSync(sourceBinary)) {
     stagePythonRuntime();
     stageRuntimePackage(
-      join(repoRoot, "wrapper-js", "platform-packages", runtimePackages[currentTarget.folder]),
+      join(repoRoot, "wrapper-js", "platform-packages", runtimePackageFolders[currentTarget.folder]),
       currentTarget.folder
     );
   }
 }
 
 function stageScaffold(destinationRoot) {
-  rmSync(destinationRoot, { force: true, recursive: true });
+  removeTree(destinationRoot);
   mkdirSync(destinationRoot, { recursive: true });
 
   for (const relativePath of requiredPaths) {
@@ -87,17 +93,16 @@ function stagePythonRuntime() {
 }
 
 function cleanAllRuntimePackageBins() {
-  for (const packageName of Object.values(runtimePackages)) {
-    rmSync(join(repoRoot, "wrapper-js", "platform-packages", packageName, "bin"), {
-      force: true,
-      recursive: true
-    });
+  for (const packageFolder of Object.values(runtimePackageFolders)) {
+    removeTree(join(repoRoot, "wrapper-js", "platform-packages", packageFolder, "bin"));
   }
 }
 
 function stageRuntimePackage(packageRoot, target) {
-  const expectedPackageName = runtimePackages[target];
-  if (!expectedPackageName) {
+  const expectedPackageFolder = runtimePackageFolders[target];
+  const expectedPackageName = runtimePackageNames[target];
+  const expectedPackageSuffix = `/${expectedPackageFolder}`;
+  if (!expectedPackageFolder) {
     throw new Error(`unsupported runtime package target: ${target}`);
   }
   if (target !== currentTarget.folder) {
@@ -114,18 +119,30 @@ function stageRuntimePackage(packageRoot, target) {
     throw new Error(`runtime package root missing package.json: ${packageRoot}`);
   }
   const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8"));
-  if (packageJson.name !== expectedPackageName) {
+  if (
+    packageJson.name !== expectedPackageName &&
+    !packageJson.name.endsWith(expectedPackageSuffix)
+  ) {
     throw new Error(
-      `runtime package ${packageRoot} does not match target ${target}: expected ${expectedPackageName}, found ${packageJson.name}`
+      `runtime package ${packageRoot} does not match target ${target}: expected package name ${expectedPackageName} or a name ending with ${expectedPackageFolder}, found ${packageJson.name}`
     );
   }
 
   const executable = target === "win32-x64" ? "ossplate.exe" : "ossplate";
   const destination = join(packageRoot, "bin", executable);
-  rmSync(join(packageRoot, "bin"), { force: true, recursive: true });
+  removeTree(join(packageRoot, "bin"));
   mkdirSync(dirname(destination), { recursive: true });
   copyFileSync(sourceBinary, destination);
   chmodSync(destination, 0o755);
+}
+
+function removeTree(path) {
+  rmSync(path, {
+    force: true,
+    recursive: true,
+    maxRetries: 5,
+    retryDelay: 50
+  });
 }
 
 function resolveCurrentTarget() {
