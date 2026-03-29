@@ -45,6 +45,7 @@ Artifact assertions are part of the required packaging layer:
 - Python wheel content must exclude binaries for all other targets
 - Python wheel content must exclude wrapper test files and repo-only validation scripts
 - Python wheel filenames must be platform-specific rather than `py3-none-any`
+- Python wheel size must stay within the target-specific budget enforced by the artifact test
 
 ## Default Local Flow
 
