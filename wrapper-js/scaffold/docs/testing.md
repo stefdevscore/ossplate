@@ -68,13 +68,14 @@ That gate currently runs, in order:
 4. `cargo run --quiet --manifest-path core-rs/Cargo.toml -- validate --json`
 5. `cargo run --quiet --manifest-path core-rs/Cargo.toml -- sync --check`
 6. `node --test scripts/release-plan.test.mjs`
-7. `node --test scripts/publish-local.test.mjs`
-8. `node scripts/assert-release-state.mjs`
-9. `node scripts/assert-js-lockfile-state.mjs <resolved-or-placeholder>`
-10. `node scripts/assert-publish-readiness.mjs publish`
-11. `npm test` when the current npm version is already published
-12. `npm pack --dry-run` when the current npm version is already published
-13. `PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py'`
+7. `node --test scripts/release-state.test.mjs`
+8. `node --test scripts/publish-local.test.mjs`
+9. `node scripts/assert-release-state.mjs`
+10. `node scripts/assert-js-lockfile-state.mjs <resolved-or-placeholder>`
+11. `node scripts/assert-publish-readiness.mjs publish`
+12. `npm test` when the current npm version is already published
+13. `npm pack --dry-run` when the current npm version is already published
+14. `PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py'`
 
 The important JS release checks are:
 

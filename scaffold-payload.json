@@ -42,6 +42,7 @@
     "scripts/assert-js-lockfile-state.mjs",
     "scripts/assert-publish-readiness.mjs",
     "scripts/publish-local.mjs",
+    "scripts/release-state.mjs",
     "scripts/repair-js-lockfile.mjs",
     "scripts/release-plan.mjs",
     "scripts/runtime-targets.mjs",
