@@ -1,14 +1,14 @@
 # ADR 0002: Sync Owns Bounded Identity Surfaces
 
-## Status
+## ADR-0002-01 Status
 
 Accepted
 
-## Context
+## ADR-0002-02 Context
 
 `ossplate sync` must keep shared project identity aligned without becoming a destructive repo rewriter.
 
-## Decision
+## ADR-0002-03 Decision
 
 `sync` owns only bounded, identity-bearing surfaces:
 
@@ -24,7 +24,7 @@ Accepted
 - arbitrary prose outside markers
 - docs that are not explicitly bounded
 
-## Consequences
+## ADR-0002-04 Consequences
 
 - Drift checks stay surgical.
 - Contributors can change most prose and workflow logic safely.

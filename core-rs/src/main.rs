@@ -18,10 +18,7 @@ pub(crate) use scaffold::{
 };
 
 #[cfg(test)]
-pub(crate) use sync::{
-    github_blob_url, github_raw_url, issue, render_root_readme_identity, render_wrapper_readme,
-    README_IDENTITY_END, README_IDENTITY_START, WORKFLOW_NAME_END, WORKFLOW_NAME_START,
-};
+pub(crate) use sync::{github_blob_url, github_raw_url, issue, render_wrapper_readme};
 
 #[derive(Parser)]
 #[command(name = "ossplate")]
@@ -370,7 +367,7 @@ mod tests {
 
     #[test]
     fn create_scaffolds_a_target_directory() {
-        let source_root = make_fixture_root();
+        let source_root = make_source_checkout_root();
         let target = unique_temp_path("ossplate-create-target");
         if target.exists() {
             fs::remove_dir_all(&target).unwrap();
@@ -386,7 +383,7 @@ mod tests {
 
     #[test]
     fn init_hydrates_an_existing_directory() {
-        let source_root = make_fixture_root();
+        let source_root = make_source_checkout_root();
         let target = unique_temp_path("ossplate-init-target");
         if target.exists() {
             fs::remove_dir_all(&target).unwrap();
@@ -416,7 +413,7 @@ version = "0.1.22"
 
     #[test]
     fn create_applies_identity_overrides_before_sync() {
-        let source_root = make_fixture_root();
+        let source_root = make_source_checkout_root();
         let target = unique_temp_path("ossplate-create-with-overrides");
         if target.exists() {
             fs::remove_dir_all(&target).unwrap();
@@ -481,7 +478,7 @@ version = "0.1.22"
 
     #[test]
     fn create_fails_when_target_directory_is_not_empty() {
-        let source_root = make_fixture_root();
+        let source_root = make_source_checkout_root();
         let target = unique_temp_path("ossplate-create-non-empty");
         if target.exists() {
             fs::remove_dir_all(&target).unwrap();
@@ -499,7 +496,7 @@ version = "0.1.22"
 
     #[test]
     fn create_fails_when_target_is_inside_source_tree() {
-        let source_root = make_fixture_root();
+        let source_root = make_source_checkout_root();
         let target = source_root.join("nested-output");
         if target.exists() {
             fs::remove_dir_all(&target).unwrap();
@@ -510,7 +507,7 @@ version = "0.1.22"
             .to_string();
         assert!(error.contains("target directory must not be inside the source template tree"));
 
-        fs::remove_dir_all(&source_root).unwrap();
+        fs::remove_dir_all(&target).unwrap();
     }
 
     #[test]
@@ -528,7 +525,7 @@ version = "0.1.22"
 
         sync_repo(&root, false).unwrap();
         let synced = fs::read_to_string(root.join("README.md")).unwrap();
-        assert!(synced.contains("## What This Tool Gives You"));
+        assert!(synced.contains("## What It Does"));
         assert!(synced.contains("Build one project, ship it everywhere"));
     }
 
@@ -631,7 +628,7 @@ version = "0.1.22"
 
     #[test]
     fn discover_template_root_honors_env_override() {
-        let source_root = make_fixture_root();
+        let source_root = make_source_checkout_root();
         unsafe {
             std::env::set_var("OSSPLATE_TEMPLATE_ROOT", &source_root);
         }
@@ -648,147 +645,58 @@ version = "0.1.22"
             .unwrap()
             .as_nanos();
         let root = std::env::temp_dir().join(format!("ossplate-fixture-{unique}"));
-        fs::create_dir_all(root.join(".github/workflows")).unwrap();
-        fs::create_dir_all(root.join("core-rs")).unwrap();
-        fs::create_dir_all(root.join("wrapper-js/platform-packages/ossplate-darwin-arm64"))
-            .unwrap();
-        fs::create_dir_all(root.join("wrapper-js/platform-packages/ossplate-darwin-x64")).unwrap();
-        fs::create_dir_all(root.join("wrapper-js/platform-packages/ossplate-linux-x64")).unwrap();
-        fs::create_dir_all(root.join("wrapper-js/platform-packages/ossplate-win32-x64")).unwrap();
-        fs::create_dir_all(root.join("wrapper-py")).unwrap();
-        let config = r#"[project]
-name = "Ossplate"
-slug = "ossplate"
-description = "Build one project, ship it everywhere."
-repository = "https://github.com/stefdevscore/ossplate"
-license = "Unlicense"
-
-[author]
-name = "Stef"
-email = "stefdevscore@github.com"
-
-[packages]
-rust_crate = "ossplate"
-npm_package = "ossplate"
-python_package = "ossplate"
-command = "ossplate"
-"#;
-        fs::write(
-            root.join("ossplate.toml"),
-            config.replace("slug = \"ossplate\"\n", ""),
-        )
-        .unwrap();
-        fs::write(
-            root.join("core-rs/Cargo.toml"),
-            r#"[package]
-name = "ossplate"
-version = "0.1.22"
-edition = "2021"
-authors = ["Stef <stefdevscore@github.com>"]
-description = "Build one project, ship it everywhere."
-license = "Unlicense"
-readme = "../README.md"
-repository = "https://github.com/stefdevscore/ossplate"
-homepage = "https://github.com/stefdevscore/ossplate"
-"#,
-        )
-        .unwrap();
-        fs::write(
-            root.join("wrapper-js/package.json"),
-            "{\n  \"name\": \"ossplate\",\n  \"description\": \"Build one project, ship it everywhere.\",\n  \"bin\": { \"ossplate\": \"bin/ossplate.js\" },\n  \"author\": \"Stef <stefdevscore@github.com>\",\n  \"license\": \"Unlicense\",\n  \"repository\": { \"url\": \"https://github.com/stefdevscore/ossplate\" }\n}\n",
-        )
-        .unwrap();
-        fs::write(
-            root.join("wrapper-py/pyproject.toml"),
-            r#"[project]
-name = "ossplate"
-description = "Build one project, ship it everywhere."
-license = { text = "Unlicense" }
-authors = [
-  { name = "Stef", email = "stefdevscore@github.com" }
-]
-
-[project.urls]
-Homepage = "https://github.com/stefdevscore/ossplate"
-Repository = "https://github.com/stefdevscore/ossplate"
-
-[project.scripts]
-ossplate = "ossplate.cli:main"
-"#,
-        )
-        .unwrap();
-        for (target, os, cpu) in [
-            ("darwin-arm64", "darwin", "arm64"),
-            ("darwin-x64", "darwin", "x64"),
-            ("linux-x64", "linux", "x64"),
-            ("win32-x64", "win32", "x64"),
-        ] {
-            let package_name = if target == "win32-x64" {
-                "ossplate-windows-x64".to_string()
-            } else {
-                format!("ossplate-{target}")
-            };
-            let package_folder = format!("ossplate-{target}");
-            let description = format!("Platform runtime package for ossplate on {target}.");
-            let directory = format!("wrapper-js/platform-packages/{package_folder}");
-            let manifest = format!(
-                "{{\n  \"name\": \"{package_name}\",\n  \"description\": \"{description}\",\n  \"license\": \"Unlicense\",\n  \"repository\": {{\n    \"type\": \"git\",\n    \"url\": \"https://github.com/stefdevscore/ossplate\",\n    \"directory\": \"{directory}\"\n  }},\n  \"os\": [\"{os}\"],\n  \"cpu\": [\"{cpu}\"]\n}}\n"
-            );
-            fs::write(
-                root.join(format!(
-                    "wrapper-js/platform-packages/{package_folder}/package.json"
-                )),
-                manifest,
-            )
-            .unwrap();
-        }
-        fs::write(
-            root.join(".github/workflows/ci.yml"),
-            format!(
-                "{start}\nname: Ossplate CI\n{end}\n\non:\n  push:\n    branches:\n      - main\n",
-                start = WORKFLOW_NAME_START,
-                end = WORKFLOW_NAME_END
-            ),
-        )
-        .unwrap();
-        fs::write(
-            root.join(".github/workflows/publish.yml"),
-            format!(
-                "{start}\nname: Ossplate publishing\n{end}\n\non:\n  workflow_dispatch:\n",
-                start = WORKFLOW_NAME_START,
-                end = WORKFLOW_NAME_END
-            ),
-        )
-        .unwrap();
-        fs::write(
-            root.join(".github/workflows/publish-npm.yml"),
-            format!(
-                "{start}\nname: Ossplate publish-npm\n{end}\n\non:\n  workflow_dispatch:\n",
-                start = WORKFLOW_NAME_START,
-                end = WORKFLOW_NAME_END
-            ),
-        )
-        .unwrap();
-        fs::write(
-            root.join("README.md"),
-            format!(
-                "{start}\n{body}{end}\n\n## What This Tool Gives You\n\n- a canonical Rust CLI in [`core-rs/`](./core-rs)\n",
-                start = README_IDENTITY_START,
-                body = render_root_readme_identity(&load_config(&root).unwrap()),
-                end = README_IDENTITY_END
-            ),
-        )
-        .unwrap();
-        fs::write(
-            root.join("wrapper-js/README.md"),
-            render_wrapper_readme("JavaScript", &load_config(&root).unwrap()),
-        )
-        .unwrap();
-        fs::write(
-            root.join("wrapper-py/README.md"),
-            render_wrapper_readme("Python", &load_config(&root).unwrap()),
-        )
-        .unwrap();
+        let scaffold_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .join("wrapper-js/scaffold");
+        copy_fixture_tree(&scaffold_root, &root);
         root
+    }
+
+    fn make_source_checkout_root() -> PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("ossplate-source-fixture-{unique}"));
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .to_path_buf();
+        let manifest: serde_json::Value = serde_json::from_str(
+            &fs::read_to_string(repo_root.join("scaffold-manifest.json")).unwrap(),
+        )
+        .unwrap();
+        for relative_path in manifest["requiredPaths"].as_array().unwrap() {
+            let relative_path = relative_path.as_str().unwrap();
+            let source_path = repo_root.join(relative_path);
+            let target_path = root.join(relative_path);
+            if let Some(parent) = target_path.parent() {
+                fs::create_dir_all(parent).unwrap();
+            }
+            if source_path.is_dir() {
+                copy_fixture_tree(&source_path, &target_path);
+            } else {
+                fs::copy(&source_path, &target_path).unwrap();
+            }
+        }
+        root
+    }
+
+    fn copy_fixture_tree(source_root: &Path, target_root: &Path) {
+        fs::create_dir_all(target_root).unwrap();
+        for entry in fs::read_dir(source_root).unwrap() {
+            let entry = entry.unwrap();
+            let source_path = entry.path();
+            let target_path = target_root.join(entry.file_name());
+            if entry.file_type().unwrap().is_dir() {
+                copy_fixture_tree(&source_path, &target_path);
+            } else {
+                if let Some(parent) = target_path.parent() {
+                    fs::create_dir_all(parent).unwrap();
+                }
+                fs::copy(&source_path, &target_path).unwrap();
+            }
+        }
     }
 }

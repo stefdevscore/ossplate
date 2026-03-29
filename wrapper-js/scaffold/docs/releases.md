@@ -1,61 +1,53 @@
 # Releases
 
-Use this guide when cutting a new `ossplate` release.
+Use this guide when cutting or recovering an `ossplate` release.
 
-## Current Registry Setup
+## REL-01 Current Registry Model
 
-- PyPI publishes from [`.github/workflows/publish.yml`](../.github/workflows/publish.yml) via GitHub OIDC trusted publishing.
-- crates.io publishes from [`.github/workflows/publish.yml`](../.github/workflows/publish.yml) via OIDC trusted publishing with `CARGO_TOKEN` fallback.
-- npm publishes from [`.github/workflows/publish-npm.yml`](../.github/workflows/publish-npm.yml) via OIDC trusted publishing with `NPM_TOKEN` fallback.
-  Runtime packages publish first, then the top-level `ossplate` package publishes after they are available.
+- crates.io publishes `ossplate`
+- npm publishes `ossplate` plus runtime packages
+- PyPI publishes `ossplate`
+- the CLI name is `ossplate`
 
-## Before Release
+Current npm runtime package names are:
 
-Run the full gate before creating a release:
+- `ossplate-darwin-arm64`
+- `ossplate-darwin-x64`
+- `ossplate-linux-x64`
+- `ossplate-windows-x64`
+
+`win32-x64` remains the internal target identifier. `ossplate-windows-x64` is the published Windows npm package name.
+
+## REL-02 Required Preflight
+
+Run the full gate before releasing:
 
 ```bash
 ./scripts/verify.sh
 ```
 
-The release gate now includes:
+The release gate includes:
 
-- `scripts/assert-release-state.mjs` for internal version and artifact invariants
-- `scripts/assert-js-lockfile-state.mjs resolved` for the checked-in JS lockfile contract on normal `main` CI
-- `scripts/assert-publish-readiness.mjs` for external npm publish readiness
+- `scripts/assert-release-state.mjs`
+- `scripts/assert-js-lockfile-state.mjs resolved`
+- `scripts/assert-publish-readiness.mjs publish`
 
-Optional local packaging confidence checks:
+## REL-03 Local Operator Publish
 
-```bash
-cargo package --manifest-path core-rs/Cargo.toml
-cargo publish --manifest-path core-rs/Cargo.toml --dry-run
-cd wrapper-js && npm pack --dry-run
-cd wrapper-js/platform-packages/ossplate-<host-target> && npm pack --dry-run
-cd ../wrapper-py && OSSPLATE_PY_TARGET=linux-x64 python -m build --wheel
-cd ../wrapper-py && python -m build --sdist
-```
-
-Use the runtime package that matches the machine you are building on:
-
-- macOS Apple Silicon: `ossplate-darwin-arm64`
-- macOS Intel: `ossplate-darwin-x64`
-- Linux x64: `ossplate-linux-x64`
-- Windows x64: `ossplate-windows-x64`
-
-## Local Operator Publish
-
-For source-based operator recovery or manual registry work, use:
+For source-based recovery or manual registry work, use:
 
 ```bash
 cargo run --manifest-path core-rs/Cargo.toml -- publish --dry-run
 ```
 
-The local publish command:
+Important facts:
 
-- publishes the current checked-out version only
-- does not bump versions, create tags, or create GitHub releases
-- stops on the first registry failure and prints recovery guidance
-- runs an explicit local preflight for required tools and detectable auth state before any publish step
-- uses local auth only; it does not use GitHub OIDC trusted publishing
+- it publishes the current checked-out version only
+- it does not bump versions, tag, or create a GitHub release
+- it stops on first failure and prints recovery guidance
+- it runs local preflight checks for required tools and detectable auth before publish work starts
+- it uses local toolchain and local auth only
+- it is host-limited: one machine can only build the current host npm runtime binary and current host Python wheel
 
 Common local flags:
 
@@ -65,122 +57,78 @@ cargo run --manifest-path core-rs/Cargo.toml -- publish --registry npm --skip-ex
 cargo run --manifest-path core-rs/Cargo.toml -- publish --registry pypi
 ```
 
-Local auth should come from environment or local registry tooling, not checked-in files:
+Auth sources:
 
 - npm: existing `npm login` state or `NPM_TOKEN`
 - crates.io: existing cargo auth state or `CARGO_REGISTRY_TOKEN`
 - PyPI: `TWINE_USERNAME=__token__` plus `TWINE_PASSWORD`, or equivalent local twine config
 
-On one machine, local publish can only build the current host runtime binary and current host Python wheel. That makes it good for dry-runs, reruns, and recovery, but not a substitute for the full multi-runner automated release.
+Manual publish safeguards:
 
-The local PyPI path now clears the host wheel output directory and the sdist output directory before build, then requires exactly one fresh host wheel and one fresh sdist before `twine check` or upload. That keeps stale `wrapper-py/dist` artifacts out of manual publish runs.
+- the PyPI path clears the host wheel and sdist output directories before build
+- the PyPI path requires exactly one fresh host wheel and one fresh sdist before `twine check` or upload
+- the npm path waits for runtime package visibility before publishing the top-level `ossplate` package
+- npm timeout output calls out propagation delay and lists any missing runtime packages
 
-The local npm path still waits for runtime package visibility before publishing the top-level `ossplate` package, but timeout output now calls out npm propagation explicitly and lists the runtime packages that are still missing.
+## REL-04 Release Flow
 
-## Versioning
+1. Push releasable work to `main`.
+2. Let CI pass on that commit.
+3. `release.yml` computes the next version, runs preflight checks, bumps versions, commits the release, and tags it.
+4. The release workflow dispatches downstream publish workflows and waits for success.
+5. After downstream success, npm settlement is checked and `wrapper-js/package-lock.json` is repaired back into resolved state on `main`.
+6. Only after downstream publish success does the workflow create the GitHub release.
 
-Keep the registry versions aligned across:
-
-- [`core-rs/Cargo.toml`](../core-rs/Cargo.toml)
-- [`wrapper-js/package.json`](../wrapper-js/package.json)
-- [`wrapper-py/pyproject.toml`](../wrapper-py/pyproject.toml)
-
-After updating versions, rerun:
-
-```bash
-./scripts/verify.sh
-```
-
-## Release Flow
-
-1. Merge or push work to `main`.
-2. Let [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) pass on that commit.
-3. [`.github/workflows/release.yml`](../.github/workflows/release.yml) computes the next version from commit messages, runs release-state and publish-readiness preflight checks, then bumps versions, commits the release, and tags it.
-4. The release workflow dispatches the publish workflows and waits for both of them to finish successfully.
-5. After downstream publish success, the release workflow waits for npm registry settlement, repairs `wrapper-js/package-lock.json` into resolved installable state, and commits that lockfile sync back to `main`.
-6. Only after downstream publish success does the release workflow create the GitHub release.
-7. Successful completion of the release workflow means all intended registry publishes either completed or skipped safely.
-
-The downstream publish workflows are:
-   - [`.github/workflows/publish.yml`](../.github/workflows/publish.yml)
-   - [`.github/workflows/publish-npm.yml`](../.github/workflows/publish-npm.yml)
-
-## Workflow Friction To Expect
-
-The release pipeline mutates `main` on GitHub.
-
-- After CI passes, [`.github/workflows/release.yml`](../.github/workflows/release.yml) commits the version bump directly to `origin/main`.
-- After npm publish succeeds, the same workflow may add a second commit that refreshes `wrapper-js/package-lock.json` to the published runtime package versions.
-- That means a local checkout that was clean before release can become behind `origin/main` without any new manual commits from you.
-- Before pushing follow-up work, always refresh your branch first:
+The release workflow mutates `main`, so local branches can fall behind even without manual commits. Refresh before pushing follow-up work:
 
 ```bash
 git fetch origin
 git rebase origin/main
 ```
 
-- If a push is rejected as non-fast-forward right after a green release, this version-bump commit is the expected cause.
-- If npm published successfully, the post-publish lockfile sync commit can also be the expected cause.
-
-Optional local hook setup uses [`pre-commit`](https://pre-commit.com/) through [`.pre-commit-config.yaml`](../.pre-commit-config.yaml). It is not required for CI or release automation.
-
-## Bump Rules
+## REL-05 Bump Rules
 
 - `feat:` => minor
 - `fix:`, `docs:`, `refactor:`, `test:`, `chore:`, `build:`, `ci:` => patch
-- `!` in the conventional commit header or `BREAKING CHANGE` in the body => major
+- `!` in the commit header or `BREAKING CHANGE` in the body => major
 - `[major]`, `[minor]`, `[patch]` override the inferred bump
 
-## Rerun Behavior
+## REL-06 Rerun Behavior
 
-The publish jobs are intentionally rerun-safe.
+Publish jobs are intentionally rerun-safe:
 
-- Cargo checks whether the crate version already exists before attempting publish.
-- npm checks whether the package version already exists before attempting publish.
-- npm runtime packages check whether their package version already exists before attempting publish.
-- PyPI uses `skip-existing: true`.
+- cargo checks whether the crate version already exists
+- npm checks whether the package version already exists
+- npm runtime packages check whether their package version already exists
+- PyPI uses `skip-existing`
 
-So a second run for the same version should usually succeed by skipping work rather than failing destructively.
+If a release created the bump commit or tag but a registry publish failed, treat that version as failed. Fix the issue and cut the next patch release rather than trying to normalize the broken version in place.
 
-If a release created the bump commit/tag but one registry publish failed, treat that version as a failed release candidate. Fix the pipeline and cut the next patch release instead of trying to normalize the broken version in place.
+## REL-07 Wheels And Runtime Packages
 
-## Python Wheels
+Python publishes:
 
-- PyPI publishes one wheel per supported target and one sdist.
-- Current target runners are:
-  - `ubuntu-latest` -> `linux-x64`
-  - `macos-14` -> `darwin-arm64`
-  - `macos-15-intel` -> `darwin-x64`
-  - `windows-latest` -> `win32-x64`
-- Each wheel bundles exactly one native `ossplate` executable for its target, so wheel filenames are platform-specific.
-- Wheel size is expected to be dominated by that single executable, not by scaffold duplication.
+- one wheel per supported target
+- one sdist
 
-## JavaScript Runtime Packages
+Current target runners are:
 
-- npm publishes one thin top-level package: `ossplate`
-- npm also publishes one platform runtime package per supported target:
-  - `ossplate-linux-x64`
-  - `ossplate-darwin-arm64`
-  - `ossplate-darwin-x64`
-  - `ossplate-windows-x64`
-- Users still install `ossplate`; npm resolves the matching runtime package through `optionalDependencies`.
-- The top-level npm publish now checks that every expected runtime package version is visible on npm before publishing `ossplate`.
-- Release preflight fails if the next npm version is already partially published or the runtime package names are not publishable on the public registry.
-- The checked-in `wrapper-js/package-lock.json` is a source/CI artifact.
-- Release bump commits intentionally carry placeholder runtime entries before the next npm versions exist.
-- Successful releases must end with a resolved lockfile sync commit on `main`, so future CI can keep using `npm ci`.
-- Manual JS lockfile recovery should use:
-  - `node scripts/wait-for-npm-versions.mjs <version> <package...>`
-  - `node scripts/repair-js-lockfile.mjs`
+- `ubuntu-latest` -> `linux-x64`
+- `macos-14` -> `darwin-arm64`
+- `macos-15-intel` -> `darwin-x64`
+- `windows-latest` -> `win32-x64`
 
-## Current Published Names
+Each wheel bundles exactly one native executable for its target.
 
-- crates.io: `ossplate`
-- npm: `ossplate`
-- PyPI: `ossplate`
-- CLI: `ossplate`
+npm publishes:
 
-## Maintenance
+- one thin top-level package: `ossplate`
+- one platform runtime package per supported target
 
-- Refresh GitHub Actions dependencies before the Node 20 runner deprecation becomes a problem.
-- Keep the release auth docs aligned with real registry configuration whenever trusted publishing or token fallback changes.
+The top-level npm publish waits for runtime package visibility before publishing `ossplate`. Local publish timeout output now calls out npm propagation explicitly and lists any missing runtime packages.
+
+## REL-08 Maintenance Notes
+
+- keep auth and trusted publishing docs aligned with real workflow configuration
+- keep lockfile guidance aligned with the current resolved-vs-placeholder release model
+- treat release docs as operator guidance, not a historical log

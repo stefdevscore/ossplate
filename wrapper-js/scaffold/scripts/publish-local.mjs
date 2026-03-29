@@ -4,8 +4,15 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { arch, platform } from "node:os";
 import { fileURLToPath } from "node:url";
+import {
+  getRuntimeTargets,
+  resolveNodeHostTarget,
+  runtimePackageFolder,
+  runtimePackageName
+} from "./runtime-targets.mjs";
 
 const scriptRepoRoot = fileURLToPath(new URL("..", import.meta.url));
+const runtimeTargets = getRuntimeTargets();
 
 if (isMainModule()) {
   try {
@@ -389,12 +396,11 @@ function loadMetadata(root) {
     throw new Error("failed to read cargo package metadata");
   }
   const version = rootPackage.version;
-  const runtimePackages = [
-    { target: "darwin-arm64", folder: "ossplate-darwin-arm64", name: `${rootPackage.name}-darwin-arm64` },
-    { target: "darwin-x64", folder: "ossplate-darwin-x64", name: `${rootPackage.name}-darwin-x64` },
-    { target: "linux-x64", folder: "ossplate-linux-x64", name: `${rootPackage.name}-linux-x64` },
-    { target: "win32-x64", folder: "ossplate-win32-x64", name: `${rootPackage.name}-windows-x64` }
-  ];
+  const runtimePackages = runtimeTargets.map((entry) => ({
+    target: entry.target,
+    folder: runtimePackageFolder(entry.target),
+    name: runtimePackageName(rootPackage.name, entry.target)
+  }));
   return {
     version,
     rootPackage,
@@ -423,16 +429,7 @@ function collectExpectedArtifacts(directory, extension, artifactLabel, outputLab
 }
 
 function resolveHostTarget(context) {
-  const target = {
-    darwin: { arm64: "darwin-arm64", x64: "darwin-x64" },
-    linux: { x64: "linux-x64" },
-    win32: { x64: "win32-x64" }
-  }[context.platform()]?.[context.arch()];
-
-  if (!target) {
-    throw new Error(`unsupported host platform for local publish: ${context.platform()}/${context.arch()}`);
-  }
-  return { target };
+  return resolveNodeHostTarget(context.platform(), context.arch());
 }
 
 function collectFiles(directory, predicate) {

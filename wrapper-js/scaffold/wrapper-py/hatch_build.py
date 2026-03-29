@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import platform
 import subprocess
@@ -14,30 +15,16 @@ except ModuleNotFoundError:  # pragma: no cover - exercised in local unit tests 
             pass
 
 BUILD_TARGET_ENV = "OSSPLATE_PY_TARGET"
-TARGETS = {
-    "darwin-arm64": "ossplate",
-    "darwin-x64": "ossplate",
-    "linux-x64": "ossplate",
-    "win32-x64": "ossplate.exe",
-}
-HOST_TARGETS = {
-    ("Darwin", "arm64"): "darwin-arm64",
-    ("Darwin", "x86_64"): "darwin-x64",
-    ("Linux", "x86_64"): "linux-x64",
-    ("Windows", "AMD64"): "win32-x64",
-    ("Windows", "x86_64"): "win32-x64",
-}
-RUNTIME_PACKAGE_FOLDERS = {
-    "darwin-arm64": "ossplate-darwin-arm64",
-    "darwin-x64": "ossplate-darwin-x64",
-    "linux-x64": "ossplate-linux-x64",
-    "win32-x64": "ossplate-win32-x64",
-}
+
+
+def load_runtime_targets(repo_root: Path) -> list[dict]:
+    return json.loads((repo_root / "runtime-targets.json").read_text(encoding="utf-8"))["targets"]
 
 
 class CustomBuildHook(BuildHookInterface):
     def initialize(self, version: str, build_data: dict) -> None:
         repo_root = Path(self.root).resolve().parent
+        runtime_targets = load_runtime_targets(repo_root)
         script = repo_root / "scripts" / "stage-distribution-assets.mjs"
         try:
             subprocess.run(["node", str(script)], cwd=repo_root, check=True)
@@ -45,12 +32,13 @@ class CustomBuildHook(BuildHookInterface):
             raise RuntimeError("node is required to stage distribution assets for wrapper-py builds") from error
 
         target = resolve_build_target()
-        binary_name = TARGETS[target]
+        target_spec = runtime_target_by_name(runtime_targets, target)
+        binary_name = target_spec["binary"]
         binary_source = (
             repo_root
             / "wrapper-js"
             / "platform-packages"
-            / RUNTIME_PACKAGE_FOLDERS[target]
+            / f"ossplate-{target_spec['folderSuffix']}"
             / "bin"
             / binary_name
         )
@@ -66,13 +54,23 @@ class CustomBuildHook(BuildHookInterface):
 
 
 def resolve_build_target() -> str:
+    repo_root = Path(__file__).resolve().parent.parent
+    runtime_targets = load_runtime_targets(repo_root)
     target = os.environ.get(BUILD_TARGET_ENV)
     if target:
-        if target not in TARGETS:
+        if not any(entry["target"] == target for entry in runtime_targets):
             raise RuntimeError(f"unsupported {BUILD_TARGET_ENV} value: {target}")
         return target
 
-    host = HOST_TARGETS.get((platform.system(), platform.machine()))
+    host = next(
+        (
+            entry["target"]
+            for entry in runtime_targets
+            if entry["python"]["system"] == platform.system()
+            and platform.machine() in entry["python"]["machines"]
+        ),
+        None,
+    )
     if host is None:
         raise RuntimeError(
             f"unsupported host platform for wrapper-py wheel build: {platform.system()}/{platform.machine()}"
@@ -90,6 +88,13 @@ def platform_tag_for_target(target: str) -> str:
     if target == "win32-x64":
         return "win_amd64"
     raise RuntimeError(f"unsupported target for wheel tag generation: {target}")
+
+
+def runtime_target_by_name(runtime_targets: list[dict], target: str) -> dict:
+    for entry in runtime_targets:
+        if entry["target"] == target:
+            return entry
+    raise RuntimeError(f"unsupported runtime target: {target}")
 
 
 def linux_platform_tag() -> str:

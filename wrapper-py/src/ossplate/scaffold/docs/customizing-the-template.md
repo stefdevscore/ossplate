@@ -1,28 +1,28 @@
 # Adoption Guide
 
-Use this guide after creating or cloning a project managed by `ossplate`. The goal is to adopt the scaffold under your own identity and then let the tool keep owned metadata aligned.
+Use this guide after creating or cloning a project managed by `ossplate`.
 
-## Canonical Source Of Truth
+The adoption rule is simple:
 
-`ossplate.toml` is the canonical source of truth for the shared project identity.
+- `ossplate.toml` is the shared identity source of truth
+- `sync` rewrites owned surfaces back into alignment
+- `validate` checks that the owned surfaces still match
 
-It currently owns:
+## ADOPT-01 Canonical Source Of Truth
+
+`ossplate.toml` currently owns:
 
 - project name
 - project description
 - repository URL
 - license
-- author name/email
+- author name and email
 - Rust crate name
 - npm package name
 - Python package name
 - CLI command name
 
-`ossplate validate` checks that the owned surfaces match this config.
-
-`ossplate sync` rewrites the owned surfaces back into alignment.
-
-## Required Identity Changes
+## ADOPT-02 Required Identity Changes
 
 Replace these inherited defaults before reuse:
 
@@ -32,46 +32,37 @@ Replace these inherited defaults before reuse:
 | npm package name | `ossplate` | `wrapper-js/package.json` |
 | PyPI package name | `ossplate` | `wrapper-py/pyproject.toml` |
 | CLI command | `ossplate` | `ossplate.toml`, `wrapper-js/package.json`, `wrapper-py/pyproject.toml` |
-| Repository URL | `https://github.com/stefdevscore/ossplate` | Rust, npm, Python metadata |
-| Author/email | `Stef <stefdevscore@github.com>` / `stefdevscore@github.com` | Rust, npm, Python metadata |
-| Package-facing scaffold branding | `ossplate` identity in wrapper docs | `wrapper-js/README.md`, `wrapper-py/README.md` |
+| Repository URL | `https://github.com/stefdevscore/ossplate` | Rust, npm, and Python metadata |
+| Author/email | `Stef <stefdevscore@github.com>` / `stefdevscore@github.com` | Rust, npm, and Python metadata |
+| Package-facing branding | `ossplate` identity in wrapper docs | `wrapper-js/README.md`, `wrapper-py/README.md` |
 
-## What `ossplate validate` Enforces
+## ADOPT-03 What `validate` And `sync` Own
 
-The tool reports:
+Owned today:
 
-- drift between `ossplate.toml` and the owned manifest fields
-- drift between `ossplate.toml` and wrapper package README identity
-- missing or malformed owned metadata in Cargo, npm, or Python surfaces
+- Cargo, npm, and Python metadata fields
+- wrapper package README identity
+- the root README identity block
+- workflow display names between `ossplate:workflow-name` markers
 
-The tool does not currently rewrite or own:
+Not owned today:
 
-- CI workflow logic
-- publish workflow auth logic
-- the root README body beyond the marked identity block
+- workflow logic
+- publish auth logic
 - arbitrary docs prose
+- content outside bounded markers
 
-The root `README.md` now has a bounded identity section managed by `ossplate sync`. Content outside that marker block remains intentionally manual.
+## ADOPT-04 First Adoption Pass
 
-The workflow files now expose a similarly bounded identity surface:
-
-- `.github/workflows/ci.yml`
-- `.github/workflows/publish.yml`
-- `.github/workflows/publish-npm.yml`
-
-`sync` owns only the display name between `ossplate:workflow-name` markers. Trigger logic, jobs, auth, and shell steps remain manual.
-
-## First Run
-
-1. Either update `ossplate.toml` directly or use `create` / `init` with identity flags.
+1. Update `ossplate.toml` directly or use `create` / `init` with identity flags.
 2. Run `cargo run --manifest-path core-rs/Cargo.toml -- sync`.
 3. Run `cargo run --manifest-path core-rs/Cargo.toml -- validate`.
 4. Run the verification flow from [Testing](./testing.md).
 5. Only then expand product code or publish configuration.
 
-## Create A New Project
+## ADOPT-05 Create A New Project
 
-To scaffold a fresh target from the current template tree:
+Use:
 
 ```bash
 cargo run --manifest-path core-rs/Cargo.toml -- create ../my-new-project \
@@ -85,13 +76,17 @@ cargo run --manifest-path core-rs/Cargo.toml -- create ../my-new-project \
   --command "my-project"
 ```
 
-That copies the curated scaffold payload into the target directory, applies any identity overrides to `ossplate.toml`, then runs `sync` on the new target.
+`create`:
 
-The packaged scaffold intentionally excludes wrapper test suites and maintainer-only utilities. Generated projects get the delivery baseline and operator docs, not the source repo's internal harness.
+- copies the curated scaffold payload into the target directory
+- applies identity overrides to `ossplate.toml`
+- runs `sync` on the new target
+- rejects non-empty targets
+- rejects targets inside the source template tree
 
-## Adopt An Existing Directory
+## ADOPT-06 Adopt An Existing Directory
 
-To hydrate an existing directory in place:
+Use:
 
 ```bash
 cargo run --manifest-path core-rs/Cargo.toml -- init \
@@ -100,9 +95,14 @@ cargo run --manifest-path core-rs/Cargo.toml -- init \
   --command "existing-project"
 ```
 
-`init` ensures the expected scaffold layout exists, copies any missing scaffold files, applies any requested identity overrides, and then runs `sync` so owned metadata matches `ossplate.toml`.
+`init`:
 
-## Identity Flags
+- ensures the expected scaffold layout exists
+- copies any missing scaffold files
+- applies requested identity overrides
+- runs `sync` so owned metadata matches `ossplate.toml`
+
+## ADOPT-07 Identity Flags
 
 - `--name`
 - `--description`
@@ -115,7 +115,7 @@ cargo run --manifest-path core-rs/Cargo.toml -- init \
 - `--python-package`
 - `--command`
 
-## Related Decisions
+## ADOPT-08 Related Decisions
 
 - [ADR 0002: Sync Owns Bounded Identity Surfaces](./adrs/0002-sync-owns-bounded-identity.md)
 - [ADR 0003: Ship A Curated Scaffold Payload](./adrs/0003-curated-scaffold-payload.md)

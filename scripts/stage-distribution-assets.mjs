@@ -10,6 +10,13 @@ import {
 import { arch, platform } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  getRuntimeTargets,
+  resolveNodeHostTarget,
+  runtimePackageFolder,
+  runtimePackageName,
+  runtimeTargetByName
+} from "./runtime-targets.mjs";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const manifest = JSON.parse(
@@ -17,18 +24,7 @@ const manifest = JSON.parse(
 );
 const requiredPaths = manifest.requiredPaths;
 const excludedPrefixes = manifest.excludedPrefixes;
-const runtimePackageFolders = {
-  "darwin-arm64": "ossplate-darwin-arm64",
-  "darwin-x64": "ossplate-darwin-x64",
-  "linux-x64": "ossplate-linux-x64",
-  "win32-x64": "ossplate-win32-x64"
-};
-const runtimePackageNames = {
-  "darwin-arm64": "ossplate-darwin-arm64",
-  "darwin-x64": "ossplate-darwin-x64",
-  "linux-x64": "ossplate-linux-x64",
-  "win32-x64": "ossplate-windows-x64"
-};
+const runtimeTargets = getRuntimeTargets();
 
 const wrapperTargets = [
   join(repoRoot, "wrapper-js", "scaffold"),
@@ -36,7 +32,7 @@ const wrapperTargets = [
 ];
 
 const currentTarget = resolveCurrentTarget();
-const currentBinaryName = currentTarget.platform === "win32" ? "ossplate.exe" : "ossplate";
+const currentBinaryName = currentTarget.binary;
 const sourceBinary = join(repoRoot, "core-rs", "target", "debug", currentBinaryName);
 
 const mode = process.argv[2] ?? "default";
@@ -60,8 +56,8 @@ function stageDefault() {
   if (existsSync(sourceBinary)) {
     stagePythonRuntime();
     stageRuntimePackage(
-      join(repoRoot, "wrapper-js", "platform-packages", runtimePackageFolders[currentTarget.folder]),
-      currentTarget.folder
+      join(repoRoot, "wrapper-js", "platform-packages", runtimePackageFolder(currentTarget.target)),
+      currentTarget.target
     );
   }
 }
@@ -83,9 +79,7 @@ function stageScaffold(destinationRoot) {
 }
 
 function stagePythonRuntime() {
-  const relativePath = currentTarget.platform === "win32"
-    ? `wrapper-py/src/ossplate/bin/${currentTarget.folder}/ossplate.exe`
-    : `wrapper-py/src/ossplate/bin/${currentTarget.folder}/ossplate`;
+  const relativePath = `wrapper-py/src/ossplate/bin/${currentTarget.target}/${currentTarget.binary}`;
   const destination = join(repoRoot, relativePath);
   mkdirSync(dirname(destination), { recursive: true });
   copyFileSync(sourceBinary, destination);
@@ -93,21 +87,21 @@ function stagePythonRuntime() {
 }
 
 function cleanAllRuntimePackageBins() {
-  for (const packageFolder of Object.values(runtimePackageFolders)) {
-    removeTree(join(repoRoot, "wrapper-js", "platform-packages", packageFolder, "bin"));
+  for (const target of runtimeTargets) {
+    removeTree(
+      join(repoRoot, "wrapper-js", "platform-packages", runtimePackageFolder(target.target), "bin")
+    );
   }
 }
 
 function stageRuntimePackage(packageRoot, target) {
-  const expectedPackageFolder = runtimePackageFolders[target];
-  const expectedPackageName = runtimePackageNames[target];
+  const spec = runtimeTargetByName(target);
+  const expectedPackageFolder = runtimePackageFolder(target);
+  const expectedPackageName = runtimePackageName("ossplate", target);
   const expectedPackageSuffix = `/${expectedPackageFolder}`;
-  if (!expectedPackageFolder) {
-    throw new Error(`unsupported runtime package target: ${target}`);
-  }
-  if (target !== currentTarget.folder) {
+  if (target !== currentTarget.target) {
     throw new Error(
-      `cannot stage ${target} from host ${currentTarget.folder}; use the matching runner for this runtime package`
+      `cannot stage ${target} from host ${currentTarget.target}; use the matching runner for this runtime package`
     );
   }
   if (!existsSync(sourceBinary)) {
@@ -128,7 +122,7 @@ function stageRuntimePackage(packageRoot, target) {
     );
   }
 
-  const executable = target === "win32-x64" ? "ossplate.exe" : "ossplate";
+  const executable = spec.binary;
   const destination = join(packageRoot, "bin", executable);
   removeTree(join(packageRoot, "bin"));
   mkdirSync(dirname(destination), { recursive: true });
@@ -146,19 +140,7 @@ function removeTree(path) {
 }
 
 function resolveCurrentTarget() {
-  const platformName = platform();
-  const archName = arch();
-  const folder = {
-    darwin: { arm64: "darwin-arm64", x64: "darwin-x64" },
-    linux: { x64: "linux-x64" },
-    win32: { x64: "win32-x64" }
-  }[platformName]?.[archName];
-
-  if (!folder) {
-    throw new Error(`Unsupported host platform for staging: ${platformName}/${archName}`);
-  }
-
-  return { platform: platformName, folder };
+  return resolveNodeHostTarget(platform(), arch());
 }
 
 export function getScaffoldManifest() {

@@ -3,6 +3,7 @@
 __pycache__/
 *.pyc
 .tmp*/
+.live-e2e/
 dist/
 build/
 node_modules/

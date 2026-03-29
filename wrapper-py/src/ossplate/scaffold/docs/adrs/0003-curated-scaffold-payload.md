@@ -1,20 +1,20 @@
 # ADR 0003: Ship A Curated Scaffold Payload
 
-## Status
+## ADR-0003-01 Status
 
 Accepted
 
-## Context
+## ADR-0003-02 Context
 
 `create` and `init` need scaffold content even when `ossplate` is installed from npm or PyPI. A broad repo snapshot would work, but it would also ship tests, maintainer-only files, and accidental junk.
 
-## Decision
+## ADR-0003-03 Decision
 
 - Installed wrapper artifacts ship a curated scaffold payload.
 - `scaffold-manifest.json` is the allowlist for that payload.
 - Artifact tests assert both required content and excluded content.
 
-## Consequences
+## ADR-0003-04 Consequences
 
 - Installed distributions can create and initialize projects end to end.
 - Package contents stay intentional.

@@ -2,19 +2,12 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { getRuntimeTargets, runtimePackageFolder, runtimePackageName } from "./runtime-targets.mjs";
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 const scaffoldManifest = readJson("scaffold-manifest.json");
 const rootPackage = readJson("wrapper-js/package.json");
-const runtimeTargets = [
-  "darwin-arm64",
-  "darwin-x64",
-  "linux-x64",
-  "win32-x64"
-];
-const runtimePackageFolders = Object.fromEntries(
-  runtimeTargets.map((target) => [target, `ossplate-${target}`])
-);
+const runtimeTargets = getRuntimeTargets();
 
 main();
 
@@ -36,7 +29,7 @@ function main() {
 
 function assertOptionalDependencies() {
   const expected = Object.fromEntries(
-    runtimeTargets.map((target) => [runtimePackageName(target), rootPackage.version])
+    runtimeTargets.map((entry) => [runtimePackageName(rootPackage.name, entry.target), rootPackage.version])
   );
   const actual = rootPackage.optionalDependencies ?? {};
   assertDeepEqual(
@@ -47,12 +40,12 @@ function assertOptionalDependencies() {
 }
 
 function assertRuntimePackages() {
-  for (const target of runtimeTargets) {
-    const folder = runtimePackageFolders[target];
+  for (const entry of runtimeTargets) {
+    const folder = runtimePackageFolder(entry.target);
     const packageJson = readJson(join("wrapper-js", "platform-packages", folder, "package.json"));
-    if (packageJson.name !== runtimePackageName(target)) {
+    if (packageJson.name !== runtimePackageName(rootPackage.name, entry.target)) {
       fail(
-        `runtime package ${folder} has name ${packageJson.name}; expected ${runtimePackageName(target)}`
+        `runtime package ${folder} has name ${packageJson.name}; expected ${runtimePackageName(rootPackage.name, entry.target)}`
       );
     }
     if (packageJson.version !== rootPackage.version) {
@@ -142,12 +135,6 @@ function readPyprojectVersion() {
     fail("failed to read version from wrapper-py/pyproject.toml");
   }
   return match[1];
-}
-
-function runtimePackageName(target) {
-  return target === "win32-x64"
-    ? `${rootPackage.name}-windows-x64`
-    : `${rootPackage.name}-${target}`;
 }
 
 function readText(relativePath) {

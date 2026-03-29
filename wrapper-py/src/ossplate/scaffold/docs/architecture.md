@@ -1,15 +1,15 @@
 # Architecture
 
-`ossplate` is intentionally small. The design goal is simple: one real CLI, three distribution channels.
+`ossplate` is one product distributed through three package channels.
 
-## Runtime Shape
+## ARCH-01 Runtime Shape
 
-- Rust in [`core-rs/`](../core-rs) is the product.
+- Rust in [`core-rs/`](../core-rs) is the behavioral core.
 - JavaScript in [`wrapper-js/`](../wrapper-js) is a package adapter.
 - Python in [`wrapper-py/`](../wrapper-py) is a package adapter.
-- The scaffold payload bundled into the wrappers is a distribution asset, not another implementation.
+- The scaffold payload shipped in the wrappers is a distribution asset, not another implementation.
 
-The main commands are:
+The product commands are:
 
 - `version`
 - `validate`
@@ -18,34 +18,45 @@ The main commands are:
 - `init`
 - `publish`
 
-## Responsibilities
+## ARCH-02 Current Rust Slices
 
-### Rust
+The Rust core is now split into a few explicit slices:
 
-- command parsing
+- core execution in `main.rs`: CLI parsing and top-level dispatch
+- `sync`: bounded identity-bearing metadata validation and rewrite logic
+- `release`: publish command semantics and adapter invocation boundaries
+- `scaffold`: template discovery, projection, hydration, and identity override flow
+- verification: tests and release checks that enforce the intended boundaries
+
+This is still one product architecture. It is not three equal application stacks across Rust, TypeScript, and Python.
+
+## ARCH-03 Responsibilities
+
+### ARCH-03A Rust
+
+Rust owns:
+
+- command semantics
 - project identity loading from `ossplate.toml`
-- validation logic
-- metadata synchronization
+- metadata ownership rules
 - scaffold creation and initialization
+- operator-facing publish orchestration
 
-Rust is the only layer that should know the semantics of project identity and owned metadata surfaces.
+Rust is the only layer that should know what the product means.
 
-It also owns operator-facing source workflows such as local publish orchestration. That keeps registry sequencing and recovery behavior in the same product surface instead of scattering it across wrapper-specific tooling.
-
-### JavaScript and Python
+### ARCH-03B JavaScript And Python
 
 The wrappers own:
 
 - packaged binary lookup
-- platform/architecture target resolution
+- target resolution
 - local binary override support
+- environment setup
 - forwarding stdout, stderr, and exit code unchanged
 
-Python publishes platform-specific wheels because each wheel bundles one native `ossplate` executable for its target.
+They do not own product rules, metadata policy, or alternate command behavior.
 
-They should not implement separate business logic, metadata rules, or command behavior.
-
-### Scaffold Payload
+### ARCH-03C Scaffold Payload
 
 The scaffold payload owns the generated-project baseline:
 
@@ -55,13 +66,11 @@ The scaffold payload owns the generated-project baseline:
 - wrapper launchers
 - packaged binaries needed for installed-wrapper scaffold operations
 
-It is curated by manifest and shipped as part of the wrapper artifacts so `create` and `init` work from installed distributions.
+It is curated by `scaffold-manifest.json` and shipped so installed wrappers can still run `create` and `init`.
 
-## Ownership Boundaries
+## ARCH-04 Ownership Boundaries
 
-`ossplate sync` owns only bounded identity-bearing surfaces. The details are in the ADRs, but the practical rule is simple: if a surface is not explicitly bounded, `sync` should not rewrite it.
-
-Today that includes:
+`ossplate sync` owns only bounded identity-bearing surfaces. Today that includes:
 
 - Cargo, npm, and Python metadata fields
 - wrapper package README identity
@@ -73,20 +82,24 @@ It does not own:
 - workflow logic
 - auth setup
 - arbitrary prose outside bounded markers
-- separate wrapper-specific product behavior
+- wrapper-specific product behavior
 
-## Why It Scales
+## ARCH-05 Forward Path
 
-If the tool grows, keep the current rules:
+The forward-looking slice model lives in [Hexagonal Shell](./hexagonal-shell.md).
+
+Keep the rules simple as the product grows:
 
 - add product behavior in Rust
-- treat wrappers as delivery adapters
-- expand scaffold ownership only where the boundary is explicit and non-destructive
+- keep JS and Python adapter-local
+- expand scaffold ownership only where the boundary is explicit
+- treat verification as architecture enforcement, not generic QA
 
-That gives the project a clean path toward a fuller hexagonal structure without forcing that complexity into the current starter.
-
-## Related Decisions
+## ARCH-06 Related Decisions
 
 - [ADR 0001: Rust Core, Thin Wrappers](./adrs/0001-rust-core-thin-wrappers.md)
 - [ADR 0002: Sync Owns Bounded Identity Surfaces](./adrs/0002-sync-owns-bounded-identity.md)
 - [ADR 0003: Ship A Curated Scaffold Payload](./adrs/0003-curated-scaffold-payload.md)
+- [ADR 0004: Release Orchestration Stays Core-Owned](./adrs/0004-release-orchestration-stays-core-owned.md)
+- [ADR 0005: Verification Enforces Source And Installed Contracts](./adrs/0005-verification-enforces-source-and-installed-contracts.md)
+- [ADR 0006: Rust Core Uses Explicit Product Slices](./adrs/0006-rust-core-uses-explicit-product-slices.md)

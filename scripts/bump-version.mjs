@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { getRuntimeTargets, runtimePackageFolder } from "./runtime-targets.mjs";
 
 const nextVersion = process.argv[2];
 
@@ -19,12 +20,7 @@ for (const packageName of Object.keys(packageJson.optionalDependencies ?? {})) {
 }
 writeJson(packageJsonPath, packageJson);
 
-for (const packageName of [
-  "ossplate-darwin-arm64",
-  "ossplate-darwin-x64",
-  "ossplate-linux-x64",
-  "ossplate-win32-x64"
-]) {
+for (const packageName of getRuntimeTargets().map((entry) => runtimePackageFolder(entry.target))) {
   const runtimePackagePath = joinPath("wrapper-js", "platform-packages", packageName, "package.json");
   const runtimePackageJson = JSON.parse(readFileSync(runtimePackagePath, "utf8"));
   runtimePackageJson.version = nextVersion;

@@ -2,11 +2,15 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { getRuntimeTargets, runtimePackageName } from "./runtime-targets.mjs";
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 const mode = process.argv[2] ?? "publish";
 const explicitVersion = process.argv[3];
 const rootPackage = readJson("wrapper-js/package.json");
+const supportedRuntimePackages = new Set(
+  getRuntimeTargets().map((entry) => runtimePackageName(rootPackage.name, entry.target))
+);
 
 const version = explicitVersion ?? rootPackage.version;
 const runtimePackages = Object.keys(rootPackage.optionalDependencies ?? {});
@@ -27,7 +31,7 @@ function assertRuntimePackageNames() {
         `runtime package ${packageName} is scoped; current release policy requires unscoped publishable runtime package names`
       );
     }
-    if (!/^ossplate-(darwin-arm64|darwin-x64|linux-x64|windows-x64)$/.test(packageName)) {
+    if (!supportedRuntimePackages.has(packageName)) {
       fail(`runtime package ${packageName} does not match the supported npm runtime package contract`);
     }
   }
