@@ -17,7 +17,7 @@ const manifest = JSON.parse(
 );
 const requiredPaths = manifest.requiredPaths;
 const excludedPrefixes = manifest.excludedPrefixes;
-const runtimePackages = {
+const runtimePackageFolders = {
   "darwin-arm64": "ossplate-darwin-arm64",
   "darwin-x64": "ossplate-darwin-x64",
   "linux-x64": "ossplate-linux-x64",
@@ -54,7 +54,7 @@ function stageDefault() {
   if (existsSync(sourceBinary)) {
     stagePythonRuntime();
     stageRuntimePackage(
-      join(repoRoot, "wrapper-js", "platform-packages", runtimePackages[currentTarget.folder]),
+      join(repoRoot, "wrapper-js", "platform-packages", runtimePackageFolders[currentTarget.folder]),
       currentTarget.folder
     );
   }
@@ -87,8 +87,8 @@ function stagePythonRuntime() {
 }
 
 function cleanAllRuntimePackageBins() {
-  for (const packageName of Object.values(runtimePackages)) {
-    rmSync(join(repoRoot, "wrapper-js", "platform-packages", packageName, "bin"), {
+  for (const packageFolder of Object.values(runtimePackageFolders)) {
+    rmSync(join(repoRoot, "wrapper-js", "platform-packages", packageFolder, "bin"), {
       force: true,
       recursive: true
     });
@@ -96,8 +96,9 @@ function cleanAllRuntimePackageBins() {
 }
 
 function stageRuntimePackage(packageRoot, target) {
-  const expectedPackageName = runtimePackages[target];
-  if (!expectedPackageName) {
+  const expectedPackageFolder = runtimePackageFolders[target];
+  const expectedPackageSuffix = `/${expectedPackageFolder}`;
+  if (!expectedPackageFolder) {
     throw new Error(`unsupported runtime package target: ${target}`);
   }
   if (target !== currentTarget.folder) {
@@ -114,9 +115,12 @@ function stageRuntimePackage(packageRoot, target) {
     throw new Error(`runtime package root missing package.json: ${packageRoot}`);
   }
   const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8"));
-  if (packageJson.name !== expectedPackageName) {
+  if (
+    packageJson.name !== expectedPackageFolder &&
+    !packageJson.name.endsWith(expectedPackageSuffix)
+  ) {
     throw new Error(
-      `runtime package ${packageRoot} does not match target ${target}: expected ${expectedPackageName}, found ${packageJson.name}`
+      `runtime package ${packageRoot} does not match target ${target}: expected name ending with ${expectedPackageFolder}, found ${packageJson.name}`
     );
   }
 

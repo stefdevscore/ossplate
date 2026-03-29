@@ -781,6 +781,36 @@ fn validate_package_json(config: &ToolConfig, content: &str) -> Result<Vec<Valid
             Some(bin_target),
         ));
     }
+    let package_version = value
+        .get("version")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default();
+    let expected_optional_dependencies = serde_json::Map::from_iter(
+        ["darwin-arm64", "darwin-x64", "linux-x64", "win32-x64"]
+            .into_iter()
+            .map(|target| {
+                (
+                    runtime_package_name(config, target),
+                    serde_json::Value::String(package_version.to_string()),
+                )
+            }),
+    );
+    let actual_optional_dependencies = value
+        .get("optionalDependencies")
+        .and_then(serde_json::Value::as_object)
+        .cloned()
+        .unwrap_or_default();
+    if actual_optional_dependencies != expected_optional_dependencies {
+        issues.push(issue(
+            "wrapper-js/package.json",
+            "optionalDependencies",
+            "owned metadata differs from the canonical project identity",
+            Some(serde_json::to_string_pretty(
+                &expected_optional_dependencies,
+            )?),
+            Some(serde_json::to_string_pretty(&actual_optional_dependencies)?),
+        ));
+    }
     Ok(issues)
 }
 
@@ -795,6 +825,17 @@ fn sync_package_json(config: &ToolConfig, content: &str) -> Result<String> {
     value["repository"]["url"] = serde_json::Value::String(config.project.repository.clone());
     value["bin"] = json!({
         config.packages.command.clone(): "bin/ossplate.js"
+    });
+    let version = value
+        .get("version")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    value["optionalDependencies"] = json!({
+        runtime_package_name(config, "darwin-arm64"): version,
+        runtime_package_name(config, "darwin-x64"): version,
+        runtime_package_name(config, "linux-x64"): version,
+        runtime_package_name(config, "win32-x64"): version
     });
     let mut rendered = serde_json::to_string_pretty(&value)?;
     rendered.push('\n');
@@ -838,8 +879,27 @@ fn runtime_package_spec(target: &str) -> RuntimePackageSpec {
     }
 }
 
-fn runtime_package_name(config: &ToolConfig, target: &str) -> String {
+fn runtime_package_folder(config: &ToolConfig, target: &str) -> String {
     format!("{}-{target}", config.packages.npm_package)
+}
+
+fn runtime_package_scope(config: &ToolConfig) -> Result<String> {
+    let repo = github_repository_path(&config.project.repository)?;
+    let owner = repo
+        .split('/')
+        .next()
+        .filter(|segment| !segment.is_empty())
+        .ok_or_else(|| anyhow!("unsupported repository URL for runtime package scope"))?;
+    Ok(owner.to_string())
+}
+
+fn runtime_package_name(config: &ToolConfig, target: &str) -> String {
+    format!(
+        "@{}/{}",
+        runtime_package_scope(config)
+            .expect("runtime package rendering requires a GitHub repository URL"),
+        runtime_package_folder(config, target)
+    )
 }
 
 fn validate_runtime_package_json(
@@ -888,7 +948,7 @@ fn validate_runtime_package_json(
         value.get("repository").and_then(|v| v.get("directory")),
         &format!(
             "wrapper-js/platform-packages/{}",
-            runtime_package_name(config, spec.target)
+            runtime_package_folder(config, spec.target)
         ),
     );
     check_json_string(
@@ -916,6 +976,7 @@ fn sync_runtime_package_json(
     let mut value: serde_json::Value = serde_json::from_str(content)
         .with_context(|| format!("failed to parse {}", spec.manifest_path))?;
     let package_name = runtime_package_name(config, spec.target);
+    let package_folder = runtime_package_folder(config, spec.target);
     value["name"] = serde_json::Value::String(package_name.clone());
     value["description"] = serde_json::Value::String(format!(
         "Platform runtime package for {} on {}.",
@@ -924,7 +985,7 @@ fn sync_runtime_package_json(
     value["license"] = serde_json::Value::String(config.project.license.clone());
     value["repository"]["url"] = serde_json::Value::String(config.project.repository.clone());
     value["repository"]["directory"] =
-        serde_json::Value::String(format!("wrapper-js/platform-packages/{package_name}"));
+        serde_json::Value::String(format!("wrapper-js/platform-packages/{package_folder}"));
     value["os"] = json!([spec.os]);
     value["cpu"] = json!([spec.cpu]);
     let mut rendered = serde_json::to_string_pretty(&value)?;
@@ -1603,7 +1664,7 @@ mod tests {
             root.join("wrapper-js/platform-packages/ossplate-darwin-arm64/package.json"),
         )
         .unwrap();
-        assert!(synced.contains("\"name\": \"ossplate-darwin-arm64\""));
+        assert!(synced.contains("\"name\": \"@stefdevscore/ossplate-darwin-arm64\""));
         assert!(validate_repo(&root).unwrap().ok);
     }
 
@@ -1742,6 +1803,26 @@ version = "0.1.13"
         let config = load_config(&target).unwrap();
         assert_eq!(config.project.name, "Demo Tool");
         assert_eq!(config.packages.command, "demo-tool");
+        let wrapper_package: serde_json::Value = serde_json::from_str(
+            &fs::read_to_string(target.join("wrapper-js/package.json")).unwrap(),
+        )
+        .unwrap();
+        let mut actual_runtime_dependencies = wrapper_package["optionalDependencies"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .cloned()
+            .collect::<Vec<_>>();
+        actual_runtime_dependencies.sort();
+        assert_eq!(
+            actual_runtime_dependencies,
+            vec![
+                "@example/demo-wrapper-js-darwin-arm64".to_string(),
+                "@example/demo-wrapper-js-darwin-x64".to_string(),
+                "@example/demo-wrapper-js-linux-x64".to_string(),
+                "@example/demo-wrapper-js-win32-x64".to_string(),
+            ]
+        );
         let runtime_package: serde_json::Value = serde_json::from_str(
             &fs::read_to_string(
                 target.join("wrapper-js/platform-packages/ossplate-darwin-arm64/package.json"),
@@ -1751,7 +1832,7 @@ version = "0.1.13"
         .unwrap();
         assert_eq!(
             runtime_package["name"].as_str().unwrap(),
-            "demo-wrapper-js-darwin-arm64"
+            "@example/demo-wrapper-js-darwin-arm64"
         );
         assert!(validate_repo(&target).unwrap().ok);
 
@@ -1968,15 +2049,16 @@ ossplate = "ossplate.cli:main"
             ("linux-x64", "linux", "x64"),
             ("win32-x64", "win32", "x64"),
         ] {
-            let package_name = format!("ossplate-{target}");
+            let package_name = format!("@stefdevscore/ossplate-{target}");
+            let package_folder = format!("ossplate-{target}");
             let description = format!("Platform runtime package for ossplate on {target}.");
-            let directory = format!("wrapper-js/platform-packages/{package_name}");
+            let directory = format!("wrapper-js/platform-packages/{package_folder}");
             let manifest = format!(
                 "{{\n  \"name\": \"{package_name}\",\n  \"description\": \"{description}\",\n  \"license\": \"Unlicense\",\n  \"repository\": {{\n    \"type\": \"git\",\n    \"url\": \"https://github.com/stefdevscore/ossplate\",\n    \"directory\": \"{directory}\"\n  }},\n  \"os\": [\"{os}\"],\n  \"cpu\": [\"{cpu}\"]\n}}\n"
             );
             fs::write(
                 root.join(format!(
-                    "wrapper-js/platform-packages/{package_name}/package.json"
+                    "wrapper-js/platform-packages/{package_folder}/package.json"
                 )),
                 manifest,
             )

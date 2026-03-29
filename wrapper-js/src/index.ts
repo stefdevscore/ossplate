@@ -11,11 +11,11 @@ const ENV_OVERRIDE = "OSSPLATE_BINARY";
 const TEMPLATE_ROOT_ENV = "OSSPLATE_TEMPLATE_ROOT";
 const TARGETS: Record<string, Record<string, { target: string; packageName: string }>> = {
   darwin: {
-    arm64: { target: "darwin-arm64", packageName: "ossplate-darwin-arm64" },
-    x64: { target: "darwin-x64", packageName: "ossplate-darwin-x64" }
+    arm64: { target: "darwin-arm64", packageName: "@stefdevscore/ossplate-darwin-arm64" },
+    x64: { target: "darwin-x64", packageName: "@stefdevscore/ossplate-darwin-x64" }
   },
-  linux: { x64: { target: "linux-x64", packageName: "ossplate-linux-x64" } },
-  win32: { x64: { target: "win32-x64", packageName: "ossplate-win32-x64" } }
+  linux: { x64: { target: "linux-x64", packageName: "@stefdevscore/ossplate-linux-x64" } },
+  win32: { x64: { target: "win32-x64", packageName: "@stefdevscore/ossplate-win32-x64" } }
 };
 
 export function resolveOssplateBinary(

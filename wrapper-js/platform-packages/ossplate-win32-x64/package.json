@@ -9,7 +9,7 @@
     "README.md"
   ],
   "license": "Unlicense",
-  "name": "ossplate-win32-x64",
+  "name": "@stefdevscore/ossplate-win32-x64",
   "os": [
     "win32"
   ],

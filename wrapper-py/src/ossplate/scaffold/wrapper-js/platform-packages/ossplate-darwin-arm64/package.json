@@ -9,7 +9,7 @@
     "README.md"
   ],
   "license": "Unlicense",
-  "name": "ossplate-darwin-arm64",
+  "name": "@stefdevscore/ossplate-darwin-arm64",
   "os": [
     "darwin"
   ],

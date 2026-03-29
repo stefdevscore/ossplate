@@ -50,10 +50,10 @@ Target shape:
 
 - top-level `ossplate` npm package becomes a thin JS wrapper plus scaffold metadata
 - each real binary moves to a platform package such as:
-  - `ossplate-darwin-arm64`
-  - `ossplate-darwin-x64`
-  - `ossplate-linux-x64`
-  - `ossplate-win32-x64`
+  - `@stefdevscore/ossplate-darwin-arm64`
+  - `@stefdevscore/ossplate-darwin-x64`
+  - `@stefdevscore/ossplate-linux-x64`
+  - `@stefdevscore/ossplate-win32-x64`
 - platform packages declare matching `os` / `cpu`
 - top-level `ossplate` depends on them as `optionalDependencies`
 - runtime resolution prefers the installed matching platform package

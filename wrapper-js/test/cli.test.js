@@ -19,10 +19,10 @@ const packageJson = JSON.parse(
 );
 
 const supportedTargets = [
-  ["darwin", "arm64", "darwin-arm64", "ossplate", "ossplate-darwin-arm64"],
-  ["darwin", "x64", "darwin-x64", "ossplate", "ossplate-darwin-x64"],
-  ["linux", "x64", "linux-x64", "ossplate", "ossplate-linux-x64"],
-  ["win32", "x64", "win32-x64", "ossplate.exe", "ossplate-win32-x64"]
+  ["darwin", "arm64", "darwin-arm64", "ossplate", "@stefdevscore/ossplate-darwin-arm64", "ossplate-darwin-arm64"],
+  ["darwin", "x64", "darwin-x64", "ossplate", "@stefdevscore/ossplate-darwin-x64", "ossplate-darwin-x64"],
+  ["linux", "x64", "linux-x64", "ossplate", "@stefdevscore/ossplate-linux-x64", "ossplate-linux-x64"],
+  ["win32", "x64", "win32-x64", "ossplate.exe", "@stefdevscore/ossplate-win32-x64", "ossplate-win32-x64"]
 ];
 
 async function loadModule() {
@@ -94,7 +94,7 @@ test("resolveOssplateBinary names the missing runtime package clearly", async ()
         arch: "x64",
         baseDir: fs.mkdtempSync(path.join(os.tmpdir(), "ossplate-missing-runtime-"))
       }),
-    /Missing runtime package ossplate-linux-x64/
+    /Missing runtime package @stefdevscore\/ossplate-linux-x64/
   );
 });
 
@@ -183,7 +183,7 @@ test("runtime package tarball contains exactly one target binary", () => {
   });
 
   const runtime = currentRuntimePackage();
-  const packageDir = path.join(wrapperRoot, "platform-packages", runtime.packageName);
+  const packageDir = path.join(wrapperRoot, "platform-packages", runtime.packageFolder);
   const tarball = packNpmPackage(packageDir);
   const unpackDir = fs.mkdtempSync(path.join(os.tmpdir(), "ossplate-js-runtime-pack-"));
 
@@ -209,7 +209,7 @@ test("installed js package and matching runtime package can create from scaffold
   });
 
   const runtime = currentRuntimePackage();
-  const runtimePackageDir = path.join(wrapperRoot, "platform-packages", runtime.packageName);
+  const runtimePackageDir = path.join(wrapperRoot, "platform-packages", runtime.packageFolder);
   const mainTarball = packNpmPackage(wrapperRoot);
   const runtimeTarball = packNpmPackage(runtimePackageDir);
   const installDir = fs.mkdtempSync(path.join(os.tmpdir(), "ossplate-js-install-"));
@@ -267,8 +267,8 @@ function currentRuntimePackage() {
   if (!match) {
     throw new Error(`unsupported host platform for JS package tests: ${process.platform}/${process.arch}`);
   }
-  const [_platform, _arch, target, executable, packageName] = match;
-  return { target, executable, packageName };
+  const [_platform, _arch, target, executable, packageName, packageFolder] = match;
+  return { target, executable, packageName, packageFolder };
 }
 
 function packNpmPackage(packageDir) {

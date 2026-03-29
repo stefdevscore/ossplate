@@ -30,10 +30,10 @@ cd ../wrapper-py && python -m build --sdist
 
 Use the runtime package that matches the machine you are building on:
 
-- macOS Apple Silicon: `ossplate-darwin-arm64`
-- macOS Intel: `ossplate-darwin-x64`
-- Linux x64: `ossplate-linux-x64`
-- Windows x64: `ossplate-win32-x64`
+- macOS Apple Silicon: `@stefdevscore/ossplate-darwin-arm64`
+- macOS Intel: `@stefdevscore/ossplate-darwin-x64`
+- Linux x64: `@stefdevscore/ossplate-linux-x64`
+- Windows x64: `@stefdevscore/ossplate-win32-x64`
 
 ## Versioning
 
@@ -108,10 +108,10 @@ So a second run for the same version should usually succeed by skipping work rat
 
 - npm publishes one thin top-level package: `ossplate`
 - npm also publishes one platform runtime package per supported target:
-  - `ossplate-linux-x64`
-  - `ossplate-darwin-arm64`
-  - `ossplate-darwin-x64`
-  - `ossplate-win32-x64`
+  - `@stefdevscore/ossplate-linux-x64`
+  - `@stefdevscore/ossplate-darwin-arm64`
+  - `@stefdevscore/ossplate-darwin-x64`
+  - `@stefdevscore/ossplate-win32-x64`
 - Users still install `ossplate`; npm resolves the matching runtime package through `optionalDependencies`.
 
 ## Current Published Names

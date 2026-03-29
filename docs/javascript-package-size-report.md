@@ -68,10 +68,10 @@ Target shape:
 
 - top-level `ossplate` stays the public npm package
 - runtime binaries move into separate packages such as:
-  - `ossplate-darwin-arm64`
-  - `ossplate-darwin-x64`
-  - `ossplate-linux-x64`
-  - `ossplate-win32-x64`
+  - `@stefdevscore/ossplate-darwin-arm64`
+  - `@stefdevscore/ossplate-darwin-x64`
+  - `@stefdevscore/ossplate-linux-x64`
+  - `@stefdevscore/ossplate-win32-x64`
 - each platform package declares matching `os` and `cpu`
 - top-level `ossplate` lists them as `optionalDependencies`
 - the JS resolver loads the installed matching platform package instead of a local `bin/<target>` file inside the top-level tarball
