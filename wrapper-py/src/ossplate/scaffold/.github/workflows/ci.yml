@@ -19,6 +19,7 @@ jobs:
           node-version: '24'
       - run: cargo run --quiet --manifest-path core-rs/Cargo.toml -- validate
       - run: cargo run --quiet --manifest-path core-rs/Cargo.toml -- sync --check
+      - run: node --test ./scripts/release-plan.test.mjs
       - run: node --test ./scripts/validate-template-readiness.test.mjs
 
   rust:

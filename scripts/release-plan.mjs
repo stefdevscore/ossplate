@@ -1,24 +1,31 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const repoRoot = new URL("..", import.meta.url);
+const AUTOMATED_RELEASE_SUBJECT_PATTERNS = [
+  /^Release ossplate /,
+  /^Sync JS lockfile after ossplate .* release \[skip ci\]$/
+];
 
-const currentVersion = readCurrentVersion();
-const latestTag = readLatestTag();
-const commits = readCommitsSince(latestTag);
-const bump = classifyBump(commits);
+if (isMainModule()) {
+  const currentVersion = readCurrentVersion();
+  const latestTag = readLatestTag();
+  const commits = readCommitsSince(latestTag);
+  const bump = classifyBump(commits);
 
-const result = {
-  currentVersion,
-  latestTag,
-  commitCount: commits.length,
-  bump,
-  shouldRelease: commits.length > 0,
-  nextVersion: commits.length > 0 ? bumpVersion(currentVersion, bump) : currentVersion
-};
+  const result = {
+    currentVersion,
+    latestTag,
+    commitCount: commits.length,
+    bump,
+    shouldRelease: commits.length > 0,
+    nextVersion: commits.length > 0 ? bumpVersion(currentVersion, bump) : currentVersion
+  };
 
-console.log(JSON.stringify(result));
+  console.log(JSON.stringify(result));
+}
 
 function readCurrentVersion() {
   const cargoToml = readFileSync(joinPath("core-rs", "Cargo.toml"), "utf8");
@@ -37,17 +44,17 @@ function readLatestTag() {
   return output.split("\n")[0];
 }
 
-function readCommitsSince(tag) {
+export function readCommitsSince(tag) {
   const range = tag ? `${tag}..HEAD` : "HEAD";
   const output = execGit(["log", "--format=%s%n%b%x00", range]);
   return output
     .split("\0")
     .map((entry) => entry.trim())
     .filter(Boolean)
-    .filter((entry) => !entry.startsWith("Release ossplate "));
+    .filter((entry) => !isAutomatedReleaseCommit(entry));
 }
 
-function classifyBump(commits) {
+export function classifyBump(commits) {
   let bump = "patch";
   for (const commit of commits) {
     const lower = commit.toLowerCase();
@@ -68,7 +75,7 @@ function classifyBump(commits) {
   return bump;
 }
 
-function bumpVersion(version, bump) {
+export function bumpVersion(version, bump) {
   const [major, minor, patch] = version.split(".").map(Number);
   if ([major, minor, patch].some(Number.isNaN)) {
     throw new Error(`invalid version: ${version}`);
@@ -91,4 +98,13 @@ function execGit(args) {
 
 function joinPath(...parts) {
   return join(new URL(repoRoot).pathname, ...parts);
+}
+
+export function isAutomatedReleaseCommit(entry) {
+  const subject = entry.split("\n")[0] ?? "";
+  return AUTOMATED_RELEASE_SUBJECT_PATTERNS.some((pattern) => pattern.test(subject));
+}
+
+function isMainModule() {
+  return process.argv[1] === fileURLToPath(import.meta.url);
 }
