@@ -12,6 +12,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   getRuntimeTargets,
+  stagedRuntimeBinaryPath,
   resolveNodeHostTarget,
   runtimePackageFolder,
   runtimePackageName,
@@ -54,6 +55,7 @@ function stageDefault() {
 
   cleanAllRuntimePackageBins();
   if (existsSync(sourceBinary)) {
+    stageRuntimeArtifact(currentTarget.target);
     stagePythonRuntime();
     stageRuntimePackage(
       join(repoRoot, "wrapper-js", "platform-packages", runtimePackageFolder(currentTarget.target)),
@@ -82,7 +84,7 @@ function stagePythonRuntime() {
   const relativePath = `wrapper-py/src/ossplate/bin/${currentTarget.target}/${currentTarget.binary}`;
   const destination = join(repoRoot, relativePath);
   mkdirSync(dirname(destination), { recursive: true });
-  copyFileSync(sourceBinary, destination);
+  copyFileSync(stagedRuntimeBinaryPath(repoRoot, currentTarget.target), destination);
   chmodSync(destination, 0o755);
 }
 
@@ -104,9 +106,7 @@ function stageRuntimePackage(packageRoot, target) {
       `cannot stage ${target} from host ${currentTarget.target}; use the matching runner for this runtime package`
     );
   }
-  if (!existsSync(sourceBinary)) {
-    throw new Error(`required ossplate binary is missing at ${sourceBinary}`);
-  }
+  const stagedBinary = stageRuntimeArtifact(target);
 
   const packageJsonPath = join(packageRoot, "package.json");
   if (!existsSync(packageJsonPath)) {
@@ -126,8 +126,25 @@ function stageRuntimePackage(packageRoot, target) {
   const destination = join(packageRoot, "bin", executable);
   removeTree(join(packageRoot, "bin"));
   mkdirSync(dirname(destination), { recursive: true });
+  copyFileSync(stagedBinary, destination);
+  chmodSync(destination, 0o755);
+}
+
+function stageRuntimeArtifact(target) {
+  if (target !== currentTarget.target) {
+    throw new Error(
+      `cannot stage ${target} from host ${currentTarget.target}; use the matching runner for this runtime package`
+    );
+  }
+  if (!existsSync(sourceBinary)) {
+    throw new Error(`required ossplate binary is missing at ${sourceBinary}`);
+  }
+
+  const destination = stagedRuntimeBinaryPath(repoRoot, target);
+  mkdirSync(dirname(destination), { recursive: true });
   copyFileSync(sourceBinary, destination);
   chmodSync(destination, 0o755);
+  return destination;
 }
 
 function removeTree(path) {

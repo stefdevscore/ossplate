@@ -34,14 +34,7 @@ class CustomBuildHook(BuildHookInterface):
         target = resolve_build_target()
         target_spec = runtime_target_by_name(runtime_targets, target)
         binary_name = target_spec["binary"]
-        binary_source = (
-            repo_root
-            / "wrapper-js"
-            / "platform-packages"
-            / f"ossplate-{target_spec['folderSuffix']}"
-            / "bin"
-            / binary_name
-        )
+        binary_source = staged_runtime_binary_path(repo_root, target)
         if not binary_source.exists():
             raise RuntimeError(
                 f"required ossplate binary for target {target} is missing at {binary_source}"
@@ -51,6 +44,11 @@ class CustomBuildHook(BuildHookInterface):
         build_data["tag"] = f"py3-none-{platform_tag_for_target(target)}"
         force_include = build_data.setdefault("force_include", {})
         force_include[str(binary_source)] = f"ossplate/bin/{target}/{binary_name}"
+
+
+def staged_runtime_binary_path(repo_root: Path, target: str) -> Path:
+    binary_name = runtime_target_by_name(load_runtime_targets(repo_root), target)["binary"]
+    return repo_root / ".dist-assets" / "runtime" / target / binary_name
 
 
 def resolve_build_target() -> str:

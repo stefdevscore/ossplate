@@ -34,3 +34,8 @@ export function resolveNodeHostTarget(platformName, archName) {
   }
   return spec;
 }
+
+export function stagedRuntimeBinaryPath(root, target) {
+  const spec = runtimeTargetByName(target);
+  return join(root, ".dist-assets", "runtime", target, spec.binary);
+}

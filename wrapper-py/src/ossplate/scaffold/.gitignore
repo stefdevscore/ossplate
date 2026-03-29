@@ -4,6 +4,7 @@ __pycache__/
 *.pyc
 .tmp*/
 .live-e2e/
+.dist-assets/
 dist/
 build/
 node_modules/

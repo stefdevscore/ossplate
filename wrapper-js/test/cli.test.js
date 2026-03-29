@@ -223,6 +223,21 @@ test("runtime package tarball contains exactly one target binary", () => {
   }
 });
 
+test("staging creates a neutral runtime artifact for the current host", () => {
+  execFileSync("cargo", ["build"], {
+    cwd: path.join(repoRoot, "core-rs"),
+    stdio: "ignore"
+  });
+  execFileSync("node", [path.join(repoRoot, "scripts", "stage-distribution-assets.mjs")], {
+    cwd: repoRoot,
+    stdio: "ignore"
+  });
+
+  const runtime = currentRuntimePackage();
+  const stagedBinary = path.join(repoRoot, ".dist-assets", "runtime", runtime.target, runtime.executable);
+  assert.ok(fs.existsSync(stagedBinary), `expected staged runtime binary at ${stagedBinary}`);
+});
+
 test("installed js package and matching runtime package can create from scaffold payload", () => {
   execFileSync("cargo", ["build"], {
     cwd: path.join(repoRoot, "core-rs"),

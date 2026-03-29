@@ -184,6 +184,13 @@ class CliTests(unittest.TestCase):
                 "manylinux_2_39_x86_64",
             )
 
+    def test_staged_runtime_binary_path_uses_neutral_artifact_root(self) -> None:
+        path = hatch_build.staged_runtime_binary_path(self.repo_root, "linux-x64")
+        self.assertEqual(
+            path,
+            self.repo_root / ".dist-assets" / "runtime" / "linux-x64" / "ossplate",
+        )
+
     def test_macos_x64_wheel_tag_drops_universal2(self) -> None:
         with mock.patch("sysconfig.get_platform", return_value="macosx-10.9-universal2"):
             self.assertEqual(
