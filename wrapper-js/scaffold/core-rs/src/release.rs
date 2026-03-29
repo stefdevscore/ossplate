@@ -155,6 +155,11 @@ mod tests {
             "[project]\nname = \"Ossplate\"\n",
         )
         .unwrap();
+        fs::write(
+            root.join("scaffold-payload.json"),
+            "{\n  \"requiredPaths\": []\n}\n",
+        )
+        .unwrap();
         fs::write(root.join("README.md"), "# Ossplate\n").unwrap();
         fs::write(
             root.join("core-rs/Cargo.toml"),

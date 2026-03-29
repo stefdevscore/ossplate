@@ -160,7 +160,7 @@ pub(crate) fn managed_files() -> Vec<ManagedFile> {
         },
         ManagedFile {
             path: "core-rs/runtime-targets.json",
-            validate: metadata::validate_runtime_targets_json,
+            validate: metadata::validate_core_runtime_targets_json,
             sync: metadata::sync_runtime_targets_json,
         },
         ManagedFile {

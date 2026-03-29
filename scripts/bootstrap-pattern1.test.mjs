@@ -72,6 +72,9 @@ test("renamed pattern1 bootstrap is buildable and wrapper-executable without man
       cwd: targetRoot,
       stdio: "ignore"
     });
+    const expectedVersion = JSON.parse(
+      readFileSync(path.join(targetRoot, "wrapper-js", "package.json"), "utf8")
+    ).version;
 
     const binary = path.join(
       targetRoot,
@@ -83,7 +86,7 @@ test("renamed pattern1 bootstrap is buildable and wrapper-executable without man
     assert.ok(existsSync(binary), `expected built binary at ${binary}`);
     assert.equal(
       execFileSync(binary, ["version"], { cwd: targetRoot, encoding: "utf8" }).trim(),
-      '{"tool":"agentcode","version":"0.2.3"}'
+      JSON.stringify({ tool: "agentcode", version: expectedVersion })
     );
     assert.equal(
       execFileSync(binary, ["ping"], { cwd: targetRoot, encoding: "utf8" }).trim(),
@@ -99,7 +102,7 @@ test("renamed pattern1 bootstrap is buildable and wrapper-executable without man
         encoding: "utf8",
         env: wrapperEnv
       }).trim(),
-      '{"tool":"agentcode","version":"0.2.3"}'
+      JSON.stringify({ tool: "agentcode", version: expectedVersion })
     );
     assert.equal(
       execFileSync("node", [jsTool, "ping"], {
@@ -121,7 +124,7 @@ test("renamed pattern1 bootstrap is buildable and wrapper-executable without man
         encoding: "utf8",
         env: pyEnv
       }).trim(),
-      '{"tool":"agentcode","version":"0.2.3"}'
+      JSON.stringify({ tool: "agentcode", version: expectedVersion })
     );
     assert.equal(
       execFileSync(python, ["-m", "agentcode.cli", "ping"], {

@@ -1,6 +1,7 @@
 {
   "requiredPaths": [
     "ossplate.toml",
+    "scaffold-payload.json",
     "README.md",
     "core-rs/Cargo.toml",
     "core-rs/src/config.rs",

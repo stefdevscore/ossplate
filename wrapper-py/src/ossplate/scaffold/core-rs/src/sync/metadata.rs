@@ -539,16 +539,17 @@ pub(crate) fn runtime_package_managed_files() -> Vec<ManagedFile> {
     ]
 }
 
-pub(crate) fn validate_runtime_targets_json(
+fn validate_runtime_targets_json_at_path(
     config: &ToolConfig,
     content: &str,
+    file_path: &str,
 ) -> Result<Vec<ValidationIssue>> {
     let value: serde_json::Value =
-        serde_json::from_str(content).context("failed to parse runtime-targets.json")?;
+        serde_json::from_str(content).with_context(|| format!("failed to parse {file_path}"))?;
     let targets = value
         .get("targets")
         .and_then(serde_json::Value::as_array)
-        .ok_or_else(|| anyhow!("missing targets in runtime-targets.json"))?;
+        .ok_or_else(|| anyhow!("missing targets in {file_path}"))?;
     let mut issues = Vec::new();
 
     for target in targets {
@@ -564,7 +565,7 @@ pub(crate) fn validate_runtime_targets_json(
         let expected_binary = runtime_binary_name(config, target_name);
         if actual_binary != expected_binary {
             issues.push(issue(
-                "runtime-targets.json",
+                file_path,
                 &format!("targets.{target_name}.binary"),
                 "owned metadata differs from the canonical project identity",
                 Some(expected_binary),
@@ -574,6 +575,20 @@ pub(crate) fn validate_runtime_targets_json(
     }
 
     Ok(issues)
+}
+
+pub(crate) fn validate_runtime_targets_json(
+    config: &ToolConfig,
+    content: &str,
+) -> Result<Vec<ValidationIssue>> {
+    validate_runtime_targets_json_at_path(config, content, "runtime-targets.json")
+}
+
+pub(crate) fn validate_core_runtime_targets_json(
+    config: &ToolConfig,
+    content: &str,
+) -> Result<Vec<ValidationIssue>> {
+    validate_runtime_targets_json_at_path(config, content, "core-rs/runtime-targets.json")
 }
 
 pub(crate) fn sync_runtime_targets_json(config: &ToolConfig, content: &str) -> Result<String> {
