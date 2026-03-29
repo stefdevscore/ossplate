@@ -90,8 +90,13 @@ def linux_platform_tag() -> str:
 
 def macos_platform_tag(arch: str) -> str:
     tag = sysconfig.get_platform().replace("-", "_").replace(".", "_")
-    if "universal2" in tag:
-        return tag.replace("universal2", arch)
-    if tag.endswith("_x86_64") or tag.endswith("_arm64"):
-        return tag.rsplit("_", 1)[0] + f"_{arch}"
-    return f"{tag}_{arch}"
+    parts = tag.split("_")
+    if len(parts) < 3 or parts[0] != "macosx":
+        raise RuntimeError(f"unsupported macOS platform tag format: {tag}")
+
+    major = int(parts[1])
+    minor = int(parts[2])
+    if arch == "arm64" and (major, minor) < (11, 0):
+        major, minor = 11, 0
+
+    return f"macosx_{major}_{minor}_{arch}"

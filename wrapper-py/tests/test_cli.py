@@ -176,6 +176,13 @@ class CliTests(unittest.TestCase):
                 "macosx_15_0_arm64",
             )
 
+    def test_macos_arm64_wheel_tag_uses_minimum_supported_version(self) -> None:
+        with mock.patch("sysconfig.get_platform", return_value="macosx-10.9-universal2"):
+            self.assertEqual(
+                hatch_build.platform_tag_for_target("darwin-arm64"),
+                "macosx_11_0_arm64",
+            )
+
     def assert_wheel_contents(self, wheel: pathlib.Path, target: str) -> None:
         with zipfile.ZipFile(wheel) as archive:
             names = archive.namelist()
