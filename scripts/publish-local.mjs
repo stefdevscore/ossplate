@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { arch, platform } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -50,10 +51,12 @@ export function runPublish(options, context) {
   const metadata = loadMetadata(root);
   const host = resolveHostTarget(context);
   const completedRegistries = [];
+  const registries = options.registry === "all" ? ["npm", "pypi", "cargo"] : [options.registry];
 
+  printHostLimitNotice(host, context);
+  runOperatorPreflight(registries, options, context);
   runPreflight(root, metadata, context);
 
-  const registries = options.registry === "all" ? ["npm", "pypi", "cargo"] : [options.registry];
   try {
     for (const registry of registries) {
       if (registry === "npm") {
@@ -80,6 +83,91 @@ export function runPublish(options, context) {
     options.dryRun
       ? `publish dry-run complete (${registries.join(", ")})`
       : `publish complete (${registries.join(", ")})`
+  );
+}
+
+function printHostLimitNotice(host, context) {
+  context.log(
+    [
+      `local publish host target: ${host.target}`,
+      "local publish can only build the current host npm runtime package and current host Python wheel.",
+      "use it for dry-runs, reruns, and recovery; it is not a replacement for the full automated multi-platform release."
+    ].join("\n")
+  );
+}
+
+function runOperatorPreflight(registries, options, context) {
+  const errors = [];
+  const tools = new Set(["node"]);
+  const requiredAuth = new Set();
+
+  if (registries.includes("npm")) {
+    tools.add("cargo");
+    tools.add("npm");
+    if (!(options.skipExisting && canSkipNpmPublish(options, context))) {
+      requiredAuth.add("npm");
+    }
+  }
+
+  if (registries.includes("pypi")) {
+    tools.add("cargo");
+    try {
+      context.pythonCommand();
+    } catch (error) {
+      errors.push(error.message);
+    }
+    requiredAuth.add("pypi");
+  }
+
+  if (registries.includes("cargo")) {
+    tools.add("cargo");
+    if (options.skipExisting) {
+      tools.add("curl");
+    }
+    if (!(options.skipExisting && canSkipCargoPublish(options, context))) {
+      requiredAuth.add("cargo");
+    }
+  }
+
+  for (const tool of tools) {
+    if (!context.commandExists(tool)) {
+      errors.push(`required executable not found on PATH: ${tool}`);
+    }
+  }
+
+  if (!options.dryRun) {
+    if (requiredAuth.has("npm") && !context.hasNpmAuth()) {
+      errors.push("npm publish requires existing npm auth state or NPM_TOKEN");
+    }
+    if (requiredAuth.has("cargo") && !context.hasCargoAuth()) {
+      errors.push("cargo publish requires cargo auth state or CARGO_REGISTRY_TOKEN");
+    }
+    if (requiredAuth.has("pypi") && !context.hasPypiAuth()) {
+      errors.push(
+        "PyPI publish requires TWINE_USERNAME/TWINE_PASSWORD or equivalent local .pypirc configuration"
+      );
+    }
+  }
+
+  if (errors.length > 0) {
+    throw new Error(`operator preflight failed:\n- ${errors.join("\n- ")}`);
+  }
+}
+
+function canSkipNpmPublish(options, context) {
+  return (
+    !options.dryRun &&
+    options.skipExisting &&
+    context.npmVersionExists("ossplate", loadMetadata(resolve(options.root)).version)
+  );
+}
+
+function canSkipCargoPublish(options, context) {
+  const metadata = loadMetadata(resolve(options.root));
+  return (
+    !options.dryRun &&
+    options.skipExisting &&
+    context.cargoVersionExists(metadata.cargoName, metadata.version)
   );
 }
 
@@ -134,9 +222,9 @@ function publishNpm(root, metadata, host, options, context) {
       .map((entry) => `${entry.name}@${metadata.version}`);
     if (missingOtherRuntimes.length > 0) {
       throw new Error(
-        `cannot publish top-level npm package until the other runtime packages exist:\n- ${missingOtherRuntimes.join(
+        `cannot publish top-level npm package because required runtime packages are not visible on npm yet:\n- ${missingOtherRuntimes.join(
           "\n- "
-        )}\npublish them from matching host runners first`
+        )}\npublish them from matching host runners first, then rerun local publish after npm propagation settles`
       );
     }
   }
@@ -215,6 +303,12 @@ function publishNpmPackage(directory, name, version, options, context, labelPref
 function publishPypi(root, host, options, context) {
   const wrapperPyDir = join(root, "wrapper-py");
   const python = context.pythonCommand();
+  const wheelOutDir = join(wrapperPyDir, "dist", host.target);
+  const sdistOutDir = join(wrapperPyDir, "dist", "sdist");
+
+  resetPublishDirectory(wheelOutDir);
+  resetPublishDirectory(sdistOutDir);
+
   context.run({
     label: "pypi:build-core",
     cwd: root,
@@ -241,12 +335,9 @@ function publishPypi(root, host, options, context) {
     args: ["-m", "build", "--sdist", "--outdir", join("dist", "sdist")]
   });
 
-  const wheelPaths = collectFiles(join(wrapperPyDir, "dist", host.target), (name) => name.endsWith(".whl"));
-  const sdistPaths = collectFiles(join(wrapperPyDir, "dist", "sdist"), (name) => name.endsWith(".tar.gz"));
+  const wheelPaths = collectExpectedArtifacts(wheelOutDir, ".whl", "wheel", host.target);
+  const sdistPaths = collectExpectedArtifacts(sdistOutDir, ".tar.gz", "sdist", "sdist");
   const artifactPaths = [...wheelPaths, ...sdistPaths];
-  if (artifactPaths.length === 0) {
-    throw new Error("PyPI build did not produce any artifacts");
-  }
 
   if (options.dryRun) {
     context.run({
@@ -311,6 +402,24 @@ function loadMetadata(root) {
     cargoVersion: cargoVersionMatch[1],
     runtimePackages
   };
+}
+
+function resetPublishDirectory(directory) {
+  rmSync(directory, { recursive: true, force: true });
+  mkdirSync(directory, { recursive: true });
+}
+
+function collectExpectedArtifacts(directory, extension, artifactLabel, outputLabel) {
+  const artifactPaths = collectFiles(directory, (name) => name.endsWith(extension));
+  if (artifactPaths.length === 0) {
+    throw new Error(`PyPI build did not produce a ${artifactLabel} in ${outputLabel}`);
+  }
+  if (artifactPaths.length > 1) {
+    throw new Error(
+      `PyPI build produced multiple ${artifactLabel} artifacts in ${outputLabel}; local publish requires a clean output directory`
+    );
+  }
+  return artifactPaths;
 }
 
 function resolveHostTarget(context) {
@@ -390,6 +499,18 @@ function createSystemContext() {
       }
       throw new Error("no Python 3.10+ interpreter found on PATH");
     },
+    commandExists(command) {
+      return commandExists(command);
+    },
+    hasNpmAuth() {
+      return hasNpmAuth();
+    },
+    hasCargoAuth() {
+      return hasCargoAuth();
+    },
+    hasPypiAuth() {
+      return hasPypiAuth();
+    },
     platform,
     arch,
     log(message) {
@@ -403,6 +524,50 @@ function execNpm(args, options = {}) {
     return execFileSync(process.env.ComSpec ?? "cmd.exe", ["/d", "/s", "/c", "npm", ...args], options);
   }
   return execFileSync("npm", args, options);
+}
+
+function commandExists(command) {
+  try {
+    if (process.platform === "win32") {
+      execFileSync(process.env.ComSpec ?? "cmd.exe", ["/d", "/s", "/c", "where", command], {
+        stdio: "ignore"
+      });
+    } else {
+      execFileSync("sh", ["-lc", `command -v "${command}"`], { stdio: "ignore" });
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function hasNpmAuth() {
+  if (process.env.NPM_TOKEN) {
+    return true;
+  }
+  try {
+    execNpm(["whoami"], { cwd: scriptRepoRoot, stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function hasCargoAuth() {
+  if (process.env.CARGO_REGISTRY_TOKEN) {
+    return true;
+  }
+  return (
+    existsSync(join(homedir(), ".cargo", "credentials.toml")) ||
+    existsSync(join(homedir(), ".cargo", "credentials"))
+  );
+}
+
+function hasPypiAuth() {
+  if (process.env.TWINE_USERNAME && process.env.TWINE_PASSWORD) {
+    return true;
+  }
+  return existsSync(join(homedir(), ".pypirc"));
 }
 
 function isMainModule() {

@@ -1,10 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 import { parseArgs, runPublish } from "./publish-local.mjs";
+import { waitForNpmVersions } from "./wait-for-npm-versions.mjs";
 
 test("parseArgs reads publish options", () => {
   const parsed = parseArgs([
@@ -25,7 +26,16 @@ test("parseArgs reads publish options", () => {
 
 test("runPublish executes dry-run registries in the expected order", () => {
   const root = makeFixtureRoot();
-  const context = makeFakeContext();
+  const context = makeFakeContext({
+    onRun(command) {
+      if (command.label === "pypi:build-wheel") {
+        writeFileSync(join(root, "wrapper-py", "dist", "linux-x64", "fresh.whl"), "wheel");
+      }
+      if (command.label === "pypi:build-sdist") {
+        writeFileSync(join(root, "wrapper-py", "dist", "sdist", "fresh.tar.gz"), "sdist");
+      }
+    }
+  });
 
   runPublish(
     {
@@ -131,6 +141,249 @@ test("runPublish never invokes git or release mutation commands", () => {
   }
 });
 
+test("runPublish fails preflight with consolidated missing tool and auth errors", () => {
+  const root = makeFixtureRoot();
+  const context = makeFakeContext({
+    availableCommands: new Set(["cargo", "node", "npm"]),
+    hasNpmAuth: false,
+    hasPypiAuth: false
+  });
+
+  assert.throws(
+    () =>
+      runPublish(
+        {
+          root,
+          dryRun: false,
+          registry: "all",
+          skipExisting: false
+        },
+        context
+      ),
+    /operator preflight failed:[\s\S]*npm publish requires existing npm auth state or NPM_TOKEN[\s\S]*PyPI publish requires TWINE_USERNAME\/TWINE_PASSWORD/
+  );
+
+  assert.deepEqual(context.labels(), []);
+});
+
+test("runPublish only requires tools for the selected registry", () => {
+  const root = makeFixtureRoot();
+  const cargoContext = makeFakeContext({
+    availableCommands: new Set(["node", "cargo"])
+  });
+  const pypiContext = makeFakeContext({
+    availableCommands: new Set(["node", "cargo"]),
+    onRun(command) {
+      if (command.label === "pypi:build-wheel") {
+        writeFileSync(join(root, "wrapper-py", "dist", "linux-x64", "fresh.whl"), "wheel");
+      }
+      if (command.label === "pypi:build-sdist") {
+        writeFileSync(join(root, "wrapper-py", "dist", "sdist", "fresh.tar.gz"), "sdist");
+      }
+    }
+  });
+
+  runPublish(
+    {
+      root,
+      dryRun: true,
+      registry: "cargo",
+      skipExisting: false
+    },
+    cargoContext
+  );
+  runPublish(
+    {
+      root,
+      dryRun: true,
+      registry: "pypi",
+      skipExisting: false
+    },
+    pypiContext
+  );
+});
+
+test("runPublish still fails npm preflight when npm is unavailable", () => {
+  const root = makeFixtureRoot();
+  const context = makeFakeContext({
+    availableCommands: new Set(["node", "cargo"])
+  });
+
+  assert.throws(
+    () =>
+      runPublish(
+        {
+          root,
+          dryRun: false,
+          registry: "npm",
+          skipExisting: false
+        },
+        context
+      ),
+    /required executable not found on PATH: npm/
+  );
+});
+
+test("runPublish prints the host-limit notice before running preflight", () => {
+  const root = makeFixtureRoot();
+  const context = makeFakeContext();
+
+  runPublish(
+    {
+      root,
+      dryRun: true,
+      registry: "cargo",
+      skipExisting: false
+    },
+    context
+  );
+
+  assert.match(
+    context.logs()[0],
+    /local publish can only build the current host npm runtime package and current host Python wheel/
+  );
+});
+
+test("runPublish clears stale PyPI artifacts before building", () => {
+  const root = makeFixtureRoot();
+  const staleWheel = join(root, "wrapper-py", "dist", "linux-x64", "stale.whl");
+  const staleSdist = join(root, "wrapper-py", "dist", "sdist", "stale.tar.gz");
+  const context = makeFakeContext({
+    onRun(command) {
+      if (command.label === "pypi:build-wheel") {
+        assert.equal(existsSync(staleWheel), false);
+        writeFileSync(join(root, "wrapper-py", "dist", "linux-x64", "fresh.whl"), "wheel");
+      }
+      if (command.label === "pypi:build-sdist") {
+        assert.equal(existsSync(staleSdist), false);
+        writeFileSync(join(root, "wrapper-py", "dist", "sdist", "fresh.tar.gz"), "sdist");
+      }
+    }
+  });
+
+  runPublish(
+    {
+      root,
+      dryRun: false,
+      registry: "pypi",
+      skipExisting: false
+    },
+    context
+  );
+
+  assert.equal(existsSync(staleWheel), false);
+  assert.equal(existsSync(staleSdist), false);
+});
+
+test("runPublish allows cargo skip-existing reruns without cargo auth", () => {
+  const root = makeFixtureRoot();
+  const context = makeFakeContext({
+    cargoVersions: new Set(["ossplate@0.1.22"]),
+    hasCargoAuth: false
+  });
+
+  runPublish(
+    {
+      root,
+      dryRun: false,
+      registry: "cargo",
+      skipExisting: true
+    },
+    context
+  );
+
+  assert.deepEqual(context.labels(), [
+    "tool:validate",
+    "tool:sync-check",
+    "release:assert",
+    "js:lockfile-assert",
+    "publish:assert"
+  ]);
+});
+
+test("runPublish allows npm skip-existing reruns without npm auth", () => {
+  const root = makeFixtureRoot();
+  const context = makeFakeContext({
+    npmVersions: new Set([
+      "ossplate@0.1.22",
+      "ossplate-darwin-arm64@0.1.22",
+      "ossplate-darwin-x64@0.1.22",
+      "ossplate-linux-x64@0.1.22",
+      "ossplate-windows-x64@0.1.22"
+    ]),
+    hasNpmAuth: false
+  });
+
+  runPublish(
+    {
+      root,
+      dryRun: false,
+      registry: "npm",
+      skipExisting: true
+    },
+    context
+  );
+
+  assert.equal(context.labels().includes("npm:top-level:publish"), false);
+});
+
+test("runPublish rejects multiple new PyPI artifacts in the same output directory", () => {
+  const root = makeFixtureRoot();
+  rmSync(join(root, "wrapper-py", "dist", "linux-x64"), { recursive: true, force: true });
+  rmSync(join(root, "wrapper-py", "dist", "sdist"), { recursive: true, force: true });
+  mkdirSync(join(root, "wrapper-py", "dist", "linux-x64"), { recursive: true });
+  mkdirSync(join(root, "wrapper-py", "dist", "sdist"), { recursive: true });
+
+  const context = makeFakeContext({
+    onRun(command) {
+      if (command.label === "pypi:build-wheel") {
+        writeFileSync(join(root, "wrapper-py", "dist", "linux-x64", "one.whl"), "wheel");
+        writeFileSync(join(root, "wrapper-py", "dist", "linux-x64", "two.whl"), "wheel");
+      }
+      if (command.label === "pypi:build-sdist") {
+        writeFileSync(join(root, "wrapper-py", "dist", "sdist", "fresh.tar.gz"), "sdist");
+      }
+    }
+  });
+
+  assert.throws(
+    () =>
+      runPublish(
+        {
+          root,
+          dryRun: false,
+          registry: "pypi",
+          skipExisting: false
+        },
+        context
+      ),
+    /multiple wheel artifacts/
+  );
+});
+
+test("waitForNpmVersions reports propagation-oriented timeout diagnostics", () => {
+  const logs = [];
+
+  assert.throws(
+    () =>
+      waitForNpmVersions({
+        version: "0.1.22",
+        packages: ["ossplate-darwin-arm64", "ossplate-linux-x64"],
+        attempts: 2,
+        delayMs: 0,
+        npmVersionExists() {
+          return false;
+        },
+        log(message) {
+          logs.push(message);
+        }
+      }),
+    /npm runtime propagation timeout after 2 attempts \(0s total wait\):[\s\S]*verify the package names and published versions/
+  );
+
+  assert.match(logs[0], /waiting for npm runtime propagation \(1\/2\): still missing/);
+});
+
 function makeFixtureRoot() {
   const root = mkdtempSync(join(tmpdir(), "ossplate-publish-local-"));
   mkdirSync(join(root, "core-rs"), { recursive: true });
@@ -178,16 +431,27 @@ version = "0.1.22"
       2
     )
   );
-  writeFileSync(join(root, "wrapper-py", "dist", "linux-x64", "ossplate.whl"), "wheel");
-  writeFileSync(join(root, "wrapper-py", "dist", "sdist", "ossplate.tar.gz"), "sdist");
   return root;
 }
 
-function makeFakeContext({ failOnLabel = null, npmVersions = new Set(), cargoVersions = new Set() } = {}) {
+function makeFakeContext({
+  failOnLabel = null,
+  npmVersions = new Set(),
+  cargoVersions = new Set(),
+  availableCommands = new Set(["cargo", "node", "npm", "curl"]),
+  hasNpmAuth = true,
+  hasCargoAuth = true,
+  hasPypiAuth = true,
+  onRun = null
+} = {}) {
   const executed = [];
+  const logLines = [];
   return {
     run(command) {
       executed.push(command);
+      if (onRun) {
+        onRun(command);
+      }
       if (command.label === failOnLabel) {
         throw new Error(`forced failure for ${command.label}`);
       }
@@ -201,18 +465,35 @@ function makeFakeContext({ failOnLabel = null, npmVersions = new Set(), cargoVer
     pythonCommand() {
       return "python3";
     },
+    commandExists(command) {
+      return availableCommands.has(command);
+    },
+    hasNpmAuth() {
+      return hasNpmAuth;
+    },
+    hasCargoAuth() {
+      return hasCargoAuth;
+    },
+    hasPypiAuth() {
+      return hasPypiAuth;
+    },
     platform() {
       return "linux";
     },
     arch() {
       return "x64";
     },
-    log() {},
+    log(message) {
+      logLines.push(message);
+    },
     labels() {
       return executed.map((command) => command.label);
     },
     commands() {
       return executed;
+    },
+    logs() {
+      return logLines;
     }
   };
 }

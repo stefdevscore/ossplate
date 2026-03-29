@@ -54,6 +54,7 @@ The local publish command:
 - publishes the current checked-out version only
 - does not bump versions, create tags, or create GitHub releases
 - stops on the first registry failure and prints recovery guidance
+- runs an explicit local preflight for required tools and detectable auth state before any publish step
 - uses local auth only; it does not use GitHub OIDC trusted publishing
 
 Common local flags:
@@ -71,6 +72,10 @@ Local auth should come from environment or local registry tooling, not checked-i
 - PyPI: `TWINE_USERNAME=__token__` plus `TWINE_PASSWORD`, or equivalent local twine config
 
 On one machine, local publish can only build the current host runtime binary and current host Python wheel. That makes it good for dry-runs, reruns, and recovery, but not a substitute for the full multi-runner automated release.
+
+The local PyPI path now clears the host wheel output directory and the sdist output directory before build, then requires exactly one fresh host wheel and one fresh sdist before `twine check` or upload. That keeps stale `wrapper-py/dist` artifacts out of manual publish runs.
+
+The local npm path still waits for runtime package visibility before publishing the top-level `ossplate` package, but timeout output now calls out npm propagation explicitly and lists the runtime packages that are still missing.
 
 ## Versioning
 
