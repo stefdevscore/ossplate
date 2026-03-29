@@ -107,7 +107,7 @@ function assertScaffoldSnapshots() {
 }
 
 function assertTopLevelPackShape() {
-  const output = execFileSync("npm", ["pack", "--dry-run", "--json"], {
+  const output = execFileSync(npmCommand(), ["pack", "--dry-run", "--json"], {
     cwd: join(repoRoot, "wrapper-js"),
     encoding: "utf8"
   });
@@ -161,6 +161,10 @@ function execGit(args) {
     cwd: repoRoot,
     encoding: "utf8"
   }).trim();
+}
+
+function npmCommand() {
+  return process.platform === "win32" ? "npm.cmd" : "npm";
 }
 
 function assertAllEqual(entries, message) {
