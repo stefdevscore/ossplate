@@ -12,6 +12,9 @@ import unittest
 import zipfile
 from unittest import mock
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+import hatch_build
+
 from ossplate.cli import cli, get_packaged_binary_path
 
 
@@ -151,6 +154,27 @@ class CliTests(unittest.TestCase):
         shutil.rmtree(build_venv_dir, ignore_errors=True)
         shutil.rmtree(venv_dir, ignore_errors=True)
         shutil.rmtree(target_dir, ignore_errors=True)
+
+    def test_linux_wheel_tags_use_manylinux(self) -> None:
+        with mock.patch("platform.libc_ver", return_value=("glibc", "2.39")):
+            self.assertEqual(
+                hatch_build.platform_tag_for_target("linux-x64"),
+                "manylinux_2_39_x86_64",
+            )
+
+    def test_macos_x64_wheel_tag_drops_universal2(self) -> None:
+        with mock.patch("sysconfig.get_platform", return_value="macosx-10.9-universal2"):
+            self.assertEqual(
+                hatch_build.platform_tag_for_target("darwin-x64"),
+                "macosx_10_9_x86_64",
+            )
+
+    def test_macos_arm64_wheel_tag_targets_arm64(self) -> None:
+        with mock.patch("sysconfig.get_platform", return_value="macosx-15.0-arm64"):
+            self.assertEqual(
+                hatch_build.platform_tag_for_target("darwin-arm64"),
+                "macosx_15_0_arm64",
+            )
 
     def assert_wheel_contents(self, wheel: pathlib.Path, target: str) -> None:
         with zipfile.ZipFile(wheel) as archive:

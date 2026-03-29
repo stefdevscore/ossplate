@@ -6,7 +6,12 @@ import subprocess
 import sysconfig
 from pathlib import Path
 
-from hatchling.builders.hooks.plugin.interface import BuildHookInterface
+try:
+    from hatchling.builders.hooks.plugin.interface import BuildHookInterface
+except ModuleNotFoundError:  # pragma: no cover - exercised in local unit tests without hatchling
+    class BuildHookInterface:  # type: ignore[override]
+        def __init__(self, *args, **kwargs) -> None:
+            pass
 
 BUILD_TARGET_ENV = "OSSPLATE_PY_TARGET"
 TARGETS = {
@@ -42,7 +47,7 @@ class CustomBuildHook(BuildHookInterface):
             )
 
         build_data["pure_python"] = False
-        build_data["tag"] = f"py3-none-{platform_tag()}"
+        build_data["tag"] = f"py3-none-{platform_tag_for_target(target)}"
         force_include = build_data.setdefault("force_include", {})
         force_include[str(binary_source)] = f"ossplate/bin/{target}/{binary_name}"
 
@@ -62,5 +67,31 @@ def resolve_build_target() -> str:
     return host
 
 
-def platform_tag() -> str:
-    return sysconfig.get_platform().replace("-", "_").replace(".", "_")
+def platform_tag_for_target(target: str) -> str:
+    if target == "linux-x64":
+        return linux_platform_tag()
+    if target == "darwin-arm64":
+        return macos_platform_tag("arm64")
+    if target == "darwin-x64":
+        return macos_platform_tag("x86_64")
+    if target == "win32-x64":
+        return "win_amd64"
+    raise RuntimeError(f"unsupported target for wheel tag generation: {target}")
+
+
+def linux_platform_tag() -> str:
+    libc_name, libc_version = platform.libc_ver()
+    if libc_name != "glibc" or not libc_version:
+        raise RuntimeError("linux wheel builds require glibc to derive a manylinux platform tag")
+
+    major, minor, *_rest = libc_version.split(".")
+    return f"manylinux_{major}_{minor}_x86_64"
+
+
+def macos_platform_tag(arch: str) -> str:
+    tag = sysconfig.get_platform().replace("-", "_").replace(".", "_")
+    if "universal2" in tag:
+        return tag.replace("universal2", arch)
+    if tag.endswith("_x86_64") or tag.endswith("_arm64"):
+        return tag.rsplit("_", 1)[0] + f"_{arch}"
+    return f"{tag}_{arch}"
