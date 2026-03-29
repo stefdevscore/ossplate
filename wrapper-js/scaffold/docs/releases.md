@@ -49,6 +49,21 @@ After updating versions, rerun:
    - [`.github/workflows/publish.yml`](../.github/workflows/publish.yml)
    - [`.github/workflows/publish-npm.yml`](../.github/workflows/publish-npm.yml)
 
+## Workflow Friction To Expect
+
+The release pipeline mutates `main` on GitHub.
+
+- After CI passes, [`.github/workflows/release.yml`](../.github/workflows/release.yml) commits the version bump directly to `origin/main`.
+- That means a local checkout that was clean before release can become behind `origin/main` without any new manual commits from you.
+- Before pushing follow-up work, always refresh your branch first:
+
+```bash
+git fetch origin
+git rebase origin/main
+```
+
+- If a push is rejected as non-fast-forward right after a green release, this version-bump commit is the expected cause.
+
 Optional local hook setup uses [`pre-commit`](https://pre-commit.com/) through [`.pre-commit-config.yaml`](../.pre-commit-config.yaml). It is not required for CI or release automation.
 
 ## Bump Rules
