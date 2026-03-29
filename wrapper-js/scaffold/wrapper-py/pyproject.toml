@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ossplate"
-version = "0.1.16"
+version = "0.1.17"
 description = "Build one project, ship it everywhere."
 readme = "README.md"
 requires-python = ">=3.10"
