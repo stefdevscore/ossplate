@@ -37,6 +37,17 @@ Release bump rules:
 - `!` in a conventional commit header or `BREAKING CHANGE` in the body triggers a major bump
 - `[major]`, `[minor]`, and `[patch]` override the inferred bump level
 
+Release automation note:
+
+- the release workflow commits version bumps directly onto `origin/main`
+- after a green release, your local branch can be behind even if you did not make another commit
+- if a push is rejected as non-fast-forward after CI/release, refresh first:
+
+```bash
+git fetch origin
+git rebase origin/main
+```
+
 Read this next:
 
 - [`docs/architecture.md`](./docs/architecture.md)

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -17,16 +18,16 @@ const packageJson = JSON.parse(
   fs.readFileSync(path.join(wrapperRoot, "package.json"), "utf8")
 );
 
+const supportedTargets = [
+  ["darwin", "arm64", "darwin-arm64", "ossplate", "ossplate-darwin-arm64"],
+  ["darwin", "x64", "darwin-x64", "ossplate", "ossplate-darwin-x64"],
+  ["linux", "x64", "linux-x64", "ossplate", "ossplate-linux-x64"],
+  ["win32", "x64", "win32-x64", "ossplate.exe", "ossplate-win32-x64"]
+];
+
 async function loadModule() {
   return import(pathToFileURL(distModule).href);
 }
-
-const supportedTargets = [
-  ["darwin", "arm64", "darwin-arm64", "ossplate"],
-  ["darwin", "x64", "darwin-x64", "ossplate"],
-  ["linux", "x64", "linux-x64", "ossplate"],
-  ["win32", "x64", "win32-x64", "ossplate.exe"]
-];
 
 test("env override takes precedence for wrapper execution", () => {
   const output = execFileSync("node", ["bin/ossplate.js", "version"], {
@@ -59,14 +60,42 @@ test("resolveOssplateBinary rejects unsupported platforms", async () => {
   );
 });
 
-test("resolveOssplateBinary resolves every declared packaged target", async () => {
+test("resolveOssplateBinary resolves every declared runtime package target", async () => {
   const { resolveOssplateBinary } = await loadModule();
-  for (const [platform, arch, target, executable] of supportedTargets) {
-    assert.equal(
-      resolveOssplateBinary({ platform, arch, baseDir: wrapperRoot }),
-      path.join(wrapperRoot, "bin", target, executable)
-    );
+  const packagesBaseDir = fs.mkdtempSync(path.join(os.tmpdir(), "ossplate-js-runtime-resolve-"));
+  try {
+    for (const [_platform, _arch, _target, executable, runtimePackage] of supportedTargets) {
+      const runtimeBinDir = path.join(packagesBaseDir, runtimePackage, "bin");
+      fs.mkdirSync(runtimeBinDir, { recursive: true });
+      const runtimeBinary = path.join(runtimeBinDir, executable);
+      fs.writeFileSync(runtimeBinary, "#!/bin/sh\nexit 0\n");
+      if (process.platform !== "win32") {
+        fs.chmodSync(runtimeBinary, 0o755);
+      }
+    }
+
+    for (const [platform, arch, _target, executable, runtimePackage] of supportedTargets) {
+      assert.equal(
+        resolveOssplateBinary({ platform, arch, baseDir: wrapperRoot, packagesBaseDir }),
+        path.join(packagesBaseDir, runtimePackage, "bin", executable)
+      );
+    }
+  } finally {
+    fs.rmSync(packagesBaseDir, { recursive: true, force: true });
   }
+});
+
+test("resolveOssplateBinary names the missing runtime package clearly", async () => {
+  const { resolveOssplateBinary } = await loadModule();
+  assert.throws(
+    () =>
+      resolveOssplateBinary({
+        platform: "linux",
+        arch: "x64",
+        baseDir: fs.mkdtempSync(path.join(os.tmpdir(), "ossplate-missing-runtime-"))
+      }),
+    /Missing runtime package ossplate-linux-x64/
+  );
 });
 
 test("js wrapper matches the rust contract via env override", () => {
@@ -96,7 +125,7 @@ test("js wrapper matches the rust contract via env override", () => {
   }
 });
 
-test("packaged js wrapper can create from scaffold payload", () => {
+test("top-level npm package excludes bundled runtime binaries and scaffold runtime binaries", () => {
   execFileSync("cargo", ["build"], {
     cwd: path.join(repoRoot, "core-rs"),
     stdio: "ignore"
@@ -105,54 +134,157 @@ test("packaged js wrapper can create from scaffold payload", () => {
     cwd: repoRoot,
     stdio: "ignore"
   });
-  execFileSync("npm", ["pack"], {
-    cwd: wrapperRoot,
-    stdio: "ignore"
-  });
-  const tarball = path.join(wrapperRoot, `${packageJson.name}-${packageJson.version}.tgz`);
-  const unpackDir = path.join(wrapperRoot, ".tmp-pack");
-  const targetDir = path.join(wrapperRoot, ".tmp-created");
-  execFileSync("rm", ["-rf", unpackDir, targetDir], { cwd: wrapperRoot });
-  execFileSync("mkdir", ["-p", unpackDir], { cwd: wrapperRoot });
-  execFileSync("tar", ["-xzf", tarball, "-C", unpackDir], { cwd: wrapperRoot });
-  const packagedFiles = listFiles(path.join(unpackDir, "package"));
-  for (const relativePath of scaffoldManifest.requiredPaths) {
-    assert.ok(
-      packagedFiles.includes(path.join("scaffold", relativePath)),
-      `expected packaged scaffold file ${relativePath}`
-    );
-  }
-  for (const excludedPrefix of scaffoldManifest.excludedPrefixes) {
-    assert.ok(
-      !packagedFiles.some((file) => file.startsWith(path.join("scaffold", excludedPrefix))),
-      `unexpected packaged scaffold file under ${excludedPrefix}`
-    );
-  }
-  const packagedTool = path.join(unpackDir, "package", "bin", "ossplate.js");
-  const directVersion = execFileSync(
-    path.join(repoRoot, "core-rs", "target", "debug", "ossplate"),
-    ["version"],
-    {
-      cwd: repoRoot,
-      encoding: "utf8"
+  const tarball = packNpmPackage(wrapperRoot);
+  const unpackDir = fs.mkdtempSync(path.join(os.tmpdir(), "ossplate-js-main-pack-"));
+
+  try {
+    extractTarball(tarball, unpackDir);
+    const packagedFiles = listFiles(path.join(unpackDir, "package"));
+    for (const relativePath of scaffoldManifest.requiredPaths) {
+      assert.ok(
+        packagedFiles.includes(path.join("scaffold", relativePath)),
+        `expected packaged scaffold file ${relativePath}`
+      );
     }
-  ).trim();
-  const packagedVersion = execFileSync("node", [packagedTool, "version"], {
-    cwd: wrapperRoot,
-    encoding: "utf8"
-  }).trim();
-  assert.equal(packagedVersion, directVersion);
-  execFileSync("node", [packagedTool, "create", targetDir], {
-    cwd: wrapperRoot,
+    for (const excludedPrefix of scaffoldManifest.excludedPrefixes) {
+      assert.ok(
+        !packagedFiles.some((file) => file.startsWith(path.join("scaffold", excludedPrefix))),
+        `unexpected packaged scaffold file under ${excludedPrefix}`
+      );
+    }
+
+    assert.ok(packagedFiles.includes(path.join("bin", "ossplate.js")));
+    assert.ok(
+      !packagedFiles.some((file) => /^bin\/(darwin|linux|win32)-/.test(file)),
+      "top-level package should not ship platform runtime binaries"
+    );
+    assert.ok(
+      !packagedFiles.some((file) =>
+        /^scaffold[\\/]wrapper-js[\\/]bin[\\/](darwin|linux|win32)-/.test(file)
+      ),
+      "scaffold should not ship nested JS runtime binaries"
+    );
+    assert.ok(
+      !packagedFiles.some((file) =>
+        file.startsWith(path.join("scaffold", "wrapper-py", "src", "ossplate", "bin"))
+      ),
+      "scaffold should not ship nested Python runtime binaries"
+    );
+  } finally {
+    fs.rmSync(unpackDir, { recursive: true, force: true });
+    fs.rmSync(tarball, { force: true });
+  }
+});
+
+test("runtime package tarball contains exactly one target binary", () => {
+  execFileSync("cargo", ["build"], {
+    cwd: path.join(repoRoot, "core-rs"),
     stdio: "ignore"
   });
-  const output = execFileSync("node", [packagedTool, "validate", "--path", targetDir, "--json"], {
-    cwd: wrapperRoot,
-    encoding: "utf8"
-  }).trim();
-  assert.equal(output, '{"ok":true,"issues":[]}');
-  execFileSync("rm", ["-rf", unpackDir, targetDir, tarball], { cwd: wrapperRoot });
+
+  const runtime = currentRuntimePackage();
+  const packageDir = path.join(wrapperRoot, "platform-packages", runtime.packageName);
+  const tarball = packNpmPackage(packageDir);
+  const unpackDir = fs.mkdtempSync(path.join(os.tmpdir(), "ossplate-js-runtime-pack-"));
+
+  try {
+    extractTarball(tarball, unpackDir);
+    const packagedFiles = listFiles(path.join(unpackDir, "package"));
+    const runtimeFiles = packagedFiles.filter((file) => file.startsWith("bin/"));
+    assert.deepEqual(runtimeFiles, [path.join("bin", runtime.executable)]);
+  } finally {
+    fs.rmSync(unpackDir, { recursive: true, force: true });
+    fs.rmSync(tarball, { force: true });
+  }
 });
+
+test("installed js package and matching runtime package can create from scaffold payload", () => {
+  execFileSync("cargo", ["build"], {
+    cwd: path.join(repoRoot, "core-rs"),
+    stdio: "ignore"
+  });
+  execFileSync("node", [path.join(repoRoot, "scripts", "stage-distribution-assets.mjs")], {
+    cwd: repoRoot,
+    stdio: "ignore"
+  });
+
+  const runtime = currentRuntimePackage();
+  const runtimePackageDir = path.join(wrapperRoot, "platform-packages", runtime.packageName);
+  const mainTarball = packNpmPackage(wrapperRoot);
+  const runtimeTarball = packNpmPackage(runtimePackageDir);
+  const installDir = fs.mkdtempSync(path.join(os.tmpdir(), "ossplate-js-install-"));
+  const targetDir = path.join(installDir, "created");
+
+  try {
+    fs.writeFileSync(
+      path.join(installDir, "package.json"),
+      `${JSON.stringify({ name: "ossplate-js-install-test", private: true }, null, 2)}\n`
+    );
+
+    execFileSync("npm", ["install", runtimeTarball, mainTarball], {
+      cwd: installDir,
+      stdio: "ignore"
+    });
+
+    const packagedTool =
+      process.platform === "win32"
+        ? path.join(installDir, "node_modules", ".bin", "ossplate.cmd")
+        : path.join(installDir, "node_modules", ".bin", "ossplate");
+    const directVersion = execFileSync(
+      path.join(repoRoot, "core-rs", "target", "debug", runtime.executable),
+      ["version"],
+      {
+        cwd: repoRoot,
+        encoding: "utf8"
+      }
+    ).trim();
+    const packagedVersion = execFileSync(packagedTool, ["version"], {
+      cwd: installDir,
+      encoding: "utf8"
+    }).trim();
+    assert.equal(packagedVersion, directVersion);
+
+    execFileSync(packagedTool, ["create", targetDir], {
+      cwd: installDir,
+      stdio: "ignore"
+    });
+    const output = execFileSync(packagedTool, ["validate", "--path", targetDir, "--json"], {
+      cwd: installDir,
+      encoding: "utf8"
+    }).trim();
+    assert.equal(output, '{"ok":true,"issues":[]}');
+  } finally {
+    fs.rmSync(installDir, { recursive: true, force: true });
+    fs.rmSync(mainTarball, { force: true });
+    fs.rmSync(runtimeTarball, { force: true });
+  }
+});
+
+function currentRuntimePackage() {
+  const match = supportedTargets.find(
+    ([platform, arch]) => platform === process.platform && arch === process.arch
+  );
+  if (!match) {
+    throw new Error(`unsupported host platform for JS package tests: ${process.platform}/${process.arch}`);
+  }
+  const [_platform, _arch, target, executable, packageName] = match;
+  return { target, executable, packageName };
+}
+
+function packNpmPackage(packageDir) {
+  const tarballName = execFileSync("npm", ["pack"], {
+    cwd: packageDir,
+    encoding: "utf8"
+  })
+    .trim()
+    .split("\n")
+    .at(-1);
+  return path.join(packageDir, tarballName);
+}
+
+function extractTarball(tarball, targetDir) {
+  execFileSync("tar", ["-xzf", tarball, "-C", targetDir]);
+}
 
 function listFiles(rootDir) {
   const results = [];

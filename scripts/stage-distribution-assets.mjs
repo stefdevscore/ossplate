@@ -17,6 +17,12 @@ const manifest = JSON.parse(
 );
 const requiredPaths = manifest.requiredPaths;
 const excludedPrefixes = manifest.excludedPrefixes;
+const runtimePackages = {
+  "darwin-arm64": "ossplate-darwin-arm64",
+  "darwin-x64": "ossplate-darwin-x64",
+  "linux-x64": "ossplate-linux-x64",
+  "win32-x64": "ossplate-win32-x64"
+};
 
 const wrapperTargets = [
   join(repoRoot, "wrapper-js", "scaffold"),
@@ -27,8 +33,31 @@ const currentTarget = resolveCurrentTarget();
 const currentBinaryName = currentTarget.platform === "win32" ? "ossplate.exe" : "ossplate";
 const sourceBinary = join(repoRoot, "core-rs", "target", "debug", currentBinaryName);
 
-for (const destinationRoot of wrapperTargets) {
-  stageScaffold(destinationRoot);
+const mode = process.argv[2] ?? "default";
+
+if (mode === "runtime-package") {
+  const target = process.argv[3];
+  if (!target) {
+    throw new Error("usage: node scripts/stage-distribution-assets.mjs runtime-package <target>");
+  }
+  stageRuntimePackage(process.cwd(), target);
+} else {
+  stageDefault();
+}
+
+function stageDefault() {
+  for (const destinationRoot of wrapperTargets) {
+    stageScaffold(destinationRoot);
+  }
+
+  cleanAllRuntimePackageBins();
+  if (existsSync(sourceBinary)) {
+    stagePythonRuntime();
+    stageRuntimePackage(
+      join(repoRoot, "wrapper-js", "platform-packages", runtimePackages[currentTarget.folder]),
+      currentTarget.folder
+    );
+  }
 }
 
 function stageScaffold(destinationRoot) {
@@ -45,26 +74,58 @@ function stageScaffold(destinationRoot) {
     mkdirSync(dirname(destinationPath), { recursive: true });
     cpSync(sourcePath, destinationPath, { recursive: true });
   }
-
-  if (existsSync(sourceBinary)) {
-    stageBinary(destinationRoot);
-  }
 }
 
-function stageBinary(destinationRoot) {
+function stagePythonRuntime() {
   const relativePath = currentTarget.platform === "win32"
     ? `wrapper-py/src/ossplate/bin/${currentTarget.folder}/ossplate.exe`
     : `wrapper-py/src/ossplate/bin/${currentTarget.folder}/ossplate`;
-  const targets = [
-    join(repoRoot, "wrapper-js", "bin", currentTarget.folder, currentBinaryName),
-    join(repoRoot, relativePath)
-  ];
+  const destination = join(repoRoot, relativePath);
+  mkdirSync(dirname(destination), { recursive: true });
+  copyFileSync(sourceBinary, destination);
+  chmodSync(destination, 0o755);
+}
 
-  for (const destination of targets) {
-    mkdirSync(dirname(destination), { recursive: true });
-    copyFileSync(sourceBinary, destination);
-    chmodSync(destination, 0o755);
+function cleanAllRuntimePackageBins() {
+  for (const packageName of Object.values(runtimePackages)) {
+    rmSync(join(repoRoot, "wrapper-js", "platform-packages", packageName, "bin"), {
+      force: true,
+      recursive: true
+    });
   }
+}
+
+function stageRuntimePackage(packageRoot, target) {
+  const expectedPackageName = runtimePackages[target];
+  if (!expectedPackageName) {
+    throw new Error(`unsupported runtime package target: ${target}`);
+  }
+  if (target !== currentTarget.folder) {
+    throw new Error(
+      `cannot stage ${target} from host ${currentTarget.folder}; use the matching runner for this runtime package`
+    );
+  }
+  if (!existsSync(sourceBinary)) {
+    throw new Error(`required ossplate binary is missing at ${sourceBinary}`);
+  }
+
+  const packageJsonPath = join(packageRoot, "package.json");
+  if (!existsSync(packageJsonPath)) {
+    throw new Error(`runtime package root missing package.json: ${packageRoot}`);
+  }
+  const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8"));
+  if (packageJson.name !== expectedPackageName) {
+    throw new Error(
+      `runtime package ${packageRoot} does not match target ${target}: expected ${expectedPackageName}, found ${packageJson.name}`
+    );
+  }
+
+  const executable = target === "win32-x64" ? "ossplate.exe" : "ossplate";
+  const destination = join(packageRoot, "bin", executable);
+  rmSync(join(packageRoot, "bin"), { force: true, recursive: true });
+  mkdirSync(dirname(destination), { recursive: true });
+  copyFileSync(sourceBinary, destination);
+  chmodSync(destination, 0o755);
 }
 
 function resolveCurrentTarget() {

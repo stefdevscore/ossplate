@@ -45,7 +45,7 @@ jobs:
           node-version: '24'
           cache: npm
           cache-dependency-path: ./wrapper-js/package-lock.json
-      - run: npm ci
+      - run: npm ci --omit=optional
         working-directory: ./wrapper-js
       - run: npm run build
         working-directory: ./wrapper-js
@@ -53,6 +53,32 @@ jobs:
         working-directory: ./wrapper-js
       - run: npm pack --dry-run
         working-directory: ./wrapper-js
+
+  js-runtime:
+    needs: template-readiness
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            package_dir: wrapper-js/platform-packages/ossplate-linux-x64
+          - runner: macos-14
+            package_dir: wrapper-js/platform-packages/ossplate-darwin-arm64
+          - runner: macos-15-intel
+            package_dir: wrapper-js/platform-packages/ossplate-darwin-x64
+          - runner: windows-latest
+            package_dir: wrapper-js/platform-packages/ossplate-win32-x64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - name: Build core binary
+        run: cargo build --manifest-path core-rs/Cargo.toml
+      - run: npm pack --dry-run
+        working-directory: ./${{ matrix.package_dir }}
 
   python:
     needs: template-readiness

@@ -531,7 +531,7 @@ fn should_skip_copy(file_name: &std::ffi::OsStr) -> bool {
     )
 }
 
-fn owned_paths() -> [&'static str; 9] {
+fn owned_paths() -> [&'static str; 13] {
     [
         "README.md",
         ".github/workflows/ci.yml",
@@ -539,6 +539,10 @@ fn owned_paths() -> [&'static str; 9] {
         ".github/workflows/publish-npm.yml",
         "core-rs/Cargo.toml",
         "wrapper-js/package.json",
+        "wrapper-js/platform-packages/ossplate-darwin-arm64/package.json",
+        "wrapper-js/platform-packages/ossplate-darwin-x64/package.json",
+        "wrapper-js/platform-packages/ossplate-linux-x64/package.json",
+        "wrapper-js/platform-packages/ossplate-win32-x64/package.json",
         "wrapper-py/pyproject.toml",
         "wrapper-js/README.md",
         "wrapper-py/README.md",
@@ -576,6 +580,26 @@ fn managed_files() -> Vec<ManagedFile> {
             path: "wrapper-js/package.json",
             validate: validate_package_json,
             sync: sync_package_json,
+        },
+        ManagedFile {
+            path: "wrapper-js/platform-packages/ossplate-darwin-arm64/package.json",
+            validate: validate_runtime_package_json_darwin_arm64,
+            sync: sync_runtime_package_json_darwin_arm64,
+        },
+        ManagedFile {
+            path: "wrapper-js/platform-packages/ossplate-darwin-x64/package.json",
+            validate: validate_runtime_package_json_darwin_x64,
+            sync: sync_runtime_package_json_darwin_x64,
+        },
+        ManagedFile {
+            path: "wrapper-js/platform-packages/ossplate-linux-x64/package.json",
+            validate: validate_runtime_package_json_linux_x64,
+            sync: sync_runtime_package_json_linux_x64,
+        },
+        ManagedFile {
+            path: "wrapper-js/platform-packages/ossplate-win32-x64/package.json",
+            validate: validate_runtime_package_json_win32_x64,
+            sync: sync_runtime_package_json_win32_x64,
         },
         ManagedFile {
             path: "wrapper-py/pyproject.toml",
@@ -775,6 +799,181 @@ fn sync_package_json(config: &ToolConfig, content: &str) -> Result<String> {
     let mut rendered = serde_json::to_string_pretty(&value)?;
     rendered.push('\n');
     Ok(rendered)
+}
+
+struct RuntimePackageSpec {
+    manifest_path: &'static str,
+    target: &'static str,
+    os: &'static str,
+    cpu: &'static str,
+}
+
+fn runtime_package_spec(target: &str) -> RuntimePackageSpec {
+    match target {
+        "darwin-arm64" => RuntimePackageSpec {
+            manifest_path: "wrapper-js/platform-packages/ossplate-darwin-arm64/package.json",
+            target: "darwin-arm64",
+            os: "darwin",
+            cpu: "arm64",
+        },
+        "darwin-x64" => RuntimePackageSpec {
+            manifest_path: "wrapper-js/platform-packages/ossplate-darwin-x64/package.json",
+            target: "darwin-x64",
+            os: "darwin",
+            cpu: "x64",
+        },
+        "linux-x64" => RuntimePackageSpec {
+            manifest_path: "wrapper-js/platform-packages/ossplate-linux-x64/package.json",
+            target: "linux-x64",
+            os: "linux",
+            cpu: "x64",
+        },
+        "win32-x64" => RuntimePackageSpec {
+            manifest_path: "wrapper-js/platform-packages/ossplate-win32-x64/package.json",
+            target: "win32-x64",
+            os: "win32",
+            cpu: "x64",
+        },
+        other => panic!("unsupported runtime package target: {other}"),
+    }
+}
+
+fn runtime_package_name(config: &ToolConfig, target: &str) -> String {
+    format!("{}-{target}", config.packages.npm_package)
+}
+
+fn validate_runtime_package_json(
+    config: &ToolConfig,
+    content: &str,
+    spec: RuntimePackageSpec,
+) -> Result<Vec<ValidationIssue>> {
+    let value: serde_json::Value = serde_json::from_str(content)
+        .with_context(|| format!("failed to parse {}", spec.manifest_path))?;
+    let mut issues = Vec::new();
+    check_json_string(
+        &mut issues,
+        spec.manifest_path,
+        "name",
+        value.get("name"),
+        &runtime_package_name(config, spec.target),
+    );
+    check_json_string(
+        &mut issues,
+        spec.manifest_path,
+        "description",
+        value.get("description"),
+        &format!(
+            "Platform runtime package for {} on {}.",
+            config.packages.npm_package, spec.target
+        ),
+    );
+    check_json_string(
+        &mut issues,
+        spec.manifest_path,
+        "license",
+        value.get("license"),
+        &config.project.license,
+    );
+    check_json_string(
+        &mut issues,
+        spec.manifest_path,
+        "repository.url",
+        value.get("repository").and_then(|v| v.get("url")),
+        &config.project.repository,
+    );
+    check_json_string(
+        &mut issues,
+        spec.manifest_path,
+        "repository.directory",
+        value.get("repository").and_then(|v| v.get("directory")),
+        &format!(
+            "wrapper-js/platform-packages/{}",
+            runtime_package_name(config, spec.target)
+        ),
+    );
+    check_json_string(
+        &mut issues,
+        spec.manifest_path,
+        "os[0]",
+        value.get("os").and_then(|v| v.get(0)),
+        spec.os,
+    );
+    check_json_string(
+        &mut issues,
+        spec.manifest_path,
+        "cpu[0]",
+        value.get("cpu").and_then(|v| v.get(0)),
+        spec.cpu,
+    );
+    Ok(issues)
+}
+
+fn sync_runtime_package_json(
+    config: &ToolConfig,
+    content: &str,
+    spec: RuntimePackageSpec,
+) -> Result<String> {
+    let mut value: serde_json::Value = serde_json::from_str(content)
+        .with_context(|| format!("failed to parse {}", spec.manifest_path))?;
+    let package_name = runtime_package_name(config, spec.target);
+    value["name"] = serde_json::Value::String(package_name.clone());
+    value["description"] = serde_json::Value::String(format!(
+        "Platform runtime package for {} on {}.",
+        config.packages.npm_package, spec.target
+    ));
+    value["license"] = serde_json::Value::String(config.project.license.clone());
+    value["repository"]["url"] = serde_json::Value::String(config.project.repository.clone());
+    value["repository"]["directory"] =
+        serde_json::Value::String(format!("wrapper-js/platform-packages/{package_name}"));
+    value["os"] = json!([spec.os]);
+    value["cpu"] = json!([spec.cpu]);
+    let mut rendered = serde_json::to_string_pretty(&value)?;
+    rendered.push('\n');
+    Ok(rendered)
+}
+
+fn validate_runtime_package_json_darwin_arm64(
+    config: &ToolConfig,
+    content: &str,
+) -> Result<Vec<ValidationIssue>> {
+    validate_runtime_package_json(config, content, runtime_package_spec("darwin-arm64"))
+}
+
+fn sync_runtime_package_json_darwin_arm64(config: &ToolConfig, content: &str) -> Result<String> {
+    sync_runtime_package_json(config, content, runtime_package_spec("darwin-arm64"))
+}
+
+fn validate_runtime_package_json_darwin_x64(
+    config: &ToolConfig,
+    content: &str,
+) -> Result<Vec<ValidationIssue>> {
+    validate_runtime_package_json(config, content, runtime_package_spec("darwin-x64"))
+}
+
+fn sync_runtime_package_json_darwin_x64(config: &ToolConfig, content: &str) -> Result<String> {
+    sync_runtime_package_json(config, content, runtime_package_spec("darwin-x64"))
+}
+
+fn validate_runtime_package_json_linux_x64(
+    config: &ToolConfig,
+    content: &str,
+) -> Result<Vec<ValidationIssue>> {
+    validate_runtime_package_json(config, content, runtime_package_spec("linux-x64"))
+}
+
+fn sync_runtime_package_json_linux_x64(config: &ToolConfig, content: &str) -> Result<String> {
+    sync_runtime_package_json(config, content, runtime_package_spec("linux-x64"))
+}
+
+fn validate_runtime_package_json_win32_x64(
+    config: &ToolConfig,
+    content: &str,
+) -> Result<Vec<ValidationIssue>> {
+    validate_runtime_package_json(config, content, runtime_package_spec("win32-x64"))
+}
+
+fn sync_runtime_package_json_win32_x64(config: &ToolConfig, content: &str) -> Result<String> {
+    sync_runtime_package_json(config, content, runtime_package_spec("win32-x64"))
 }
 
 fn validate_pyproject(config: &ToolConfig, content: &str) -> Result<Vec<ValidationIssue>> {
@@ -1389,6 +1588,26 @@ mod tests {
     }
 
     #[test]
+    fn sync_owns_runtime_package_metadata() {
+        let root = make_fixture_root();
+        fs::write(
+            root.join("wrapper-js/platform-packages/ossplate-darwin-arm64/package.json"),
+            "{\n  \"name\": \"bad-runtime\"\n}\n",
+        )
+        .unwrap();
+
+        let error = sync_repo(&root, true).unwrap_err().to_string();
+        assert!(error.contains("sync check failed"));
+        sync_repo(&root, false).unwrap();
+        let synced = fs::read_to_string(
+            root.join("wrapper-js/platform-packages/ossplate-darwin-arm64/package.json"),
+        )
+        .unwrap();
+        assert!(synced.contains("\"name\": \"ossplate-darwin-arm64\""));
+        assert!(validate_repo(&root).unwrap().ok);
+    }
+
+    #[test]
     fn human_issue_output_groups_by_file() {
         let rendered = format_human_issues(
             "validation failed:",
@@ -1523,6 +1742,17 @@ version = "0.1.11"
         let config = load_config(&target).unwrap();
         assert_eq!(config.project.name, "Demo Tool");
         assert_eq!(config.packages.command, "demo-tool");
+        let runtime_package: serde_json::Value = serde_json::from_str(
+            &fs::read_to_string(
+                target.join("wrapper-js/platform-packages/ossplate-darwin-arm64/package.json"),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            runtime_package["name"].as_str().unwrap(),
+            "demo-wrapper-js-darwin-arm64"
+        );
         assert!(validate_repo(&target).unwrap().ok);
 
         fs::remove_dir_all(&target).unwrap();
@@ -1665,7 +1895,11 @@ version = "0.1.11"
         let root = std::env::temp_dir().join(format!("ossplate-fixture-{unique}"));
         fs::create_dir_all(root.join(".github/workflows")).unwrap();
         fs::create_dir_all(root.join("core-rs")).unwrap();
-        fs::create_dir_all(root.join("wrapper-js")).unwrap();
+        fs::create_dir_all(root.join("wrapper-js/platform-packages/ossplate-darwin-arm64"))
+            .unwrap();
+        fs::create_dir_all(root.join("wrapper-js/platform-packages/ossplate-darwin-x64")).unwrap();
+        fs::create_dir_all(root.join("wrapper-js/platform-packages/ossplate-linux-x64")).unwrap();
+        fs::create_dir_all(root.join("wrapper-js/platform-packages/ossplate-win32-x64")).unwrap();
         fs::create_dir_all(root.join("wrapper-py")).unwrap();
         let config = r#"[project]
 name = "Ossplate"
@@ -1728,6 +1962,26 @@ ossplate = "ossplate.cli:main"
 "#,
         )
         .unwrap();
+        for (target, os, cpu) in [
+            ("darwin-arm64", "darwin", "arm64"),
+            ("darwin-x64", "darwin", "x64"),
+            ("linux-x64", "linux", "x64"),
+            ("win32-x64", "win32", "x64"),
+        ] {
+            let package_name = format!("ossplate-{target}");
+            let description = format!("Platform runtime package for ossplate on {target}.");
+            let directory = format!("wrapper-js/platform-packages/{package_name}");
+            let manifest = format!(
+                "{{\n  \"name\": \"{package_name}\",\n  \"description\": \"{description}\",\n  \"license\": \"Unlicense\",\n  \"repository\": {{\n    \"type\": \"git\",\n    \"url\": \"https://github.com/stefdevscore/ossplate\",\n    \"directory\": \"{directory}\"\n  }},\n  \"os\": [\"{os}\"],\n  \"cpu\": [\"{cpu}\"]\n}}\n"
+            );
+            fs::write(
+                root.join(format!(
+                    "wrapper-js/platform-packages/{package_name}/package.json"
+                )),
+                manifest,
+            )
+            .unwrap();
+        }
         fs::write(
             root.join(".github/workflows/ci.yml"),
             format!(

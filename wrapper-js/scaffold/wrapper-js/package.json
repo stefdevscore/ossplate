@@ -23,6 +23,12 @@
   "license": "Unlicense",
   "main": "./dist/index.js",
   "name": "ossplate",
+  "optionalDependencies": {
+    "ossplate-darwin-arm64": "0.1.11",
+    "ossplate-darwin-x64": "0.1.11",
+    "ossplate-linux-x64": "0.1.11",
+    "ossplate-win32-x64": "0.1.11"
+  },
   "publishConfig": {
     "access": "public"
   },

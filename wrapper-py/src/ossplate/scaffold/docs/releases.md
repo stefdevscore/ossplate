@@ -7,6 +7,7 @@ Use this guide when cutting a new `ossplate` release.
 - PyPI publishes from [`.github/workflows/publish.yml`](../.github/workflows/publish.yml) via GitHub OIDC trusted publishing.
 - crates.io publishes from [`.github/workflows/publish.yml`](../.github/workflows/publish.yml) via OIDC trusted publishing with `CARGO_TOKEN` fallback.
 - npm publishes from [`.github/workflows/publish-npm.yml`](../.github/workflows/publish-npm.yml) via OIDC trusted publishing with `NPM_TOKEN` fallback.
+  Runtime packages publish first, then the top-level `ossplate` package publishes after they are available.
 
 ## Before Release
 
@@ -22,9 +23,17 @@ Optional local packaging confidence checks:
 cargo package --manifest-path core-rs/Cargo.toml
 cargo publish --manifest-path core-rs/Cargo.toml --dry-run
 cd wrapper-js && npm pack --dry-run
+cd wrapper-js/platform-packages/ossplate-<host-target> && npm pack --dry-run
 cd ../wrapper-py && OSSPLATE_PY_TARGET=linux-x64 python -m build --wheel
 cd ../wrapper-py && python -m build --sdist
 ```
+
+Use the runtime package that matches the machine you are building on:
+
+- macOS Apple Silicon: `ossplate-darwin-arm64`
+- macOS Intel: `ossplate-darwin-x64`
+- Linux x64: `ossplate-linux-x64`
+- Windows x64: `ossplate-win32-x64`
 
 ## Versioning
 
@@ -49,6 +58,21 @@ After updating versions, rerun:
    - [`.github/workflows/publish.yml`](../.github/workflows/publish.yml)
    - [`.github/workflows/publish-npm.yml`](../.github/workflows/publish-npm.yml)
 
+## Workflow Friction To Expect
+
+The release pipeline mutates `main` on GitHub.
+
+- After CI passes, [`.github/workflows/release.yml`](../.github/workflows/release.yml) commits the version bump directly to `origin/main`.
+- That means a local checkout that was clean before release can become behind `origin/main` without any new manual commits from you.
+- Before pushing follow-up work, always refresh your branch first:
+
+```bash
+git fetch origin
+git rebase origin/main
+```
+
+- If a push is rejected as non-fast-forward right after a green release, this version-bump commit is the expected cause.
+
 Optional local hook setup uses [`pre-commit`](https://pre-commit.com/) through [`.pre-commit-config.yaml`](../.pre-commit-config.yaml). It is not required for CI or release automation.
 
 ## Bump Rules
@@ -64,6 +88,7 @@ The publish jobs are intentionally rerun-safe.
 
 - Cargo checks whether the crate version already exists before attempting publish.
 - npm checks whether the package version already exists before attempting publish.
+- npm runtime packages check whether their package version already exists before attempting publish.
 - PyPI uses `skip-existing: true`.
 
 So a second run for the same version should usually succeed by skipping work rather than failing destructively.
@@ -77,6 +102,16 @@ So a second run for the same version should usually succeed by skipping work rat
   - `macos-15-intel` -> `darwin-x64`
   - `windows-latest` -> `win32-x64`
 - Each wheel bundles exactly one native `ossplate` executable for its target, so wheel filenames are platform-specific.
+
+## JavaScript Runtime Packages
+
+- npm publishes one thin top-level package: `ossplate`
+- npm also publishes one platform runtime package per supported target:
+  - `ossplate-linux-x64`
+  - `ossplate-darwin-arm64`
+  - `ossplate-darwin-x64`
+  - `ossplate-win32-x64`
+- Users still install `ossplate`; npm resolves the matching runtime package through `optionalDependencies`.
 
 ## Current Published Names
 

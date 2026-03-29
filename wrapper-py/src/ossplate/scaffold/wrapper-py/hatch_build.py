@@ -27,6 +27,12 @@ HOST_TARGETS = {
     ("Windows", "AMD64"): "win32-x64",
     ("Windows", "x86_64"): "win32-x64",
 }
+RUNTIME_PACKAGES = {
+    "darwin-arm64": "ossplate-darwin-arm64",
+    "darwin-x64": "ossplate-darwin-x64",
+    "linux-x64": "ossplate-linux-x64",
+    "win32-x64": "ossplate-win32-x64",
+}
 
 
 class CustomBuildHook(BuildHookInterface):
@@ -40,7 +46,14 @@ class CustomBuildHook(BuildHookInterface):
 
         target = resolve_build_target()
         binary_name = TARGETS[target]
-        binary_source = repo_root / "wrapper-js" / "bin" / target / binary_name
+        binary_source = (
+            repo_root
+            / "wrapper-js"
+            / "platform-packages"
+            / RUNTIME_PACKAGES[target]
+            / "bin"
+            / binary_name
+        )
         if not binary_source.exists():
             raise RuntimeError(
                 f"required ossplate binary for target {target} is missing at {binary_source}"
