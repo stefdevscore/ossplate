@@ -11,31 +11,14 @@ mod scaffold;
 mod scaffold_manifest;
 mod source_checkout;
 mod sync;
-
 #[cfg(test)]
-use config::load_config;
+mod test_support;
+
 use config::IdentityOverrides;
 use output::{print_validation_output, render_version_output};
 use release::{publish_repo, PublishRegistry};
 use scaffold::{create_scaffold, init_scaffold};
 use sync::{sync_repo, validate_repo};
-
-#[cfg(test)]
-pub(crate) use scaffold::{
-    create_scaffold_from, discover_template_root, ensure_scaffold_source_root, init_scaffold_from,
-};
-
-#[cfg(test)]
-pub(crate) use sync::{github_blob_url, github_raw_url, issue, render_wrapper_readme};
-
-#[cfg(test)]
-use output::VersionOutput;
-
-#[cfg(test)]
-use std::fs;
-
-#[cfg(test)]
-use std::path::Path;
 
 #[derive(Parser)]
 #[command(name = "ossplate")]

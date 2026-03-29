@@ -1,13 +1,29 @@
-use super::*;
+use crate::config::IdentityOverrides;
+use crate::output::VersionOutput;
+use crate::release::PublishRegistry;
+use crate::scaffold::{
+    create_scaffold_from, discover_template_root, ensure_scaffold_source_root, init_scaffold_from,
+};
 use crate::sync::format_human_issues;
+use crate::sync::{
+    github_blob_url, github_raw_url, issue, render_wrapper_readme, sync_repo, validate_repo,
+};
+use crate::test_support::{fs, load_config, Path};
+use crate::{Cli, Commands};
+use clap::Parser;
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
+
+static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 fn unique_temp_path(prefix: &str) -> PathBuf {
     let unique = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_nanos();
-    std::env::temp_dir().join(format!("{prefix}-{unique}"))
+    let counter = TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
+    std::env::temp_dir().join(format!("{prefix}-{unique}-{counter}"))
 }
 
 #[test]

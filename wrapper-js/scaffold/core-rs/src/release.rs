@@ -129,14 +129,18 @@ mod tests {
     use std::io;
     use std::os::unix::process::ExitStatusExt;
     use std::path::PathBuf;
+    use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
     fn unique_temp_path(prefix: &str) -> PathBuf {
         let unique = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        std::env::temp_dir().join(format!("{prefix}-{unique}"))
+        let counter = TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
+        std::env::temp_dir().join(format!("{prefix}-{unique}-{counter}"))
     }
 
     fn fixture_root() -> PathBuf {
@@ -159,6 +163,11 @@ mod tests {
         .unwrap();
         fs::write(root.join("core-rs/src/main.rs"), "fn main() {}\n").unwrap();
         fs::write(root.join("core-rs/src/main_tests.rs"), "// main tests\n").unwrap();
+        fs::write(
+            root.join("core-rs/src/test_support.rs"),
+            "// test support\n",
+        )
+        .unwrap();
         fs::write(root.join("core-rs/src/config.rs"), "// config\n").unwrap();
         fs::write(root.join("core-rs/src/output.rs"), "// output\n").unwrap();
         fs::write(root.join("core-rs/src/release.rs"), "// release\n").unwrap();
