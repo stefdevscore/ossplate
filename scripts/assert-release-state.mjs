@@ -1,11 +1,11 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const repoRoot = join(new URL("..", import.meta.url).pathname);
+const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 const scaffoldManifest = readJson("scaffold-manifest.json");
 const rootPackage = readJson("wrapper-js/package.json");
-const canonicalConfig = readText("ossplate.toml");
 const runtimeTargets = [
   "darwin-arm64",
   "darwin-x64",
@@ -145,19 +145,11 @@ function readPyprojectVersion() {
 }
 
 function runtimePackageName(target) {
-  return `@${githubOwner()}/${rootPackage.name}-${target}`;
+  return `${rootPackage.name}-${target}`;
 }
 
 function readText(relativePath) {
   return readFileSync(join(repoRoot, relativePath), "utf8");
-}
-
-function githubOwner() {
-  const match = canonicalConfig.match(/^repository = "https:\/\/github\.com\/([^/]+)\/[^"]+"$/m);
-  if (!match) {
-    fail("ossplate.toml repository must be a GitHub URL to derive runtime package scope");
-  }
-  return match[1];
 }
 
 function readJson(relativePath) {

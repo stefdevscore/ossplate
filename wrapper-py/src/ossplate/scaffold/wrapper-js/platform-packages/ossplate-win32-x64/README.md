@@ -1,4 +1,4 @@
-# @stefdevscore/ossplate-win32-x64
+# ossplate-win32-x64
 
 Platform runtime package for `ossplate` on Windows x64.
 

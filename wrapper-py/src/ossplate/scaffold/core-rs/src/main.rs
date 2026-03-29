@@ -883,23 +883,8 @@ fn runtime_package_folder(config: &ToolConfig, target: &str) -> String {
     format!("{}-{target}", config.packages.npm_package)
 }
 
-fn runtime_package_scope(config: &ToolConfig) -> Result<String> {
-    let repo = github_repository_path(&config.project.repository)?;
-    let owner = repo
-        .split('/')
-        .next()
-        .filter(|segment| !segment.is_empty())
-        .ok_or_else(|| anyhow!("unsupported repository URL for runtime package scope"))?;
-    Ok(owner.to_string())
-}
-
 fn runtime_package_name(config: &ToolConfig, target: &str) -> String {
-    format!(
-        "@{}/{}",
-        runtime_package_scope(config)
-            .expect("runtime package rendering requires a GitHub repository URL"),
-        runtime_package_folder(config, target)
-    )
+    runtime_package_folder(config, target)
 }
 
 fn validate_runtime_package_json(
@@ -1664,7 +1649,7 @@ mod tests {
             root.join("wrapper-js/platform-packages/ossplate-darwin-arm64/package.json"),
         )
         .unwrap();
-        assert!(synced.contains("\"name\": \"@stefdevscore/ossplate-darwin-arm64\""));
+        assert!(synced.contains("\"name\": \"ossplate-darwin-arm64\""));
         assert!(validate_repo(&root).unwrap().ok);
     }
 
@@ -1817,10 +1802,10 @@ version = "0.1.14"
         assert_eq!(
             actual_runtime_dependencies,
             vec![
-                "@example/demo-wrapper-js-darwin-arm64".to_string(),
-                "@example/demo-wrapper-js-darwin-x64".to_string(),
-                "@example/demo-wrapper-js-linux-x64".to_string(),
-                "@example/demo-wrapper-js-win32-x64".to_string(),
+                "demo-wrapper-js-darwin-arm64".to_string(),
+                "demo-wrapper-js-darwin-x64".to_string(),
+                "demo-wrapper-js-linux-x64".to_string(),
+                "demo-wrapper-js-win32-x64".to_string(),
             ]
         );
         let runtime_package: serde_json::Value = serde_json::from_str(
@@ -1832,7 +1817,7 @@ version = "0.1.14"
         .unwrap();
         assert_eq!(
             runtime_package["name"].as_str().unwrap(),
-            "@example/demo-wrapper-js-darwin-arm64"
+            "demo-wrapper-js-darwin-arm64"
         );
         assert!(validate_repo(&target).unwrap().ok);
 
@@ -2049,7 +2034,7 @@ ossplate = "ossplate.cli:main"
             ("linux-x64", "linux", "x64"),
             ("win32-x64", "win32", "x64"),
         ] {
-            let package_name = format!("@stefdevscore/ossplate-{target}");
+            let package_name = format!("ossplate-{target}");
             let package_folder = format!("ossplate-{target}");
             let description = format!("Platform runtime package for ossplate on {target}.");
             let directory = format!("wrapper-js/platform-packages/{package_folder}");

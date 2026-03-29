@@ -24,10 +24,10 @@
   "main": "./dist/index.js",
   "name": "ossplate",
   "optionalDependencies": {
-    "@stefdevscore/ossplate-darwin-arm64": "0.1.14",
-    "@stefdevscore/ossplate-darwin-x64": "0.1.14",
-    "@stefdevscore/ossplate-linux-x64": "0.1.14",
-    "@stefdevscore/ossplate-win32-x64": "0.1.14"
+    "ossplate-darwin-arm64": "0.1.14",
+    "ossplate-darwin-x64": "0.1.14",
+    "ossplate-linux-x64": "0.1.14",
+    "ossplate-win32-x64": "0.1.14"
   },
   "publishConfig": {
     "access": "public"

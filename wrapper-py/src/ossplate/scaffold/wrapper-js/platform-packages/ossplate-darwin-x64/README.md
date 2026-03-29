@@ -1,4 +1,4 @@
-# @stefdevscore/ossplate-darwin-x64
+# ossplate-darwin-x64
 
 Platform runtime package for `ossplate` on macOS x64.
 

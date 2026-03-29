@@ -17,7 +17,10 @@ Run the full gate before creating a release:
 ./scripts/verify.sh
 ```
 
-The release gate now includes `scripts/assert-release-state.mjs`, which fails if versions, scaffold snapshots, npm runtime package identities, or tracked generated binaries drift out of policy.
+The release gate now includes:
+
+- `scripts/assert-release-state.mjs` for internal version and artifact invariants
+- `scripts/assert-publish-readiness.mjs` for external npm publish readiness
 
 Optional local packaging confidence checks:
 
@@ -32,10 +35,10 @@ cd ../wrapper-py && python -m build --sdist
 
 Use the runtime package that matches the machine you are building on:
 
-- macOS Apple Silicon: `@stefdevscore/ossplate-darwin-arm64`
-- macOS Intel: `@stefdevscore/ossplate-darwin-x64`
-- Linux x64: `@stefdevscore/ossplate-linux-x64`
-- Windows x64: `@stefdevscore/ossplate-win32-x64`
+- macOS Apple Silicon: `ossplate-darwin-arm64`
+- macOS Intel: `ossplate-darwin-x64`
+- Linux x64: `ossplate-linux-x64`
+- Windows x64: `ossplate-win32-x64`
 
 ## Versioning
 
@@ -55,9 +58,9 @@ After updating versions, rerun:
 
 1. Merge or push work to `main`.
 2. Let [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) pass on that commit.
-3. [`.github/workflows/release.yml`](../.github/workflows/release.yml) computes the next version from commit messages, bumps versions, commits the release, tags it, and creates a GitHub release.
-4. The release workflow asserts release-state integrity before mutating `main`.
-5. The release workflow dispatches the publish workflows and waits for both of them to finish successfully.
+3. [`.github/workflows/release.yml`](../.github/workflows/release.yml) computes the next version from commit messages, runs release-state and publish-readiness preflight checks, then bumps versions, commits the release, and tags it.
+4. The release workflow dispatches the publish workflows and waits for both of them to finish successfully.
+5. Only after downstream publish success does the release workflow create the GitHub release.
 6. Successful completion of the release workflow means all intended registry publishes either completed or skipped safely.
 
 The downstream publish workflows are:
@@ -99,7 +102,7 @@ The publish jobs are intentionally rerun-safe.
 
 So a second run for the same version should usually succeed by skipping work rather than failing destructively.
 
-If a release created the bump commit/tag but one registry publish failed, treat that as a partial release. Fix the failing workflow, then rerun only the publish workflow for that version rather than cutting a second version immediately.
+If a release created the bump commit/tag but one registry publish failed, treat that version as a failed release candidate. Fix the pipeline and cut the next patch release instead of trying to normalize the broken version in place.
 
 ## Python Wheels
 
@@ -116,12 +119,13 @@ If a release created the bump commit/tag but one registry publish failed, treat 
 
 - npm publishes one thin top-level package: `ossplate`
 - npm also publishes one platform runtime package per supported target:
-  - `@stefdevscore/ossplate-linux-x64`
-  - `@stefdevscore/ossplate-darwin-arm64`
-  - `@stefdevscore/ossplate-darwin-x64`
-  - `@stefdevscore/ossplate-win32-x64`
+  - `ossplate-linux-x64`
+  - `ossplate-darwin-arm64`
+  - `ossplate-darwin-x64`
+  - `ossplate-win32-x64`
 - Users still install `ossplate`; npm resolves the matching runtime package through `optionalDependencies`.
 - The top-level npm publish now checks that every expected runtime package version is visible on npm before publishing `ossplate`.
+- Release preflight fails if the next npm version is already partially published or the runtime package names are not publishable on the public registry.
 
 ## Current Published Names
 

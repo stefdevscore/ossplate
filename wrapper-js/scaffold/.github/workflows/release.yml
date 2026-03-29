@@ -73,6 +73,9 @@ jobs:
       - name: Assert release state
         if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
         run: node ./scripts/assert-release-state.mjs
+      - name: Assert publish readiness
+        if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
+        run: node ./scripts/assert-publish-readiness.mjs release "${{ steps.plan.outputs.next_version }}"
       - name: Set up git identity
         if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
         run: |
@@ -96,19 +99,6 @@ jobs:
           git tag "v${VERSION}"
           git push origin main
           git push origin "v${VERSION}"
-      - name: Create GitHub release
-        if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          VERSION="${{ steps.plan.outputs.next_version }}"
-          if gh release view "v${VERSION}" >/dev/null 2>&1; then
-            echo "::notice title=release::GitHub release v${VERSION} already exists; skipping."
-            exit 0
-          fi
-          gh release create "v${VERSION}" \
-            --title "v${VERSION}" \
-            --notes "Automated release for ossplate ${VERSION}."
       - name: Dispatch publish workflows
         if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
         id: dispatch
@@ -171,3 +161,16 @@ jobs:
 
           wait_for_run "Ossplate publishing"
           wait_for_run "Ossplate publish-npm"
+      - name: Create GitHub release
+        if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.plan.outputs.next_version }}"
+          if gh release view "v${VERSION}" >/dev/null 2>&1; then
+            echo "::notice title=release::GitHub release v${VERSION} already exists; skipping."
+            exit 0
+          fi
+          gh release create "v${VERSION}" \
+            --title "v${VERSION}" \
+            --notes "Automated release for ossplate ${VERSION}."
