@@ -22,7 +22,7 @@ struct RuntimeTargetsFile {
 }
 
 fn runtime_package_specs() -> Vec<RuntimePackageSpec> {
-    serde_json::from_str::<RuntimeTargetsFile>(include_str!("../../../runtime-targets.json"))
+    serde_json::from_str::<RuntimeTargetsFile>(include_str!("../../runtime-targets.json"))
         .expect("runtime-targets.json must parse")
         .targets
 }

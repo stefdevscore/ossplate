@@ -130,19 +130,12 @@ jobs:
         if: steps.published.outputs.already != 'true'
         working-directory: ./wrapper-js
         run: |
-          node - <<'NODE'
-          const pkg = require("./package.json");
-          const { execFileSync } = require("node:child_process");
-          for (const [name, version] of Object.entries(pkg.optionalDependencies ?? {})) {
-            try {
-              execFileSync("npm", ["view", `${name}@${version}`, "version"], {
-                stdio: "ignore"
-              });
-            } catch {
-              throw new Error(`required runtime package ${name}@${version} is not available on npm`);
-            }
-          }
-          NODE
+          VERSION=$(node -p "require('./package.json').version")
+          node ../scripts/wait-for-npm-versions.mjs "$VERSION" \
+            ossplate-darwin-arm64 \
+            ossplate-darwin-x64 \
+            ossplate-linux-x64 \
+            ossplate-windows-x64
       - name: Install JS build dependencies
         if: steps.published.outputs.already != 'true'
         working-directory: ./wrapper-js

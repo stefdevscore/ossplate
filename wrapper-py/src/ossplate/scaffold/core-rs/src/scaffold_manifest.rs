@@ -7,7 +7,7 @@ pub(crate) struct ScaffoldManifest {
 }
 
 pub(crate) fn required_source_paths() -> Vec<String> {
-    serde_json::from_str::<ScaffoldManifest>(include_str!("../../source-checkout.json"))
+    serde_json::from_str::<ScaffoldManifest>(include_str!("../source-checkout.json"))
         .expect("source-checkout.json must parse")
         .required_source_paths
 }

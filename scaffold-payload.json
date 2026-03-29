@@ -35,6 +35,8 @@
     "runtime-targets.json",
     "core-rs/Cargo.toml",
     "core-rs/Cargo.lock",
+    "core-rs/runtime-targets.json",
+    "core-rs/source-checkout.json",
     "core-rs/src/config.rs",
     "core-rs/src/main.rs",
     "core-rs/src/main_tests.rs",
