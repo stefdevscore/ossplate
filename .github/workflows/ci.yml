@@ -179,6 +179,12 @@ jobs:
       - name: Pack linux runtime package
         working-directory: ./wrapper-js/platform-packages/ossplate-linux-x64
         run: npm pack
+      - name: Install JS build dependencies
+        working-directory: ./wrapper-js
+        run: npm install --no-package-lock
+      - name: Build top-level npm package
+        working-directory: ./wrapper-js
+        run: npm run build
       - name: Pack top-level npm package
         working-directory: ./wrapper-js
         run: npm pack
