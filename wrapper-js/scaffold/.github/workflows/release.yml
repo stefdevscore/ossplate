@@ -72,7 +72,7 @@ jobs:
           echo "next_version=$(printf '%s' "$PLAN" | node -e "process.stdout.write(JSON.parse(require('fs').readFileSync(0, 'utf8')).nextVersion)")" >> "$GITHUB_OUTPUT"
       - name: Assert release state
         if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
-        run: node ./scripts/assert-release-state.mjs
+        run: node ./scripts/release-check.mjs release-state
       - name: Determine JS lockfile mode
         if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
         id: js_mode
@@ -89,7 +89,7 @@ jobs:
         run: node ./scripts/assert-js-lockfile-state.mjs "${{ steps.js_mode.outputs.lockfile_mode }}"
       - name: Assert publish readiness
         if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
-        run: node ./scripts/assert-publish-readiness.mjs release "${{ steps.plan.outputs.next_version }}"
+        run: node ./scripts/release-check.mjs publish-readiness release "${{ steps.plan.outputs.next_version }}"
       - name: Set up git identity
         if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
         run: |

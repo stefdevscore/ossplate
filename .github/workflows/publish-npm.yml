@@ -38,11 +38,11 @@ jobs:
       - name: Build core binary
         run: cargo build --manifest-path core-rs/Cargo.toml
       - name: Assert release state
-        run: node ./scripts/assert-release-state.mjs
+        run: node ./scripts/release-check.mjs release-state
       - name: Assert JS lockfile state
         run: node ./scripts/assert-js-lockfile-state.mjs placeholder
       - name: Assert publish readiness
-        run: node ./scripts/assert-publish-readiness.mjs publish
+        run: node ./scripts/release-check.mjs publish-readiness publish
       - name: Detect published version
         id: published
         shell: bash
@@ -107,11 +107,11 @@ jobs:
           cache: npm
           cache-dependency-path: ./wrapper-js/package-lock.json
       - name: Assert release state
-        run: node ./scripts/assert-release-state.mjs
+        run: node ./scripts/release-check.mjs release-state
       - name: Assert JS lockfile state
         run: node ./scripts/assert-js-lockfile-state.mjs placeholder
       - name: Assert publish readiness
-        run: node ./scripts/assert-publish-readiness.mjs publish
+        run: node ./scripts/release-check.mjs publish-readiness publish
       - name: Detect published version
         id: published
         working-directory: ./wrapper-js

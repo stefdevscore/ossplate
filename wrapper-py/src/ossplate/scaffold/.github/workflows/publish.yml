@@ -39,9 +39,9 @@ jobs:
       - name: Build core binary
         run: cargo build --manifest-path core-rs/Cargo.toml
       - name: Assert release state
-        run: node ./scripts/assert-release-state.mjs
+        run: node ./scripts/release-check.mjs release-state
       - name: Assert publish readiness
-        run: node ./scripts/assert-publish-readiness.mjs publish
+        run: node ./scripts/release-check.mjs publish-readiness publish
       - name: Build wheel
         env:
           OSSPLATE_PY_TARGET: ${{ matrix.target }}
@@ -74,9 +74,9 @@ jobs:
       - name: Build core binary
         run: cargo build --manifest-path core-rs/Cargo.toml
       - name: Assert release state
-        run: node ./scripts/assert-release-state.mjs
+        run: node ./scripts/release-check.mjs release-state
       - name: Assert publish readiness
-        run: node ./scripts/assert-publish-readiness.mjs publish
+        run: node ./scripts/release-check.mjs publish-readiness publish
       - name: Build sdist
         run: |
           python -m pip install --upgrade pip
@@ -127,9 +127,9 @@ jobs:
         with:
           node-version: '24'
       - name: Assert release state
-        run: node ./scripts/assert-release-state.mjs
+        run: node ./scripts/release-check.mjs release-state
       - name: Assert publish readiness
-        run: node ./scripts/assert-publish-readiness.mjs publish
+        run: node ./scripts/release-check.mjs publish-readiness publish
       - name: Authenticate with crates.io via OIDC
         id: auth
         continue-on-error: true
