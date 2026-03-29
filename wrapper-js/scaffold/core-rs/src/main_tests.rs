@@ -372,6 +372,7 @@ fn validate_accepts_crlf_owned_text_surfaces() {
         ".github/workflows/ci.yml",
         ".github/workflows/publish.yml",
         ".github/workflows/publish-npm.yml",
+        ".github/workflows/live-e2e-published.yml",
         "wrapper-js/README.md",
         "wrapper-py/README.md",
     ] {

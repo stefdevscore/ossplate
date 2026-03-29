@@ -53,6 +53,13 @@ The documented operator flow lives in [Live E2E](./live-e2e.md).
 
 This layer matters architecturally because it validates JS and Python as delivery adapters for the Rust core rather than alternate implementations. npm live install E2E is already part of the current confidence path.
 
+Published release confidence now also includes a native-runner post-publish matrix in `.github/workflows/live-e2e-published.yml` across:
+
+- `ubuntu-latest`
+- `macos-14`
+- `macos-15-intel`
+- `windows-latest`
+
 ## TEST-02 Default Local Gate
 
 Run:
@@ -105,6 +112,8 @@ CI currently enforces:
 - npm installed E2E from packed Linux runtime and top-level npm artifacts
 
 Pushes to `dev` and `main` both run the CI workflow so release-facing breakage can show up before promotion to `main`.
+
+Published releases also trigger native-runner live installed E2E on the supported GitHub-hosted OS matrix for Cargo, npm, and PyPI installs. That is a post-publish confidence layer, not part of the push/PR CI gate.
 
 ## TEST-04 Architecture Meaning
 

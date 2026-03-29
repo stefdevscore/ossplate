@@ -78,6 +78,7 @@ Manual publish safeguards:
 4. The release workflow dispatches downstream publish workflows and waits for success.
 5. After downstream success, npm settlement is checked and `wrapper-js/package-lock.json` is repaired back into resolved state on `main`.
 6. Only after downstream publish success does the workflow create the GitHub release.
+7. The published release then triggers native-runner live install E2E through `.github/workflows/live-e2e-published.yml`.
 
 The release workflow mutates `main`, so local branches can fall behind even without manual commits. Refresh before pushing follow-up work:
 
@@ -126,6 +127,8 @@ npm publishes:
 - one platform runtime package per supported target
 
 The top-level npm publish waits for runtime package visibility before publishing `ossplate`. Local publish timeout output now calls out npm propagation explicitly and lists any missing runtime packages.
+
+Post-publish confidence also includes native-runner live install checks on the supported GitHub-hosted OS matrix, so registry installs are exercised on real Linux, macOS ARM, macOS Intel, and Windows hosts.
 
 ## REL-08 Maintenance Notes
 

@@ -1,6 +1,7 @@
 {
   "requiredPaths": [
     ".github/workflows/ci.yml",
+    ".github/workflows/live-e2e-published.yml",
     ".github/workflows/release.yml",
     ".github/workflows/publish.yml",
     ".github/workflows/publish-npm.yml",
@@ -14,6 +15,7 @@
     "docs/adrs/README.md",
     "docs/architecture.md",
     "docs/hexagonal-shell.md",
+    "docs/live-e2e.md",
     "docs/adrs/0001-rust-core-thin-wrappers.md",
     "docs/adrs/0002-sync-owns-bounded-identity.md",
     "docs/adrs/0003-curated-scaffold-payload.md",

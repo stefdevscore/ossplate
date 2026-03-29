@@ -144,6 +144,11 @@ pub(crate) fn managed_files() -> Vec<ManagedFile> {
             sync: text::sync_publish_npm_workflow,
         },
         ManagedFile {
+            path: ".github/workflows/live-e2e-published.yml",
+            validate: text::validate_live_e2e_workflow,
+            sync: text::sync_live_e2e_workflow,
+        },
+        ManagedFile {
             path: "core-rs/Cargo.toml",
             validate: metadata::validate_cargo_toml,
             sync: metadata::sync_cargo_toml,

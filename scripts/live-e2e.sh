@@ -100,6 +100,10 @@ run_cargo_flow() {
   local bin_path="$install_root/bin/ossplate"
   mkdir -p "$cargo_root"
 
+  if [[ "$OSTYPE" == msys* || "$OSTYPE" == cygwin* || "$(uname -s)" == MINGW* ]]; then
+    bin_path="$install_root/bin/ossplate.exe"
+  fi
+
   run_step "cargo:install" cargo install --root "$install_root" --force ossplate
   run_step "cargo:e2e" run_common_cli_flow "$bin_path" "$cargo_root"
 }
@@ -135,6 +139,11 @@ run_python_flow() {
   local pip_path="$venv_dir/bin/pip"
   local tool_path="$venv_dir/bin/ossplate"
   mkdir -p "$py_root"
+
+  if [[ "$OSTYPE" == msys* || "$OSTYPE" == cygwin* || "$(uname -s)" == MINGW* ]]; then
+    pip_path="$venv_dir/Scripts/pip.exe"
+    tool_path="$venv_dir/Scripts/ossplate.exe"
+  fi
 
   run_step "python:venv" "$PYTHON_BIN" -m venv "$venv_dir"
   run_step "python:install" "$pip_path" install --upgrade pip ossplate

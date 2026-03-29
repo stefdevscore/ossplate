@@ -111,6 +111,21 @@ pub(crate) fn sync_publish_npm_workflow(config: &ToolConfig, content: &str) -> R
     sync_workflow_name(content, &format!("{} publish-npm", config.project.name))
 }
 
+pub(crate) fn validate_live_e2e_workflow(
+    config: &ToolConfig,
+    content: &str,
+) -> Result<Vec<ValidationIssue>> {
+    validate_workflow_name(
+        ".github/workflows/live-e2e-published.yml",
+        &format!("{} live-e2e", config.project.name),
+        content,
+    )
+}
+
+pub(crate) fn sync_live_e2e_workflow(config: &ToolConfig, content: &str) -> Result<String> {
+    sync_workflow_name(content, &format!("{} live-e2e", config.project.name))
+}
+
 fn validate_wrapper_readme(
     path: &str,
     language: &str,
