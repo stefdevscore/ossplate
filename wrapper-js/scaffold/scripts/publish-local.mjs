@@ -208,7 +208,7 @@ function runPreflight(root, metadata, context) {
     label: "release:assert",
     cwd: root,
     program: "node",
-    args: [join(root, "scripts", "assert-release-state.mjs")]
+    args: [join(root, "scripts", "release-check.mjs"), "release-state"]
   });
   context.run({
     label: "js:lockfile-assert",
@@ -220,7 +220,7 @@ function runPreflight(root, metadata, context) {
     label: "publish:assert",
     cwd: root,
     program: "node",
-    args: [join(root, "scripts", "assert-publish-readiness.mjs"), "publish"]
+    args: [join(root, "scripts", "release-check.mjs"), "publish-readiness", "publish"]
   });
 }
 

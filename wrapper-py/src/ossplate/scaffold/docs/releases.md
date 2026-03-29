@@ -28,9 +28,9 @@ Run the full gate before releasing:
 
 The release gate includes:
 
-- `scripts/assert-release-state.mjs`
+- `scripts/release-check.mjs release-state`
 - `scripts/assert-js-lockfile-state.mjs resolved`
-- `scripts/assert-publish-readiness.mjs publish`
+- `scripts/release-check.mjs publish-readiness publish`
 
 ## REL-03 Local Operator Publish
 

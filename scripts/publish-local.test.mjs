@@ -446,9 +446,8 @@ name = "ossplate"
 version = "0.1.22"
 `
   );
-  writeFileSync(join(root, "scripts", "assert-release-state.mjs"), "console.log('ok')\n");
+  writeFileSync(join(root, "scripts", "release-check.mjs"), "console.log('ok')\n");
   writeFileSync(join(root, "scripts", "assert-js-lockfile-state.mjs"), "console.log('ok')\n");
-  writeFileSync(join(root, "scripts", "assert-publish-readiness.mjs"), "console.log('ok')\n");
   writeFileSync(join(root, "scripts", "wait-for-npm-versions.mjs"), "console.log('ok')\n");
   writeFileSync(
     join(root, "wrapper-js", "package.json"),

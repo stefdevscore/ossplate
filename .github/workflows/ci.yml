@@ -21,8 +21,9 @@ jobs:
       - run: cargo run --quiet --manifest-path core-rs/Cargo.toml -- validate
       - run: cargo run --quiet --manifest-path core-rs/Cargo.toml -- sync --check
       - run: node --test ./scripts/release-plan.test.mjs
+      - run: node --test ./scripts/release-check.test.mjs
       - run: node --test ./scripts/release-state.test.mjs
-      - run: node ./scripts/assert-scaffold-mirrors-state.mjs
+      - run: node ./scripts/release-check.mjs scaffold-mirrors
       - run: node --test ./scripts/validate-template-readiness.test.mjs
 
   rust:
@@ -120,7 +121,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e .
           pip install build
-          node ../scripts/assert-release-state.mjs
+          node ../scripts/release-check.mjs release-state
           python -m unittest discover -s tests -p 'test_*.py'
         working-directory: ./wrapper-py
 
@@ -157,7 +158,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e .
           pip install build
-          node ../scripts/assert-release-state.mjs
+          node ../scripts/release-check.mjs release-state
           python -m unittest discover -s tests -p 'test_*.py'
         working-directory: ./wrapper-py
 

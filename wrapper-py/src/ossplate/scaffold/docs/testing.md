@@ -69,22 +69,23 @@ That gate currently runs, in order:
 4. `cargo run --quiet --manifest-path core-rs/Cargo.toml -- validate --json`
 5. `cargo run --quiet --manifest-path core-rs/Cargo.toml -- sync --check`
 6. `node --test scripts/release-plan.test.mjs`
-7. `node --test scripts/release-state.test.mjs`
-8. `node --test scripts/publish-local.test.mjs`
-9. `node scripts/assert-scaffold-mirrors-state.mjs`
-10. `node scripts/assert-release-state.mjs`
-11. `node scripts/assert-js-lockfile-state.mjs <resolved-or-placeholder>`
-12. `node scripts/assert-publish-readiness.mjs publish`
-13. `npm test` when the current npm version is already published
-14. `npm pack --dry-run` when the current npm version is already published
-15. `PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py'`
+7. `node --test scripts/release-check.test.mjs`
+8. `node --test scripts/release-state.test.mjs`
+9. `node --test scripts/publish-local.test.mjs`
+10. `node scripts/release-check.mjs scaffold-mirrors`
+11. `node scripts/release-check.mjs release-state`
+12. `node scripts/assert-js-lockfile-state.mjs <resolved-or-placeholder>`
+13. `node scripts/release-check.mjs publish-readiness publish`
+14. `npm test` when the current npm version is already published
+15. `npm pack --dry-run` when the current npm version is already published
+16. `PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py'`
 
 The important JS release checks are:
 
-- `scripts/assert-scaffold-mirrors-state.mjs`
-- `scripts/assert-release-state.mjs`
+- `scripts/release-check.mjs scaffold-mirrors`
+- `scripts/release-check.mjs release-state`
 - `scripts/assert-js-lockfile-state.mjs`
-- `scripts/assert-publish-readiness.mjs`
+- `scripts/release-check.mjs publish-readiness publish`
 
 If the current npm version is not yet published, `verify.sh` keeps the lockfile in placeholder mode and skips install-based JS checks for that run.
 
@@ -93,8 +94,8 @@ If the current npm version is not yet published, `verify.sh` keeps the lockfile 
 CI currently enforces:
 
 - template readiness via `validate` and `sync --check`
-- template-readiness tests through `scripts/release-plan.test.mjs` and `scripts/validate-template-readiness.test.mjs`
-- scaffold-mirror integrity through `scripts/assert-scaffold-mirrors-state.mjs`
+- template-readiness tests through `scripts/release-plan.test.mjs`, `scripts/release-check.test.mjs`, and `scripts/validate-template-readiness.test.mjs`
+- scaffold-mirror integrity through `scripts/release-check.mjs scaffold-mirrors`
 - Rust formatting, clippy, and tests
 - JS lockfile assertions for resolved vs placeholder source state
 - JS build, tests, and package dry-runs
