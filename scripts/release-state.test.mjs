@@ -1,8 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 import {
   assertNpmVersionState,
+  assertScaffoldMirrorsState,
   getExpectedOptionalDependencies
 } from "./release-state.mjs";
 
@@ -83,3 +87,42 @@ test("release readiness fails when any npm package version is already published"
     /release preflight requires a clean npm version state/
   );
 });
+
+test("scaffold mirror assertion uses the payload contract and fails on drift", () => {
+  const root = mkTempTree();
+  const payload = { requiredPaths: ["README.md"] };
+  const source = path.join(root, "README.md");
+  const jsMirror = path.join(root, "wrapper-js", "scaffold", "README.md");
+  const pyMirror = path.join(root, "wrapper-py", "src", "ossplate", "scaffold", "README.md");
+
+  mkdirSync(path.dirname(source), { recursive: true });
+  mkdirSync(path.dirname(jsMirror), { recursive: true });
+  mkdirSync(path.dirname(pyMirror), { recursive: true });
+
+  writeFileSync(source, "root\n");
+  writeFileSync(jsMirror, "root\n");
+  writeFileSync(pyMirror, "root\n");
+
+  assert.doesNotThrow(() =>
+    assertScaffoldMirrorsState(payload, {
+      root,
+      scaffoldRoots: [path.join(root, "wrapper-js", "scaffold"), path.join(root, "wrapper-py", "src", "ossplate", "scaffold")]
+    })
+  );
+
+  writeFileSync(pyMirror, "drift\n");
+  assert.throws(
+    () =>
+      assertScaffoldMirrorsState(payload, {
+        root,
+        scaffoldRoots: [path.join(root, "wrapper-js", "scaffold"), path.join(root, "wrapper-py", "src", "ossplate", "scaffold")]
+      }),
+    /scaffold snapshot drift detected for README\.md/
+  );
+
+  rmSync(root, { recursive: true, force: true });
+});
+
+function mkTempTree() {
+  return path.join(os.tmpdir(), `ossplate-release-state-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+}

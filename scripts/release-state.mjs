@@ -114,13 +114,22 @@ export function assertNoTrackedGeneratedBinaries() {
   }
 }
 
-export function assertScaffoldSnapshots(scaffoldPayload = readScaffoldPayload()) {
-  const scaffoldRoots = [
-    join(repoRoot, "wrapper-js", "scaffold"),
-    join(repoRoot, "wrapper-py", "src", "ossplate", "scaffold")
+export function scaffoldMirrorRoots(root = repoRoot) {
+  return [
+    join(root, "wrapper-js", "scaffold"),
+    join(root, "wrapper-py", "src", "ossplate", "scaffold")
   ];
+}
+
+export function assertScaffoldSnapshots(
+  scaffoldPayload = readScaffoldPayload(),
+  {
+    root = repoRoot,
+    scaffoldRoots = scaffoldMirrorRoots(root)
+  } = {}
+) {
   for (const relativePath of scaffoldPayload.requiredPaths) {
-    const source = join(repoRoot, relativePath);
+    const source = join(root, relativePath);
     if (!existsSync(source)) {
       fail(`missing required scaffold source path ${relativePath}`);
     }
@@ -136,6 +145,10 @@ export function assertScaffoldSnapshots(scaffoldPayload = readScaffoldPayload())
       }
     }
   }
+}
+
+export function assertScaffoldMirrorsState(scaffoldPayload = readScaffoldPayload(), options = {}) {
+  assertScaffoldSnapshots(scaffoldPayload, options);
 }
 
 export function assertTopLevelPackShape() {

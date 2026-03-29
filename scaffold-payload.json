@@ -39,6 +39,7 @@
     "core-rs/src/sync/text.rs",
     "scripts/bump-version.mjs",
     "scripts/assert-release-state.mjs",
+    "scripts/assert-scaffold-mirrors-state.mjs",
     "scripts/assert-js-lockfile-state.mjs",
     "scripts/assert-publish-readiness.mjs",
     "scripts/publish-local.mjs",

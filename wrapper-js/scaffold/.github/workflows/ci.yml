@@ -22,6 +22,7 @@ jobs:
       - run: cargo run --quiet --manifest-path core-rs/Cargo.toml -- sync --check
       - run: node --test ./scripts/release-plan.test.mjs
       - run: node --test ./scripts/release-state.test.mjs
+      - run: node ./scripts/assert-scaffold-mirrors-state.mjs
       - run: node --test ./scripts/validate-template-readiness.test.mjs
 
   rust:
