@@ -39,6 +39,8 @@ jobs:
         run: cargo build --manifest-path core-rs/Cargo.toml
       - name: Assert release state
         run: node ./scripts/assert-release-state.mjs
+      - name: Assert JS lockfile state
+        run: node ./scripts/assert-js-lockfile-state.mjs
       - name: Assert publish readiness
         run: node ./scripts/assert-publish-readiness.mjs publish
       - name: Detect published version
@@ -106,6 +108,8 @@ jobs:
           cache-dependency-path: ./wrapper-js/package-lock.json
       - name: Assert release state
         run: node ./scripts/assert-release-state.mjs
+      - name: Assert JS lockfile state
+        run: node ./scripts/assert-js-lockfile-state.mjs
       - name: Assert publish readiness
         run: node ./scripts/assert-publish-readiness.mjs publish
       - name: Detect published version

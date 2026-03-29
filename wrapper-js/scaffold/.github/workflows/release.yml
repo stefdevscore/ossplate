@@ -73,6 +73,9 @@ jobs:
       - name: Assert release state
         if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
         run: node ./scripts/assert-release-state.mjs
+      - name: Assert JS lockfile state
+        if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
+        run: node ./scripts/assert-js-lockfile-state.mjs
       - name: Assert publish readiness
         if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
         run: node ./scripts/assert-publish-readiness.mjs release "${{ steps.plan.outputs.next_version }}"
@@ -84,12 +87,9 @@ jobs:
       - name: Bump versions
         if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
         run: node ./scripts/bump-version.mjs "${{ steps.plan.outputs.next_version }}"
-      - name: Install JavaScript dependencies
-        if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
-        run: npm ci --prefix wrapper-js
       - name: Verify release state
         if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
-        run: ./scripts/verify.sh
+        run: ./scripts/verify-release.sh
       - name: Commit and tag release
         if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
         run: |
@@ -161,6 +161,23 @@ jobs:
 
           wait_for_run "Ossplate publishing"
           wait_for_run "Ossplate publish-npm"
+      - name: Refresh JS lockfile after publish
+        if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
+        run: |
+          npm install --package-lock-only --prefix wrapper-js
+          cargo run --quiet --manifest-path core-rs/Cargo.toml -- sync --path .
+          node ./scripts/stage-distribution-assets.mjs
+      - name: Commit post-publish lockfile sync
+        if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
+        run: |
+          VERSION="${{ steps.plan.outputs.next_version }}"
+          if git diff --quiet -- wrapper-js/package-lock.json wrapper-js/scaffold/wrapper-js/package-lock.json wrapper-py/src/ossplate/scaffold/wrapper-js/package-lock.json; then
+            echo "::notice title=release::post-publish JS lockfile already up to date."
+            exit 0
+          fi
+          git add wrapper-js/package-lock.json wrapper-js/scaffold/wrapper-js/package-lock.json wrapper-py/src/ossplate/scaffold/wrapper-js/package-lock.json
+          git commit -m "Sync JS lockfile after ossplate ${VERSION} release [skip ci]"
+          git push origin main
       - name: Create GitHub release
         if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
         env:

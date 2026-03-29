@@ -57,6 +57,13 @@ Default path:
 
 That gate includes `scripts/assert-release-state.mjs`, which checks version alignment, scaffold snapshot parity, runtime package metadata, and the absence of tracked generated binaries.
 
+It also includes `scripts/assert-js-lockfile-state.mjs`, which checks that `wrapper-js/package-lock.json` matches the supported source-repo lockfile contract:
+
+- root version matches `wrapper-js/package.json`
+- root `optionalDependencies` match the runtime package set
+- runtime package lock entries exist and stay optional
+- the lockfile is not required to include resolved tarball metadata for unpublished future release versions
+
 Underlying command order:
 
 1. `cargo fmt --check`

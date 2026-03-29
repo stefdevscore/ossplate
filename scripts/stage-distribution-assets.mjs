@@ -67,7 +67,7 @@ function stageDefault() {
 }
 
 function stageScaffold(destinationRoot) {
-  rmSync(destinationRoot, { force: true, recursive: true });
+  removeTree(destinationRoot);
   mkdirSync(destinationRoot, { recursive: true });
 
   for (const relativePath of requiredPaths) {
@@ -94,10 +94,7 @@ function stagePythonRuntime() {
 
 function cleanAllRuntimePackageBins() {
   for (const packageFolder of Object.values(runtimePackageFolders)) {
-    rmSync(join(repoRoot, "wrapper-js", "platform-packages", packageFolder, "bin"), {
-      force: true,
-      recursive: true
-    });
+    removeTree(join(repoRoot, "wrapper-js", "platform-packages", packageFolder, "bin"));
   }
 }
 
@@ -133,10 +130,19 @@ function stageRuntimePackage(packageRoot, target) {
 
   const executable = target === "win32-x64" ? "ossplate.exe" : "ossplate";
   const destination = join(packageRoot, "bin", executable);
-  rmSync(join(packageRoot, "bin"), { force: true, recursive: true });
+  removeTree(join(packageRoot, "bin"));
   mkdirSync(dirname(destination), { recursive: true });
   copyFileSync(sourceBinary, destination);
   chmodSync(destination, 0o755);
+}
+
+function removeTree(path) {
+  rmSync(path, {
+    force: true,
+    recursive: true,
+    maxRetries: 5,
+    retryDelay: 50
+  });
 }
 
 function resolveCurrentTarget() {

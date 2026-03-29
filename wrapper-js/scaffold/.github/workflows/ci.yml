@@ -45,6 +45,7 @@ jobs:
           node-version: '24'
           cache: npm
           cache-dependency-path: ./wrapper-js/package-lock.json
+      - run: node ./scripts/assert-js-lockfile-state.mjs
       - run: npm ci --omit=optional
         working-directory: ./wrapper-js
       - run: npm run build
