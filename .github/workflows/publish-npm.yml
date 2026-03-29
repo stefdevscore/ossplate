@@ -122,9 +122,6 @@ jobs:
           else
             echo "already=false" >> "$GITHUB_OUTPUT"
           fi
-      - if: steps.published.outputs.already != 'true'
-        run: npm ci --omit=optional
-        working-directory: ./wrapper-js
       - name: Verify runtime package availability
         if: steps.published.outputs.already != 'true'
         working-directory: ./wrapper-js
