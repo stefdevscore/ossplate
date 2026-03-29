@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import platform
 import subprocess
+import sysconfig
 from pathlib import Path
 
 from hatchling.builders.hooks.plugin.interface import BuildHookInterface
@@ -41,7 +42,7 @@ class CustomBuildHook(BuildHookInterface):
             )
 
         build_data["pure_python"] = False
-        build_data["infer_tag"] = True
+        build_data["tag"] = f"py3-none-{platform_tag()}"
         force_include = build_data.setdefault("force_include", {})
         force_include[str(binary_source)] = f"ossplate/bin/{target}/{binary_name}"
 
@@ -59,3 +60,7 @@ def resolve_build_target() -> str:
             f"unsupported host platform for wrapper-py wheel build: {platform.system()}/{platform.machine()}"
         )
     return host
+
+
+def platform_tag() -> str:
+    return sysconfig.get_platform().replace("-", "_").replace(".", "_")

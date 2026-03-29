@@ -5,7 +5,7 @@ Build one project, ship it everywhere.
 <!-- ossplate:readme-identity:end -->
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/stefdevscore/ossplate/dev/assets/illustrations/chestplate.svg" alt="Ossplate armor" width="360">
+  <img src="https://raw.githubusercontent.com/stefdevscore/ossplate/main/assets/illustrations/chestplate.svg" alt="Ossplate armor" width="360">
 </p>
 
 `ossplate` helps you start and maintain a project that ships the same CLI through Rust, npm, and PyPI.

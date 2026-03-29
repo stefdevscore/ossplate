@@ -111,7 +111,9 @@ class CliTests(unittest.TestCase):
         wheels = sorted(dist_dir.glob("ossplate-*.whl"))
         self.assertEqual(len(wheels), 1, f"expected one built wheel in {dist_dir}")
         wheel = wheels[0]
+        self.assertIn("py3-none-", wheel.name)
         self.assertNotIn("py3-none-any", wheel.name)
+        self.assertNotIn("-cp", wheel.name)
         self.assert_wheel_contents(wheel, self.current_target()[0])
         venv_dir = repo_root / "wrapper-py" / ".tmp-wheel-venv"
         target_dir = repo_root / "wrapper-py" / ".tmp-wheel-created"
