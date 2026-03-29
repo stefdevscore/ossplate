@@ -4,6 +4,11 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIPT_NAME="$(basename "$0")"
 MODE="${1:-all}"
+CAPTURE_DIR="${OSSPLATE_LIVE_E2E_CAPTURE_DIR:-$ROOT_DIR/.live-e2e}"
+TIMESTAMP="$(date +"%Y%m%d-%H%M%S")"
+CAPTURE_FILE="$CAPTURE_DIR/live-e2e-$MODE-$TIMESTAMP.log"
+NPM_PACKAGE_SPEC="${OSSPLATE_LIVE_E2E_NPM_PACKAGE_SPEC:-ossplate}"
+NPM_RUNTIME_SPEC="${OSSPLATE_LIVE_E2E_NPM_RUNTIME_SPEC:-}"
 
 find_python() {
   local candidate
@@ -22,6 +27,12 @@ find_python() {
 PYTHON_BIN="$(find_python)"
 WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/ossplate-live-e2e.XXXXXX")"
 trap 'rm -rf "$WORK_DIR"' EXIT
+
+mkdir -p "$CAPTURE_DIR"
+exec > >(tee "$CAPTURE_FILE") 2>&1
+
+printf '[capture]\n%s\n' "$CAPTURE_FILE"
+printf '[workdir]\n%s\n' "$WORK_DIR"
 
 run_step() {
   local label="$1"
@@ -96,7 +107,11 @@ run_npm_flow() {
 }
 JSON
 
-  run_step "npm:install" bash -lc "cd \"$npm_root\" && npm install ossplate"
+  if [[ -n "$NPM_RUNTIME_SPEC" ]]; then
+    run_step "npm:install" bash -lc "cd \"$npm_root\" && npm install \"$NPM_RUNTIME_SPEC\" \"$NPM_PACKAGE_SPEC\""
+  else
+    run_step "npm:install" bash -lc "cd \"$npm_root\" && npm install \"$NPM_PACKAGE_SPEC\""
+  fi
   if [[ "$OSTYPE" == msys* || "$OSTYPE" == cygwin* || "$(uname -s)" == MINGW* ]]; then
     tool_path="$npm_root/node_modules/.bin/ossplate.cmd"
   else

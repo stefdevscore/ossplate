@@ -22,6 +22,16 @@ That script runs three isolated install paths in temporary directories:
 2. npm install into a temporary project with local `node_modules/.bin/ossplate`
 3. Python install into a temporary virtual environment
 
+Each run also writes a timestamped capture log under `.live-e2e/` in the repo root. Override the location with `OSSPLATE_LIVE_E2E_CAPTURE_DIR=/path/to/logs` if you want the captures somewhere else.
+
+For npm debugging against local artifacts instead of the public registry, override the package specs:
+
+```bash
+OSSPLATE_LIVE_E2E_NPM_RUNTIME_SPEC=/path/to/ossplate-linux-x64-<version>.tgz \
+OSSPLATE_LIVE_E2E_NPM_PACKAGE_SPEC=/path/to/ossplate-<version>.tgz \
+./scripts/live-e2e.sh npm
+```
+
 Each installed CLI must pass the same checks:
 
 - `ossplate version`

@@ -5,6 +5,7 @@ name: Ossplate CI
 on:
   push:
     branches:
+      - dev
       - main
   pull_request:
 
@@ -157,3 +158,36 @@ jobs:
           node ../scripts/assert-release-state.mjs
           python -m unittest discover -s tests -p 'test_*.py'
         working-directory: ./wrapper-py
+
+  live-e2e-npm:
+    needs:
+      - template-readiness
+      - js
+      - js-runtime
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - name: Build core binary
+        run: cargo build --manifest-path core-rs/Cargo.toml
+      - name: Pack linux runtime package
+        working-directory: ./wrapper-js/platform-packages/ossplate-linux-x64
+        run: npm pack
+      - name: Pack top-level npm package
+        working-directory: ./wrapper-js
+        run: npm pack
+      - name: Resolve npm pack artifacts
+        id: npm_pack_artifacts
+        shell: bash
+        run: |
+          VERSION=$(node -p "require('./wrapper-js/package.json').version")
+          echo "runtime_tgz=${GITHUB_WORKSPACE}/wrapper-js/platform-packages/ossplate-linux-x64/ossplate-linux-x64-${VERSION}.tgz" >> "$GITHUB_OUTPUT"
+          echo "package_tgz=${GITHUB_WORKSPACE}/wrapper-js/ossplate-${VERSION}.tgz" >> "$GITHUB_OUTPUT"
+      - name: Verify installed npm flow from current checkout artifacts
+        env:
+          OSSPLATE_LIVE_E2E_NPM_RUNTIME_SPEC: ${{ steps.npm_pack_artifacts.outputs.runtime_tgz }}
+          OSSPLATE_LIVE_E2E_NPM_PACKAGE_SPEC: ${{ steps.npm_pack_artifacts.outputs.package_tgz }}
+        run: ./scripts/live-e2e.sh npm

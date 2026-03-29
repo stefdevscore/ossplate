@@ -121,6 +121,9 @@ CI currently enforces:
 - JS runtime package dry-run on each supported target runner
 - Python source tests on Linux using host-available runtime binary expectations
 - Python wheel validation on `linux-x64`, `darwin-arm64`, `darwin-x64`, and `win32-x64`
+- npm installed E2E from the current checkout's packed Linux runtime and top-level npm artifacts
+
+Pushes to `dev` and `main` both run this CI workflow so release-facing breakage can show up before work is promoted to `main`.
 
 The current artifact tests are the required release-confidence floor.
 
