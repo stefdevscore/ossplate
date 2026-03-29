@@ -13,6 +13,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
+  actions: write
   contents: write
 
 jobs:
@@ -105,3 +106,12 @@ jobs:
           gh release create "v${VERSION}" \
             --title "v${VERSION}" \
             --notes "Automated release for ossplate ${VERSION}."
+      - name: Dispatch publish workflows
+        if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.plan.outputs.next_version }}"
+          gh workflow run publish.yml --ref main
+          gh workflow run publish-npm.yml --ref main
+          echo "::notice title=release::dispatched publish workflows for v${VERSION}."
