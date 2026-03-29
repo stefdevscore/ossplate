@@ -1761,7 +1761,7 @@ mod tests {
             target.join("core-rs/Cargo.toml"),
             r#"[package]
 name = "bad-core"
-version = "0.1.13"
+version = "0.1.14"
 "#,
         )
         .unwrap();
@@ -2008,7 +2008,7 @@ command = "ossplate"
             root.join("core-rs/Cargo.toml"),
             r#"[package]
 name = "ossplate"
-version = "0.1.13"
+version = "0.1.14"
 edition = "2021"
 authors = ["Stef <stefdevscore@github.com>"]
 description = "A practical baseline for shipping one project across Cargo, npm, and PyPI without starting from scratch every time."
