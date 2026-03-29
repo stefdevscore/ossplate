@@ -2,6 +2,14 @@
 
 `ossplate` ships one CLI across Cargo, npm, and PyPI without maintaining three product implementations.
 
+## DOC-00 Design Principles
+
+The canonical docs assume three repo-wide principles:
+
+- DRY through canonical contracts and generation, not repeated policy lists
+- pragmatic SOLID through a functional core and thin adapters, not class-heavy ceremony
+- one hexagonal product shell centered in Rust, not three peer application cores
+
 ## DOC-01 Canonical Path
 
 - [Architecture](./architecture.md): current product shape and ownership boundaries
@@ -25,13 +33,16 @@ Use these when debugging a specific operational topic rather than learning the p
 
 - [ADR Index](./adrs/README.md): canonical decision trail ordered by product shape, ownership contracts, and release/verification concerns
 - [ADR 0001: Rust Core, Thin Wrappers](./adrs/0001-rust-core-thin-wrappers.md)
+- [ADR 0014: One Hexagonal Product Shell Centered In Rust](./adrs/0014-one-hexagonal-product-shell-centered-in-rust.md)
+- [ADR 0012: DRY Through Canonical Contracts And Generation](./adrs/0012-dry-through-canonical-contracts-and-generation.md)
+- [ADR 0013: Pragmatic SOLID Through Functional Core And Thin Adapters](./adrs/0013-pragmatic-solid-through-functional-core-and-thin-adapters.md)
 - [ADR 0006: Rust Core Uses Explicit Product Slices](./adrs/0006-rust-core-uses-explicit-product-slices.md)
 - [ADR 0002: Sync Owns Bounded Identity Surfaces](./adrs/0002-sync-owns-bounded-identity.md)
 - [ADR 0003: Ship A Curated Scaffold Payload](./adrs/0003-curated-scaffold-payload.md)
 - [ADR 0007: Split Scaffold Payload And Source-Checkout Contracts](./adrs/0007-split-scaffold-payload-and-source-checkout-contracts.md)
 - [ADR 0010: Scaffold Mirrors Are Generated Packaging Assets](./adrs/0010-scaffold-mirrors-are-generated-packaging-assets.md)
-- [ADR 0008: Stage Neutral Runtime Artifacts For Wrapper Packaging](./adrs/0008-stage-neutral-runtime-artifacts-for-wrapper-packaging.md)
 - [ADR 0004: Release Orchestration Stays Core-Owned](./adrs/0004-release-orchestration-stays-core-owned.md)
+- [ADR 0008: Stage Neutral Runtime Artifacts For Wrapper Packaging](./adrs/0008-stage-neutral-runtime-artifacts-for-wrapper-packaging.md)
 - [ADR 0009: Centralize Release State Policy](./adrs/0009-centralize-release-state-policy.md)
 - [ADR 0011: Consolidate Release Assertion Commands](./adrs/0011-consolidate-release-assertion-commands.md)
 - [ADR 0005: Verification Enforces Source And Installed Contracts](./adrs/0005-verification-enforces-source-and-installed-contracts.md)
