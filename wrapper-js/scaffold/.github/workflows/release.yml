@@ -193,7 +193,9 @@ jobs:
           fi
           git add wrapper-js/package-lock.json wrapper-js/scaffold/wrapper-js/package-lock.json wrapper-py/src/ossplate/scaffold/wrapper-js/package-lock.json
           git commit -m "Sync JS lockfile after ossplate ${VERSION} release [skip ci]"
-          git push origin main
+          if ! git push origin main; then
+            echo "::notice title=release::post-publish JS lockfile sync could not be pushed because main moved. Rerun the lockfile sync on current main if it is still needed."
+          fi
       - name: Create GitHub release
         if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
         env:
