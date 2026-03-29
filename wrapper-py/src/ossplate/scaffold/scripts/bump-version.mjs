@@ -42,7 +42,7 @@ writeJson(packageLockPath, packageLock);
 replaceInFile(joinPath("core-rs", "src", "main.rs"), /version = "\d+\.\d+\.\d+"/g, `version = "${nextVersion}"`);
 
 exec("cargo", ["generate-lockfile", "--manifest-path", joinPath("core-rs", "Cargo.toml")]);
-exec("npm", ["install", "--package-lock-only", "--omit=optional"], joinPath("wrapper-js"));
+exec("npm", ["install", "--package-lock-only"], joinPath("wrapper-js"));
 exec("cargo", ["run", "--quiet", "--manifest-path", joinPath("core-rs", "Cargo.toml"), "--", "sync", "--path", joinPath()]);
 exec("node", [joinPath("scripts", "stage-distribution-assets.mjs")]);
 
