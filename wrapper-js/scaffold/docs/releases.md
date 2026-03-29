@@ -102,6 +102,7 @@ So a second run for the same version should usually succeed by skipping work rat
   - `macos-15-intel` -> `darwin-x64`
   - `windows-latest` -> `win32-x64`
 - Each wheel bundles exactly one native `ossplate` executable for its target, so wheel filenames are platform-specific.
+- Wheel size is expected to be dominated by that single executable, not by scaffold duplication.
 
 ## JavaScript Runtime Packages
 
