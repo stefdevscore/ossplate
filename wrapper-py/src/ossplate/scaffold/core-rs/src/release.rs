@@ -158,6 +158,7 @@ mod tests {
         )
         .unwrap();
         fs::write(root.join("core-rs/src/main.rs"), "fn main() {}\n").unwrap();
+        fs::write(root.join("core-rs/src/main_tests.rs"), "// main tests\n").unwrap();
         fs::write(root.join("core-rs/src/config.rs"), "// config\n").unwrap();
         fs::write(root.join("core-rs/src/output.rs"), "// output\n").unwrap();
         fs::write(root.join("core-rs/src/release.rs"), "// release\n").unwrap();
