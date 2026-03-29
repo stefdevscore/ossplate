@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 const packageJson = readJson("wrapper-js/package.json");
 const packageLock = readJson("wrapper-js/package-lock.json");
+const mode = process.argv[2] ?? "resolved";
 
 main();
 
@@ -54,6 +55,27 @@ function main() {
         `lockfile runtime package ${entryPath} has version ${entry.version}; expected ${expectedEntryVersion}`
       );
     }
+    if (mode === "resolved") {
+      if (entry.version !== expectedEntryVersion) {
+        fail(
+          `resolved lockfile runtime package ${entryPath} must have version ${expectedEntryVersion}`
+        );
+      }
+      if (typeof entry.resolved !== "string" || entry.resolved.length === 0) {
+        fail(`resolved lockfile runtime package ${entryPath} is missing resolved`);
+      }
+      if (typeof entry.integrity !== "string" || entry.integrity.length === 0) {
+        fail(`resolved lockfile runtime package ${entryPath} is missing integrity`);
+      }
+    } else if (mode === "placeholder") {
+      if (entry.resolved !== undefined || entry.integrity !== undefined) {
+        fail(
+          `placeholder lockfile runtime package ${entryPath} must not include resolved or integrity`
+        );
+      }
+    } else {
+      fail(`unsupported assert-js-lockfile-state mode: ${mode}`);
+    }
   }
 
   for (const packageName of expectedPackages) {
@@ -63,7 +85,7 @@ function main() {
     }
   }
 
-  console.log("js lockfile state ok");
+  console.log(`js lockfile state ok (${mode})`);
 }
 
 function readJson(relativePath) {

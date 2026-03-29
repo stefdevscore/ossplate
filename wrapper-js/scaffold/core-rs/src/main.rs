@@ -1594,6 +1594,14 @@ mod tests {
     use super::*;
     use std::time::{SystemTime, UNIX_EPOCH};
 
+    fn unique_temp_path(prefix: &str) -> PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!("{prefix}-{unique}"))
+    }
+
     #[test]
     fn version_output_serializes() {
         let json = serde_json::to_string(&VersionOutput {
@@ -1625,7 +1633,7 @@ mod tests {
         let root = make_fixture_root();
         fs::write(
             root.join("wrapper-js/package.json"),
-            "{\n  \"name\": \"bad\",\n  \"version\": \"0.1.13\",\n  \"optionalDependencies\": {}\n}\n",
+            "{\n  \"name\": \"bad\",\n  \"version\": \"0.1.19\",\n  \"optionalDependencies\": {}\n}\n",
         )
         .unwrap();
 
@@ -1719,7 +1727,7 @@ mod tests {
     #[test]
     fn create_scaffolds_a_target_directory() {
         let source_root = make_fixture_root();
-        let target = std::env::temp_dir().join("ossplate-create-target");
+        let target = unique_temp_path("ossplate-create-target");
         if target.exists() {
             fs::remove_dir_all(&target).unwrap();
         }
@@ -1735,7 +1743,7 @@ mod tests {
     #[test]
     fn init_hydrates_an_existing_directory() {
         let source_root = make_fixture_root();
-        let target = std::env::temp_dir().join("ossplate-init-target");
+        let target = unique_temp_path("ossplate-init-target");
         if target.exists() {
             fs::remove_dir_all(&target).unwrap();
         }
@@ -1765,7 +1773,7 @@ version = "0.1.19"
     #[test]
     fn create_applies_identity_overrides_before_sync() {
         let source_root = make_fixture_root();
-        let target = std::env::temp_dir().join("ossplate-create-with-overrides");
+        let target = unique_temp_path("ossplate-create-with-overrides");
         if target.exists() {
             fs::remove_dir_all(&target).unwrap();
         }
@@ -1924,7 +1932,7 @@ version = "0.1.19"
 
     #[test]
     fn create_fails_when_scaffold_source_is_incomplete() {
-        let source_root = std::env::temp_dir().join("ossplate-incomplete-source");
+        let source_root = unique_temp_path("ossplate-incomplete-source");
         if source_root.exists() {
             fs::remove_dir_all(&source_root).unwrap();
         }
@@ -1999,7 +2007,7 @@ name = "ossplate"
 version = "0.1.19"
 edition = "2021"
 authors = ["Stef <stefdevscore@github.com>"]
-description = "A practical baseline for shipping one project across Cargo, npm, and PyPI without starting from scratch every time."
+description = "Build one project, ship it everywhere."
 license = "Unlicense"
 readme = "../README.md"
 repository = "https://github.com/stefdevscore/ossplate"
@@ -2037,7 +2045,11 @@ ossplate = "ossplate.cli:main"
             ("linux-x64", "linux", "x64"),
             ("win32-x64", "win32", "x64"),
         ] {
-            let package_name = format!("ossplate-{target}");
+            let package_name = if target == "win32-x64" {
+                "ossplate-windows-x64".to_string()
+            } else {
+                format!("ossplate-{target}")
+            };
             let package_folder = format!("ossplate-{target}");
             let description = format!("Platform runtime package for ossplate on {target}.");
             let directory = format!("wrapper-js/platform-packages/{package_folder}");

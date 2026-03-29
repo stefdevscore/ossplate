@@ -20,7 +20,7 @@ Run the full gate before creating a release:
 The release gate now includes:
 
 - `scripts/assert-release-state.mjs` for internal version and artifact invariants
-- `scripts/assert-js-lockfile-state.mjs` for the checked-in JS lockfile contract
+- `scripts/assert-js-lockfile-state.mjs resolved` for the checked-in JS lockfile contract on normal `main` CI
 - `scripts/assert-publish-readiness.mjs` for external npm publish readiness
 
 Optional local packaging confidence checks:
@@ -61,7 +61,7 @@ After updating versions, rerun:
 2. Let [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) pass on that commit.
 3. [`.github/workflows/release.yml`](../.github/workflows/release.yml) computes the next version from commit messages, runs release-state and publish-readiness preflight checks, then bumps versions, commits the release, and tags it.
 4. The release workflow dispatches the publish workflows and waits for both of them to finish successfully.
-5. After downstream publish success, the release workflow refreshes `wrapper-js/package-lock.json` against the now-published runtime packages and commits that lockfile sync back to `main`.
+5. After downstream publish success, the release workflow waits for npm registry settlement, repairs `wrapper-js/package-lock.json` into resolved installable state, and commits that lockfile sync back to `main`.
 6. Only after downstream publish success does the release workflow create the GitHub release.
 7. Successful completion of the release workflow means all intended registry publishes either completed or skipped safely.
 
@@ -130,7 +130,12 @@ If a release created the bump commit/tag but one registry publish failed, treat 
 - Users still install `ossplate`; npm resolves the matching runtime package through `optionalDependencies`.
 - The top-level npm publish now checks that every expected runtime package version is visible on npm before publishing `ossplate`.
 - Release preflight fails if the next npm version is already partially published or the runtime package names are not publishable on the public registry.
-- The checked-in `wrapper-js/package-lock.json` is a source/CI artifact. Release commits carry a placeholder-compatible lockfile, then the workflow refreshes it after the runtime packages are published so future CI can keep using `npm ci`.
+- The checked-in `wrapper-js/package-lock.json` is a source/CI artifact.
+- Release bump commits intentionally carry placeholder runtime entries before the next npm versions exist.
+- Successful releases must end with a resolved lockfile sync commit on `main`, so future CI can keep using `npm ci`.
+- Manual JS lockfile recovery should use:
+  - `node scripts/wait-for-npm-versions.mjs <version> <package...>`
+  - `node scripts/repair-js-lockfile.mjs`
 
 ## Current Published Names
 
