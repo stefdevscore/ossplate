@@ -22,7 +22,7 @@ const supportedTargets = [
   ["darwin", "arm64", "darwin-arm64", "ossplate", "ossplate-darwin-arm64", "ossplate-darwin-arm64"],
   ["darwin", "x64", "darwin-x64", "ossplate", "ossplate-darwin-x64", "ossplate-darwin-x64"],
   ["linux", "x64", "linux-x64", "ossplate", "ossplate-linux-x64", "ossplate-linux-x64"],
-  ["win32", "x64", "win32-x64", "ossplate.exe", "ossplate-win32-x64", "ossplate-win32-x64"]
+  ["win32", "x64", "win32-x64", "ossplate.exe", "ossplate-windows-x64", "ossplate-win32-x64"]
 ];
 
 async function loadModule() {

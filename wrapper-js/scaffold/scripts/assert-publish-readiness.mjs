@@ -27,7 +27,7 @@ function assertRuntimePackageNames() {
         `runtime package ${packageName} is scoped; current release policy requires unscoped publishable runtime package names`
       );
     }
-    if (!/^ossplate-(darwin-arm64|darwin-x64|linux-x64|win32-x64)$/.test(packageName)) {
+    if (!/^ossplate-(darwin-arm64|darwin-x64|linux-x64|windows-x64)$/.test(packageName)) {
       fail(`runtime package ${packageName} does not match the supported npm runtime package contract`);
     }
   }

@@ -884,7 +884,10 @@ fn runtime_package_folder(config: &ToolConfig, target: &str) -> String {
 }
 
 fn runtime_package_name(config: &ToolConfig, target: &str) -> String {
-    runtime_package_folder(config, target)
+    match target {
+        "win32-x64" => format!("{}-windows-x64", config.packages.npm_package),
+        _ => runtime_package_folder(config, target),
+    }
 }
 
 fn validate_runtime_package_json(

@@ -27,7 +27,7 @@
     "ossplate-darwin-arm64": "0.1.17",
     "ossplate-darwin-x64": "0.1.17",
     "ossplate-linux-x64": "0.1.17",
-    "ossplate-win32-x64": "0.1.17"
+    "ossplate-windows-x64": "0.1.17"
   },
   "publishConfig": {
     "access": "public"

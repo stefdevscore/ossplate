@@ -145,7 +145,9 @@ function readPyprojectVersion() {
 }
 
 function runtimePackageName(target) {
-  return `${rootPackage.name}-${target}`;
+  return target === "win32-x64"
+    ? `${rootPackage.name}-windows-x64`
+    : `${rootPackage.name}-${target}`;
 }
 
 function readText(relativePath) {

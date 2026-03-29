@@ -15,7 +15,7 @@ const TARGETS: Record<string, Record<string, { target: string; packageName: stri
     x64: { target: "darwin-x64", packageName: "ossplate-darwin-x64" }
   },
   linux: { x64: { target: "linux-x64", packageName: "ossplate-linux-x64" } },
-  win32: { x64: { target: "win32-x64", packageName: "ossplate-win32-x64" } }
+  win32: { x64: { target: "win32-x64", packageName: "ossplate-windows-x64" } }
 };
 
 export function resolveOssplateBinary(
