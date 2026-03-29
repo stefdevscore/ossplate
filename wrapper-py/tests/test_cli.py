@@ -25,6 +25,12 @@ class CliTests(unittest.TestCase):
         ("Linux", "x86_64", "linux-x64", "ossplate"),
         ("Windows", "AMD64", "win32-x64", "ossplate.exe"),
     )
+    wheel_size_budgets = {
+        "darwin-arm64": (4_000_000, 10_000_000),
+        "darwin-x64": (8_000_000, 18_000_000),
+        "linux-x64": (12_000_000, 40_000_000),
+        "win32-x64": (12_000_000, 40_000_000),
+    }
 
     def setUp(self) -> None:
         self.fixture_dir = tempfile.TemporaryDirectory()
@@ -121,6 +127,7 @@ class CliTests(unittest.TestCase):
         self.assertNotIn("py3-none-any", wheel.name)
         self.assertNotIn("-cp", wheel.name)
         self.assert_wheel_contents(wheel, self.current_target()[0])
+        self.assert_wheel_size_budget(wheel, self.current_target()[0])
         venv_dir = repo_root / "wrapper-py" / ".tmp-wheel-venv"
         target_dir = repo_root / "wrapper-py" / ".tmp-wheel-created"
         shutil.rmtree(venv_dir, ignore_errors=True)
@@ -206,6 +213,23 @@ class CliTests(unittest.TestCase):
                 any(name.startswith(f"{prefix}{excluded_prefix}") for name in names),
                 f"unexpected wheel scaffold file under {excluded_prefix}",
             )
+
+    def assert_wheel_size_budget(self, wheel: pathlib.Path, target: str) -> None:
+        compressed_budget, unpacked_budget = self.wheel_size_budgets[target]
+        compressed_size = wheel.stat().st_size
+        with zipfile.ZipFile(wheel) as archive:
+            unpacked_size = sum(info.file_size for info in archive.infolist())
+
+        self.assertLessEqual(
+            compressed_size,
+            compressed_budget,
+            f"{wheel.name} compressed size {compressed_size} exceeds budget {compressed_budget}",
+        )
+        self.assertLessEqual(
+            unpacked_size,
+            unpacked_budget,
+            f"{wheel.name} unpacked size {unpacked_size} exceeds budget {unpacked_budget}",
+        )
 
     def create_stub_binary(self, directory: pathlib.Path) -> str:
         if os.name == "nt":
