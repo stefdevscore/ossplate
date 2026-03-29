@@ -4,15 +4,16 @@
 
 Start here:
 
-- [Adoption Guide](./customizing-the-template.md)
 - [Architecture](./architecture.md)
+- [Hexagonal Shell](./hexagonal-shell.md)
+- [Adoption Guide](./customizing-the-template.md)
+- [Testing](./testing.md)
+- [Releases](./releases.md)
 - [Dev Branch Review](./dev-review-report.md)
 - [JavaScript Package Size Report](./javascript-package-size-report.md)
 - [Live E2E](./live-e2e.md)
 - [Package Size Report](./package-size-report.md)
 - [Python Package Size Report](./python-package-size-report.md)
-- [Testing](./testing.md)
-- [Releases](./releases.md)
 
 Decision records:
 

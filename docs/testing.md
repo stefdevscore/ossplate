@@ -57,6 +57,8 @@ This layer exercises the published artifacts the way an operator or user actuall
 
 That flow is documented in [`docs/live-e2e.md`](./live-e2e.md).
 
+This layer matters architecturally because it validates the wrappers as delivery adapters for the Rust core rather than alternate product implementations.
+
 ### Future Optional Layers
 
 `ossplate` itself does not currently require browser automation or container orchestration, but the template should leave room for them:
@@ -90,10 +92,14 @@ Underlying command order:
 3. `cargo test`
 4. `cargo run --quiet --manifest-path core-rs/Cargo.toml -- validate --json`
 5. `cargo run --quiet --manifest-path core-rs/Cargo.toml -- sync --check`
-6. `node scripts/assert-release-state.mjs`
-7. `npm test`
-8. `npm pack --dry-run`
-9. `PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py'`
+6. `node --test scripts/release-plan.test.mjs`
+7. `node --test scripts/publish-local.test.mjs`
+8. `node scripts/assert-release-state.mjs`
+9. `node scripts/assert-js-lockfile-state.mjs <resolved-or-placeholder>`
+10. `node scripts/assert-publish-readiness.mjs publish`
+11. `npm test`
+12. `npm pack --dry-run`
+13. `PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py'`
 
 ## Live Installed Flow
 
@@ -126,5 +132,7 @@ CI currently enforces:
 Pushes to `dev` and `main` both run this CI workflow so release-facing breakage can show up before work is promoted to `main`.
 
 The current artifact tests are the required release-confidence floor.
+
+In the hexagonal shell, verification is its own architecture slice. These checks are not just QA coverage; they enforce the intended boundaries between the behavioral core, the wrappers, the scaffold projection, and the release surface.
 
 For release-specific operator steps, version bumps, and rerun-safe publish expectations, see [`docs/releases.md`](./releases.md).

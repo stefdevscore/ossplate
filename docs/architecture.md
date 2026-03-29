@@ -85,6 +85,26 @@ If the tool grows, keep the current rules:
 
 That gives the project a clean path toward a fuller hexagonal structure without forcing that complexity into the current starter.
 
+## Forward Path
+
+The forward-looking model for that growth is documented in [Hexagonal Shell](./hexagonal-shell.md).
+
+The important rule is that `ossplate` has one product architecture:
+
+- Rust is the behavioral core
+- JavaScript is a package adapter with local adapter structure
+- Python is a package adapter with local adapter structure
+
+The shell currently groups the product into five slices:
+
+- core execution
+- scaffold synthesis
+- package metadata sync
+- registry release orchestration
+- verification
+
+Those slices are meant to guide where future code belongs and what each area is allowed to own. They are not a mandate to build peer application architectures inside the wrapper packages.
+
 ## Related Decisions
 
 - [ADR 0001: Rust Core, Thin Wrappers](./adrs/0001-rust-core-thin-wrappers.md)
