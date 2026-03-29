@@ -1061,7 +1061,15 @@ fn render_wrapper_readme_with_newlines(
         &config.project.repository,
         "main",
         "assets/illustrations/chestplate.svg",
-    );
+    )
+    .expect("wrapper README rendering requires a GitHub repository URL");
+    let docs_url = github_blob_url(&config.project.repository, "main", "docs/README.md")
+        .expect("wrapper README rendering requires a GitHub repository URL");
+    let testing_url = github_blob_url(&config.project.repository, "main", "docs/testing.md")
+        .expect("wrapper README rendering requires a GitHub repository URL");
+    let architecture_url =
+        github_blob_url(&config.project.repository, "main", "docs/architecture.md")
+            .expect("wrapper README rendering requires a GitHub repository URL");
     [
         format!("# {}", config.project.name),
         String::new(),
@@ -1096,9 +1104,9 @@ fn render_wrapper_readme_with_newlines(
         String::new(),
         "Learn more:".to_string(),
         String::new(),
-        "- [Main documentation](../docs/README.md)".to_string(),
-        "- [Testing guide](../docs/testing.md)".to_string(),
-        "- [Architecture](../docs/architecture.md)".to_string(),
+        format!("- [Main documentation]({docs_url})"),
+        format!("- [Testing guide]({testing_url})"),
+        format!("- [Architecture]({architecture_url})"),
         String::new(),
     ]
     .join(newline)
@@ -1111,13 +1119,30 @@ fn render_root_readme_identity(config: &ToolConfig) -> String {
     )
 }
 
-fn github_raw_url(repository: &str, branch: &str, path: &str) -> String {
+fn github_raw_url(repository: &str, branch: &str, path: &str) -> Result<String> {
+    let repo = github_repository_path(repository)?;
+    Ok(format!(
+        "https://raw.githubusercontent.com/{repo}/{branch}/{path}"
+    ))
+}
+
+fn github_blob_url(repository: &str, branch: &str, path: &str) -> Result<String> {
+    let repo = github_repository_path(repository)?;
+    Ok(format!("https://github.com/{repo}/blob/{branch}/{path}"))
+}
+
+fn github_repository_path(repository: &str) -> Result<String> {
     let trimmed = repository.trim_end_matches('/');
     if let Some(rest) = trimmed.strip_prefix("https://github.com/") {
-        format!("https://raw.githubusercontent.com/{rest}/{branch}/{path}")
-    } else {
-        format!("{trimmed}/{path}")
+        return Ok(rest.to_string());
     }
+    if let Some(rest) = trimmed.strip_prefix("git@github.com:") {
+        return Ok(rest.to_string());
+    }
+    bail!(
+        "unsupported repository URL for published README links: {}",
+        repository
+    )
 }
 
 fn validate_workflow_name(
@@ -1483,7 +1508,7 @@ version = "0.1.10"
             &IdentityOverrides {
                 name: Some("Demo Tool".to_string()),
                 description: Some("A demo scaffold".to_string()),
-                repository: Some("https://example.com/demo".to_string()),
+                repository: Some("https://github.com/example/demo".to_string()),
                 license: Some("Apache-2.0".to_string()),
                 author_name: Some("Demo Dev".to_string()),
                 author_email: Some("demo@example.com".to_string()),
@@ -1520,6 +1545,31 @@ version = "0.1.10"
         let synced = fs::read_to_string(root.join("README.md")).unwrap();
         assert!(synced.contains("## What This Tool Gives You"));
         assert!(synced.contains("Build one project, ship it everywhere"));
+    }
+
+    #[test]
+    fn github_link_helpers_render_absolute_main_urls() {
+        let repository = "https://github.com/stefdevscore/ossplate";
+        assert_eq!(
+            github_blob_url(repository, "main", "docs/README.md").unwrap(),
+            "https://github.com/stefdevscore/ossplate/blob/main/docs/README.md"
+        );
+        assert_eq!(
+            github_raw_url(repository, "main", "assets/illustrations/chestplate.svg").unwrap(),
+            "https://raw.githubusercontent.com/stefdevscore/ossplate/main/assets/illustrations/chestplate.svg"
+        );
+    }
+
+    #[test]
+    fn rendered_wrapper_readmes_use_absolute_doc_links() {
+        let config = load_config(&make_fixture_root()).unwrap();
+        let rendered = render_wrapper_readme("Python", &config);
+        assert!(
+            rendered.contains("https://github.com/stefdevscore/ossplate/blob/main/docs/README.md")
+        );
+        assert!(!rendered.contains("../docs/README.md"));
+        assert!(!rendered.contains("../docs/testing.md"));
+        assert!(!rendered.contains("../docs/architecture.md"));
     }
 
     #[test]

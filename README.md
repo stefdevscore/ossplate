@@ -70,11 +70,11 @@ The same command surface is available through the Rust binary and the packaged J
 
 ## Learn More
 
-- [Documentation](./docs/README.md)
-- [Adoption Guide](./docs/customizing-the-template.md)
-- [Testing Guide](./docs/testing.md)
-- [Release Guide](./docs/releases.md)
-- [Architecture](./docs/architecture.md)
+- [Documentation](https://github.com/stefdevscore/ossplate/blob/main/docs/README.md)
+- [Adoption Guide](https://github.com/stefdevscore/ossplate/blob/main/docs/customizing-the-template.md)
+- [Testing Guide](https://github.com/stefdevscore/ossplate/blob/main/docs/testing.md)
+- [Release Guide](https://github.com/stefdevscore/ossplate/blob/main/docs/releases.md)
+- [Architecture](https://github.com/stefdevscore/ossplate/blob/main/docs/architecture.md)
 
 ## License
 

@@ -25,6 +25,6 @@ ossplate sync --check
 
 Learn more:
 
-- [Main documentation](../docs/README.md)
-- [Testing guide](../docs/testing.md)
-- [Architecture](../docs/architecture.md)
+- [Main documentation](https://github.com/stefdevscore/ossplate/blob/main/docs/README.md)
+- [Testing guide](https://github.com/stefdevscore/ossplate/blob/main/docs/testing.md)
+- [Architecture](https://github.com/stefdevscore/ossplate/blob/main/docs/architecture.md)
