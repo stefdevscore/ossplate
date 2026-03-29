@@ -21,25 +21,29 @@ def load_runtime_targets() -> list[dict]:
     return json.loads(source_manifest.read_text(encoding="utf-8"))["targets"]
 
 
-def get_packaged_binary_path(base_dir: Path | None = None) -> str:
-    base_dir = base_dir or Path(resources.files("ossplate"))
-    env_override = os.environ.get(ENV_OVERRIDE)
-    if env_override:
-        return env_override
-
+def resolve_host_runtime_target(runtime_targets: list[dict]) -> dict:
     system = platform.system()
     machine = platform.machine()
     target = next(
         (
             entry
-            for entry in load_runtime_targets()
+            for entry in runtime_targets
             if entry["python"]["system"] == system and machine in entry["python"]["machines"]
         ),
         None,
     )
     if target is None:
         raise RuntimeError(f"Unsupported platform/arch: {system}/{machine}")
+    return target
 
+
+def get_packaged_binary_path(base_dir: Path | None = None) -> str:
+    base_dir = base_dir or Path(resources.files("ossplate"))
+    env_override = os.environ.get(ENV_OVERRIDE)
+    if env_override:
+        return env_override
+
+    target = resolve_host_runtime_target(load_runtime_targets())
     folder = target["target"]
     executable = target["binary"]
     binary_path = base_dir / "bin" / folder / executable
@@ -52,11 +56,23 @@ def get_binary_path() -> str:
     return get_packaged_binary_path()
 
 
-def cli(args: tuple[str, ...]) -> int:
-    env = os.environ.copy()
-    env.setdefault(TEMPLATE_ROOT_ENV, str(Path(resources.files("ossplate")) / "scaffold"))
-    result = subprocess.run([get_binary_path(), *args], check=False, env=env)
+def default_template_root() -> Path:
+    return Path(resources.files("ossplate")) / "scaffold"
+
+
+def build_cli_env(env: dict[str, str] | None = None) -> dict[str, str]:
+    resolved = dict(env or os.environ.copy())
+    resolved.setdefault(TEMPLATE_ROOT_ENV, str(default_template_root()))
+    return resolved
+
+
+def run_binary(args: tuple[str, ...], env: dict[str, str] | None = None) -> int:
+    result = subprocess.run([get_binary_path(), *args], check=False, env=build_cli_env(env))
     return result.returncode
+
+
+def cli(args: tuple[str, ...]) -> int:
+    return run_binary(args)
 
 
 def main() -> None:

@@ -1,5 +1,5 @@
+use crate::config::ToolConfig;
 use crate::sync::{issue, ManagedFile, ValidationIssue};
-use crate::ToolConfig;
 use anyhow::{anyhow, Context, Result};
 use serde::Deserialize;
 use serde_json::json;

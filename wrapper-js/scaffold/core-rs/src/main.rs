@@ -1,16 +1,22 @@
-use anyhow::{bail, Context, Result};
-use clap::{Args, Parser, Subcommand};
-use serde::{Deserialize, Serialize};
-use std::fs;
-use std::path::{Path, PathBuf};
+use anyhow::Result;
+use clap::{Parser, Subcommand};
+use std::path::PathBuf;
 
+mod config;
+mod output;
 mod release;
 mod scaffold;
+mod scaffold_manifest;
+mod source_checkout;
 mod sync;
 
+#[cfg(test)]
+use config::load_config;
+use config::IdentityOverrides;
+use output::{print_validation_output, render_version_output};
 use release::{publish_repo, PublishRegistry};
 use scaffold::{create_scaffold, init_scaffold};
-use sync::{format_human_issues, sync_repo, validate_repo};
+use sync::{sync_repo, validate_repo};
 
 #[cfg(test)]
 pub(crate) use scaffold::{
@@ -19,6 +25,15 @@ pub(crate) use scaffold::{
 
 #[cfg(test)]
 pub(crate) use sync::{github_blob_url, github_raw_url, issue, render_wrapper_readme};
+
+#[cfg(test)]
+use output::VersionOutput;
+
+#[cfg(test)]
+use std::fs;
+
+#[cfg(test)]
+use std::path::Path;
 
 #[derive(Parser)]
 #[command(name = "ossplate")]
@@ -76,65 +91,6 @@ enum Commands {
     },
 }
 
-#[derive(Debug, Clone, Default, Args)]
-struct IdentityOverrides {
-    #[arg(long)]
-    name: Option<String>,
-    #[arg(long)]
-    description: Option<String>,
-    #[arg(long)]
-    repository: Option<String>,
-    #[arg(long)]
-    license: Option<String>,
-    #[arg(long = "author-name")]
-    author_name: Option<String>,
-    #[arg(long = "author-email")]
-    author_email: Option<String>,
-    #[arg(long = "rust-crate")]
-    rust_crate: Option<String>,
-    #[arg(long = "npm-package")]
-    npm_package: Option<String>,
-    #[arg(long = "python-package")]
-    python_package: Option<String>,
-    #[arg(long)]
-    command: Option<String>,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-struct ToolConfig {
-    project: ProjectConfig,
-    author: AuthorConfig,
-    packages: PackageConfig,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-struct ProjectConfig {
-    name: String,
-    description: String,
-    repository: String,
-    license: String,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-struct AuthorConfig {
-    name: String,
-    email: String,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-struct PackageConfig {
-    rust_crate: String,
-    npm_package: String,
-    python_package: String,
-    command: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-struct VersionOutput {
-    tool: &'static str,
-    version: &'static str,
-}
-
 fn main() {
     if let Err(error) = run() {
         eprintln!("ossplate: {error}");
@@ -146,35 +102,14 @@ fn run() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
         Commands::Version => {
-            println!(
-                "{}",
-                serde_json::to_string(&VersionOutput {
-                    tool: env!("CARGO_BIN_NAME"),
-                    version: env!("CARGO_PKG_VERSION"),
-                })?
-            );
+            println!("{}", render_version_output()?);
             Ok(())
         }
         Commands::Create { target, overrides } => create_scaffold(&target, &overrides),
         Commands::Init { path, overrides } => init_scaffold(&path, &overrides),
         Commands::Validate { path, json } => {
             let output = validate_repo(&path)?;
-            if json {
-                println!("{}", serde_json::to_string(&output)?);
-            } else if output.ok {
-                println!("validation ok");
-            } else {
-                println!(
-                    "{}",
-                    format_human_issues("validation failed:", &output.issues)
-                );
-            }
-
-            if output.ok {
-                Ok(())
-            } else {
-                bail!("validation failed")
-            }
+            print_validation_output(&output, json)
         }
         Commands::Sync { path, check } => sync_repo(&path, check),
         Commands::Publish {
@@ -186,24 +121,10 @@ fn run() -> Result<()> {
     }
 }
 
-fn load_config(root: &Path) -> Result<ToolConfig> {
-    let contents =
-        fs::read_to_string(root.join("ossplate.toml")).context("failed to read ossplate.toml")?;
-    toml::from_str(&contents).context("failed to parse ossplate.toml")
-}
-
-fn write_config(root: &Path, config: &ToolConfig) -> Result<()> {
-    let mut rendered = toml::to_string(config).context("failed to serialize ossplate.toml")?;
-    if !rendered.ends_with('\n') {
-        rendered.push('\n');
-    }
-    fs::write(root.join("ossplate.toml"), rendered).context("failed to write ossplate.toml")?;
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::sync::format_human_issues;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn unique_temp_path(prefix: &str) -> PathBuf {

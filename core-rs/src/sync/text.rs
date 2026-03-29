@@ -1,5 +1,5 @@
+use crate::config::ToolConfig;
 use crate::sync::ValidationIssue;
-use crate::ToolConfig;
 use anyhow::{anyhow, bail, Result};
 use std::collections::BTreeMap;
 

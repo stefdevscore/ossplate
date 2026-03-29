@@ -1,12 +1,13 @@
 mod metadata;
 mod text;
 
-use crate::{load_config, ToolConfig};
+use crate::config::{load_config, ToolConfig};
 use anyhow::{anyhow, bail, Context, Result};
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 
+pub(crate) use metadata::runtime_package_managed_files;
 pub(crate) use text::{format_human_issues, issue};
 
 #[cfg(test)]
@@ -120,7 +121,7 @@ fn collect_current_files(root: &Path) -> Result<BTreeMap<&'static str, String>> 
     Ok(files)
 }
 
-fn managed_files() -> Vec<ManagedFile> {
+pub(crate) fn managed_files() -> Vec<ManagedFile> {
     let mut files = vec![
         ManagedFile {
             path: "README.md",
@@ -168,6 +169,6 @@ fn managed_files() -> Vec<ManagedFile> {
             sync: text::sync_py_readme,
         },
     ];
-    files.extend(metadata::runtime_package_managed_files());
+    files.extend(runtime_package_managed_files());
     files
 }
