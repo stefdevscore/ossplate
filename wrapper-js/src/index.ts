@@ -57,6 +57,10 @@ type RuntimeTarget = {
   node: { platform: string; arch: string };
 };
 
+type WrapperPackage = {
+  name: string;
+};
+
 function runtimeTargetsManifestPath(): string {
   const packageRoot = join(__dirname, "..");
   const scaffoldPath = join(packageRoot, "scaffold", "runtime-targets.json");
@@ -66,6 +70,10 @@ function runtimeTargetsManifestPath(): string {
 
 function loadRuntimeTargets(): RuntimeTarget[] {
   return JSON.parse(readFileSync(runtimeTargetsManifestPath(), "utf8")).targets as RuntimeTarget[];
+}
+
+function readWrapperPackage(baseDir: string): WrapperPackage {
+  return JSON.parse(readFileSync(join(baseDir, "package.json"), "utf8")) as WrapperPackage;
 }
 
 function resolveHostRuntimeTarget(
@@ -111,11 +119,13 @@ export function resolveOssplateBinary(
   const platform = options.platform ?? runtimePlatform();
   const arch = options.arch ?? runtimeArch();
   const baseDir = options.baseDir ?? join(__dirname, "..");
+  const rootPackage = readWrapperPackage(baseDir);
   const runtimePackage = resolveHostRuntimeTarget(platform, arch, loadRuntimeTargets());
-  const executable = executableNameForPlatform(platform);
+  const executable = runtimePackage.binary ?? executableNameForPlatform(platform);
   const packagedPath = resolveRuntimePackageBinary(
-    `ossplate-${runtimePackage.packageSuffix}`,
+    `${rootPackage.name}-${runtimePackage.packageSuffix}`,
     executable,
+    rootPackage.name,
     baseDir,
     options.packagesBaseDir
   );
@@ -149,7 +159,7 @@ function spawnOssplate(
   });
 
   child.on("error", (error) => {
-    console.error(`ossplate: ${error.message}`);
+    console.error(`cli wrapper: ${error.message}`);
     process.exit(1);
   });
 }
@@ -185,18 +195,26 @@ function assertExecutable(filePath: string): void {
   try {
     accessSync(filePath, constants.X_OK);
   } catch {
-    throw new Error(`Bundled ossplate binary not found or not executable at ${filePath}`);
+    throw new Error(`Bundled CLI binary not found or not executable at ${filePath}`);
   }
 }
 
 function resolveRuntimePackageBinary(
   packageName: string,
   executable: string,
+  rootPackageName: string,
   baseDir: string,
   packagesBaseDir?: string
 ): string {
   if (packagesBaseDir) {
-    return join(packagesBaseDir, packageName, "bin", executable);
+    const packageRoot = join(packagesBaseDir, packageName);
+    const binaryPath = join(packageRoot, "bin", executable);
+    if (!existsSync(packageRoot) || !existsSync(binaryPath)) {
+      throw new Error(
+        `Missing runtime package ${packageName}. Reinstall ${rootPackageName} so npm can install the matching platform package.`
+      );
+    }
+    return binaryPath;
   }
 
   try {
@@ -206,7 +224,7 @@ function resolveRuntimePackageBinary(
     return join(dirname(packageJsonPath), "bin", executable);
   } catch {
     throw new Error(
-      `Missing runtime package ${packageName}. Reinstall ossplate so npm can install the matching platform package.`
+      `Missing runtime package ${packageName}. Reinstall ${rootPackageName} so npm can install the matching platform package.`
     );
   }
 }

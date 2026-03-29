@@ -42,6 +42,7 @@ run_step "tool:sync-check" cargo run --quiet --manifest-path "$ROOT_DIR/core-rs/
 run_step "release:plan-test" node --test "$ROOT_DIR/scripts/release-plan.test.mjs"
 run_step "release:check-test" node --test "$ROOT_DIR/scripts/release-check.test.mjs"
 run_step "release:state-test" node --test "$ROOT_DIR/scripts/release-state.test.mjs"
+run_step "bootstrap:pattern1-test" node --test "$ROOT_DIR/scripts/bootstrap-pattern1.test.mjs"
 run_step "publish:local-test" node --test "$ROOT_DIR/scripts/publish-local.test.mjs"
 run_step "scaffold:mirrors-assert" node "$ROOT_DIR/scripts/release-check.mjs" scaffold-mirrors
 run_step "release:assert" node "$ROOT_DIR/scripts/release-check.mjs" release-state

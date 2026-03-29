@@ -52,9 +52,11 @@ FORWARDED_ENV_KEYS = (
     "XDG_RUNTIME_DIR",
 )
 
+PACKAGE_NAME = __package__ or __name__.split(".")[0]
+
 
 def load_runtime_targets() -> list[dict]:
-    scaffold_manifest = resources.files("ossplate").joinpath("scaffold", "runtime-targets.json")
+    scaffold_manifest = resources.files(PACKAGE_NAME).joinpath("scaffold", "runtime-targets.json")
     if scaffold_manifest.is_file():
         return json.loads(scaffold_manifest.read_text(encoding="utf-8"))["targets"]
 
@@ -79,7 +81,7 @@ def resolve_host_runtime_target(runtime_targets: list[dict]) -> dict:
 
 
 def get_packaged_binary_path(base_dir: Path | None = None) -> str:
-    base_dir = base_dir or Path(resources.files("ossplate"))
+    base_dir = base_dir or Path(resources.files(PACKAGE_NAME))
     env_override = os.environ.get(ENV_OVERRIDE)
     if env_override:
         return env_override
@@ -89,7 +91,7 @@ def get_packaged_binary_path(base_dir: Path | None = None) -> str:
     executable = target["binary"]
     binary_path = base_dir / "bin" / folder / executable
     if not binary_path.exists():
-        raise RuntimeError(f"Bundled ossplate binary not found at {binary_path}")
+        raise RuntimeError(f"Bundled CLI binary not found at {binary_path}")
     return str(binary_path)
 
 
@@ -98,7 +100,7 @@ def get_binary_path() -> str:
 
 
 def default_template_root() -> Path:
-    return Path(resources.files("ossplate")) / "scaffold"
+    return Path(resources.files(PACKAGE_NAME)) / "scaffold"
 
 
 def build_cli_env(env: dict[str, str] | None = None) -> dict[str, str]:

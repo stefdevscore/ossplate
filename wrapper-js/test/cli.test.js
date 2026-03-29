@@ -17,20 +17,30 @@ const scaffoldManifest = JSON.parse(
 const packageJson = JSON.parse(
   fs.readFileSync(path.join(wrapperRoot, "package.json"), "utf8")
 );
+const pyproject = fs.readFileSync(path.join(repoRoot, "wrapper-py", "pyproject.toml"), "utf8");
+const runtimeTargets = JSON.parse(
+  fs.readFileSync(path.join(repoRoot, "runtime-targets.json"), "utf8")
+).targets;
+const wrapperCommand = Object.keys(packageJson.bin)[0];
+const wrapperBinScript = packageJson.bin[wrapperCommand];
+const pythonPackageSrcDir =
+  pyproject.match(/packages\s*=\s*\[\s*"([^"]+)"\s*\]/)?.[1] ?? "src/ossplate";
 
-const supportedTargets = [
-  ["darwin", "arm64", "darwin-arm64", "ossplate", "ossplate-darwin-arm64", "ossplate-darwin-arm64"],
-  ["darwin", "x64", "darwin-x64", "ossplate", "ossplate-darwin-x64", "ossplate-darwin-x64"],
-  ["linux", "x64", "linux-x64", "ossplate", "ossplate-linux-x64", "ossplate-linux-x64"],
-  ["win32", "x64", "win32-x64", "ossplate.exe", "ossplate-windows-x64", "ossplate-win32-x64"]
-];
+const supportedTargets = runtimeTargets.map((entry) => [
+  entry.node.platform,
+  entry.node.arch,
+  entry.target,
+  entry.binary,
+  `${packageJson.name}-${entry.packageSuffix}`,
+  `ossplate-${entry.folderSuffix}`
+]);
 
 async function loadModule() {
   return import(pathToFileURL(distModule).href);
 }
 
 test("env override takes precedence for wrapper execution", () => {
-  const output = execFileSync("node", ["bin/ossplate.js", "version"], {
+  const output = execFileSync("node", [wrapperBinScript, "version"], {
     cwd: wrapperRoot,
     encoding: "utf8",
     env: {
@@ -112,15 +122,18 @@ test("resolveOssplateBinary resolves every declared runtime package target", asy
 
 test("resolveOssplateBinary names the missing runtime package clearly", async () => {
   const { resolveOssplateBinary } = await loadModule();
+  const packagesBaseDir = fs.mkdtempSync(path.join(os.tmpdir(), "ossplate-missing-runtime-"));
   assert.throws(
     () =>
       resolveOssplateBinary({
         platform: "linux",
         arch: "x64",
-        baseDir: fs.mkdtempSync(path.join(os.tmpdir(), "ossplate-missing-runtime-"))
+        baseDir: wrapperRoot,
+        packagesBaseDir
       }),
-    /Missing runtime package ossplate-linux-x64/
+    new RegExp(`Missing runtime package ${packageJson.name}-linux-x64`)
   );
+  fs.rmSync(packagesBaseDir, { recursive: true, force: true });
 });
 
 test("js wrapper matches the rust contract via env override", () => {
@@ -128,7 +141,7 @@ test("js wrapper matches the rust contract via env override", () => {
     cwd: path.join(repoRoot, "core-rs"),
     stdio: "ignore"
   });
-  const coreBinary = path.join(repoRoot, "core-rs", "target", "debug", "ossplate");
+  const coreBinary = path.join(repoRoot, "core-rs", "target", "debug", currentRuntimePackage().executable);
   for (const args of [
     ["version"],
     ["validate", "--path", repoRoot, "--json"],
@@ -138,7 +151,7 @@ test("js wrapper matches the rust contract via env override", () => {
       cwd: repoRoot,
       encoding: "utf8"
     }).trim();
-    const wrapped = execFileSync("node", ["bin/ossplate.js", ...args], {
+    const wrapped = execFileSync("node", [wrapperBinScript, ...args], {
       cwd: wrapperRoot,
       encoding: "utf8",
       env: {
@@ -178,7 +191,7 @@ test("top-level npm package excludes bundled runtime binaries and scaffold runti
       );
     }
 
-    assert.ok(packagedFiles.includes(path.join("bin", "ossplate.js")));
+    assert.ok(packagedFiles.includes(wrapperBinScript));
     assert.ok(
       !packagedFiles.some((file) => /^bin\/(darwin|linux|win32)-/.test(file)),
       "top-level package should not ship platform runtime binaries"
@@ -191,7 +204,7 @@ test("top-level npm package excludes bundled runtime binaries and scaffold runti
     );
     assert.ok(
       !packagedFiles.some((file) =>
-        file.startsWith(path.join("scaffold", "wrapper-py", "src", "ossplate", "bin"))
+        file.startsWith(path.join("scaffold", "wrapper-py", pythonPackageSrcDir, "bin"))
       ),
       "scaffold should not ship nested Python runtime binaries"
     );
@@ -268,8 +281,8 @@ test("installed js package and matching runtime package can create from scaffold
 
     const packagedTool =
       process.platform === "win32"
-        ? path.join(installDir, "node_modules", ".bin", "ossplate.cmd")
-        : path.join(installDir, "node_modules", ".bin", "ossplate");
+        ? path.join(installDir, "node_modules", ".bin", `${wrapperCommand}.cmd`)
+        : path.join(installDir, "node_modules", ".bin", wrapperCommand);
     const directVersion = execFileSync(
       path.join(repoRoot, "core-rs", "target", "debug", runtime.executable),
       ["version"],

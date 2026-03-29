@@ -331,6 +331,9 @@ fn create_with_non_default_package_identity_is_valid_immediately() {
         serde_json::from_str(&fs::read_to_string(target.join("wrapper-js/package.json")).unwrap())
             .unwrap();
     assert_eq!(wrapper_package["name"], "agentcode");
+    assert_eq!(wrapper_package["bin"]["agentcode"], "bin/agentcode.js");
+    assert!(target.join("wrapper-js/bin/agentcode.js").exists());
+    assert!(!target.join("wrapper-js/bin/ossplate.js").exists());
 
     let runtime_package: serde_json::Value = serde_json::from_str(
         &fs::read_to_string(
@@ -340,9 +343,18 @@ fn create_with_non_default_package_identity_is_valid_immediately() {
     )
     .unwrap();
     assert_eq!(runtime_package["name"], "agentcode-darwin-arm64");
+    let runtime_targets: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(target.join("runtime-targets.json")).unwrap())
+            .unwrap();
+    assert_eq!(runtime_targets["targets"][0]["binary"], "agentcode");
+    assert_eq!(runtime_targets["targets"][3]["binary"], "agentcode.exe");
 
     let pyproject = fs::read_to_string(target.join("wrapper-py/pyproject.toml")).unwrap();
     assert!(pyproject.contains("name = \"agentcode\""));
+    assert!(pyproject.contains("agentcode.cli:main"));
+    assert!(pyproject.contains("packages = [\"src/agentcode\"]"));
+    assert!(target.join("wrapper-py/src/agentcode/cli.py").exists());
+    assert!(!target.join("wrapper-py/src/ossplate/cli.py").exists());
 
     fs::remove_dir_all(&target).unwrap();
 }
@@ -514,11 +526,11 @@ fn make_fixture_root() -> PathBuf {
         .unwrap()
         .as_nanos();
     let root = std::env::temp_dir().join(format!("ossplate-fixture-{unique}"));
-    let scaffold_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap()
-        .join("wrapper-js/scaffold");
-    copy_fixture_tree(&scaffold_root, &root);
+        .to_path_buf();
+    copy_required_paths_from_manifest(&repo_root, &root);
     root
 }
 
@@ -532,13 +544,25 @@ fn make_source_checkout_root() -> PathBuf {
         .parent()
         .unwrap()
         .to_path_buf();
-    let manifest: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string(repo_root.join("scaffold-payload.json")).unwrap())
-            .unwrap();
+    copy_required_paths_from_manifest(&repo_root, &root);
+    root
+}
+
+fn copy_required_paths_from_manifest(source_root: &Path, target_root: &Path) {
+    fs::create_dir_all(target_root).unwrap();
+    fs::copy(
+        source_root.join("scaffold-payload.json"),
+        target_root.join("scaffold-payload.json"),
+    )
+    .unwrap();
+    let manifest: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(source_root.join("scaffold-payload.json")).unwrap(),
+    )
+    .unwrap();
     for relative_path in manifest["requiredPaths"].as_array().unwrap() {
         let relative_path = relative_path.as_str().unwrap();
-        let source_path = repo_root.join(relative_path);
-        let target_path = root.join(relative_path);
+        let source_path = source_root.join(relative_path);
+        let target_path = target_root.join(relative_path);
         if let Some(parent) = target_path.parent() {
             fs::create_dir_all(parent).unwrap();
         }
@@ -548,7 +572,6 @@ fn make_source_checkout_root() -> PathBuf {
             fs::copy(&source_path, &target_path).unwrap();
         }
     }
-    root
 }
 
 fn copy_fixture_tree(source_root: &Path, target_root: &Path) {

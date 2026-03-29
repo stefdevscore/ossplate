@@ -27,10 +27,11 @@ const requiredPaths = manifest.requiredPaths;
 const excludedPrefixes = manifest.excludedPrefixes;
 const runtimeTargets = getRuntimeTargets();
 const rootPackage = JSON.parse(readFileSync(join(repoRoot, "wrapper-js", "package.json"), "utf8"));
+const pythonPackageSrcDir = readPythonPackageSrcDir();
 
 const wrapperTargets = [
   join(repoRoot, "wrapper-js", "scaffold"),
-  join(repoRoot, "wrapper-py", "src", "ossplate", "scaffold")
+  join(repoRoot, "wrapper-py", pythonPackageSrcDir, "scaffold")
 ];
 
 const currentTarget = resolveCurrentTarget();
@@ -82,7 +83,7 @@ function stageScaffold(destinationRoot) {
 }
 
 function stagePythonRuntime() {
-  const relativePath = `wrapper-py/src/ossplate/bin/${currentTarget.target}/${currentTarget.binary}`;
+  const relativePath = `wrapper-py/${pythonPackageSrcDir}/bin/${currentTarget.target}/${currentTarget.binary}`;
   const destination = join(repoRoot, relativePath);
   mkdirSync(dirname(destination), { recursive: true });
   copyFileSync(stagedRuntimeBinaryPath(repoRoot, currentTarget.target), destination);
@@ -138,7 +139,7 @@ function stageRuntimeArtifact(target) {
     );
   }
   if (!existsSync(sourceBinary)) {
-    throw new Error(`required ossplate binary is missing at ${sourceBinary}`);
+    throw new Error(`required CLI binary is missing at ${sourceBinary}`);
   }
 
   const destination = stagedRuntimeBinaryPath(repoRoot, target);
@@ -163,4 +164,13 @@ function resolveCurrentTarget() {
 
 export function getScaffoldManifest() {
   return { requiredPaths, excludedPrefixes };
+}
+
+function readPythonPackageSrcDir() {
+  const pyproject = readFileSync(join(repoRoot, "wrapper-py", "pyproject.toml"), "utf8");
+  const match = pyproject.match(/packages\s*=\s*\[\s*"([^"]+)"\s*\]/);
+  if (!match) {
+    throw new Error("wrapper-py/pyproject.toml is missing a wheel packages entry");
+  }
+  return match[1];
 }

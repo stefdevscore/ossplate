@@ -6,24 +6,57 @@ import json
 import subprocess
 import sys
 import platform
+import importlib
 import shutil
 import tempfile
 import unittest
 import zipfile
 from unittest import mock
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 import hatch_build
 
-from ossplate.cli import build_cli_env, cli, get_packaged_binary_path
+WRAPPER_ROOT = pathlib.Path(__file__).resolve().parents[1]
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
+PYPROJECT_TEXT = (WRAPPER_ROOT / "pyproject.toml").read_text()
+PYTHON_PACKAGE_NAME = next(
+    line.split("=", 1)[1].strip().strip('"')
+    for line in PYPROJECT_TEXT.splitlines()
+    if line.startswith("name = ")
+)
+PYTHON_MODULE_NAME = PYTHON_PACKAGE_NAME.replace("-", "_").replace(".", "_")
+WRAPPER_COMMAND = next(
+    line.split("=", 1)[0].strip()
+    for line in PYPROJECT_TEXT.splitlines()
+    if ".cli:main" in line
+)
+TEST_PYTHON = next(
+    candidate
+    for candidate in ("python3.14", "python3.13", "python3.12", "python3.11", "python3.10", "python3")
+    if shutil.which(candidate)
+    and subprocess.run(
+        [candidate, "-c", "import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)"],
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    ).returncode
+    == 0
+)
+CLI_MODULE = importlib.import_module(f"{PYTHON_MODULE_NAME}.cli")
+build_cli_env = CLI_MODULE.build_cli_env
+cli = CLI_MODULE.cli
+get_packaged_binary_path = CLI_MODULE.get_packaged_binary_path
 
 
 class CliTests(unittest.TestCase):
-    supported_targets = (
-        ("Darwin", "arm64", "darwin-arm64", "ossplate"),
-        ("Darwin", "x86_64", "darwin-x64", "ossplate"),
-        ("Linux", "x86_64", "linux-x64", "ossplate"),
-        ("Windows", "AMD64", "win32-x64", "ossplate.exe"),
+    supported_targets = tuple(
+        (
+            target["python"]["system"],
+            target["python"]["machines"][0],
+            target["target"],
+            target["binary"],
+        )
+        for target in json.loads((REPO_ROOT / "runtime-targets.json").read_text())["targets"]
     )
     wheel_size_budgets = {
         "darwin-arm64": (4_000_000, 10_000_000),
@@ -35,7 +68,7 @@ class CliTests(unittest.TestCase):
     def setUp(self) -> None:
         self.fixture_dir = tempfile.TemporaryDirectory()
         self.fixture = self.create_stub_binary(pathlib.Path(self.fixture_dir.name))
-        self.repo_root = pathlib.Path(__file__).resolve().parents[2]
+        self.repo_root = REPO_ROOT
         self.scaffold_manifest = json.loads(
             (self.repo_root / "scaffold-payload.json").read_text()
         )
@@ -50,7 +83,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(get_packaged_binary_path(), self.fixture)
 
     def test_packaged_binary_path_resolves_host_target(self) -> None:
-        base_dir = pathlib.Path(__file__).resolve().parents[1] / "src" / "ossplate"
+        base_dir = WRAPPER_ROOT / "src" / PYTHON_MODULE_NAME
         target, executable = self.current_target()
         expected = base_dir / "bin" / target / executable
         self.assertTrue(expected.exists(), f"expected host binary at {expected}")
@@ -106,7 +139,7 @@ class CliTests(unittest.TestCase):
             )
             os.environ["OSSPLATE_BINARY"] = str(core_binary)
             wrapped = subprocess.run(
-                [sys.executable, "-m", "ossplate.cli", *args],
+                [sys.executable, "-m", f"{PYTHON_MODULE_NAME}.cli", *args],
                 check=True,
                 capture_output=True,
                 text=True,
@@ -121,7 +154,7 @@ class CliTests(unittest.TestCase):
         shutil.rmtree(build_venv_dir, ignore_errors=True)
         shutil.rmtree(dist_dir, ignore_errors=True)
         subprocess.run(["cargo", "build"], cwd=repo_root / "core-rs", check=True)
-        subprocess.run([sys.executable, "-m", "venv", str(build_venv_dir)], check=True)
+        subprocess.run([TEST_PYTHON, "-m", "venv", str(build_venv_dir)], check=True)
         build_python = self.venv_executable(build_venv_dir, "python")
         subprocess.run(
             [str(build_python), "-m", "pip", "install", "build"],
@@ -135,7 +168,7 @@ class CliTests(unittest.TestCase):
             check=True,
             env=os.environ.copy(),
         )
-        wheels = sorted(dist_dir.glob("ossplate-*.whl"))
+        wheels = sorted(dist_dir.glob("*.whl"))
         self.assertEqual(len(wheels), 1, f"expected one built wheel in {dist_dir}")
         wheel = wheels[0]
         self.assertIn("py3-none-", wheel.name)
@@ -147,9 +180,9 @@ class CliTests(unittest.TestCase):
         target_dir = repo_root / "wrapper-py" / ".tmp-wheel-created"
         shutil.rmtree(venv_dir, ignore_errors=True)
         shutil.rmtree(target_dir, ignore_errors=True)
-        subprocess.run([sys.executable, "-m", "venv", str(venv_dir)], check=True)
+        subprocess.run([TEST_PYTHON, "-m", "venv", str(venv_dir)], check=True)
         pip = self.venv_executable(venv_dir, "pip")
-        tool = self.venv_executable(venv_dir, "ossplate")
+        tool = self.venv_executable(venv_dir, WRAPPER_COMMAND)
         subprocess.run([str(pip), "install", str(wheel)], check=True, stdout=subprocess.DEVNULL)
         _, host_executable = self.current_target()
         direct_version = subprocess.run(
@@ -188,7 +221,7 @@ class CliTests(unittest.TestCase):
         path = hatch_build.staged_runtime_binary_path(self.repo_root, "linux-x64")
         self.assertEqual(
             path,
-            self.repo_root / ".dist-assets" / "runtime" / "linux-x64" / "ossplate",
+            self.repo_root / ".dist-assets" / "runtime" / "linux-x64" / self.target_executable("linux-x64"),
         )
 
     def test_macos_x64_wheel_tag_drops_universal2(self) -> None:
@@ -217,12 +250,14 @@ class CliTests(unittest.TestCase):
             names = archive.namelist()
 
         packaged_binaries = sorted(
-            name for name in names if name.startswith("ossplate/bin/") and not name.endswith("/")
+            name
+            for name in names
+            if name.startswith(f"{PYTHON_MODULE_NAME}/bin/") and not name.endswith("/")
         )
-        expected_binary = f"ossplate/bin/{target}/{self.target_executable(target)}"
+        expected_binary = f"{PYTHON_MODULE_NAME}/bin/{target}/{self.target_executable(target)}"
         self.assertEqual(packaged_binaries, [expected_binary])
 
-        prefix = "ossplate/scaffold/"
+        prefix = f"{PYTHON_MODULE_NAME}/scaffold/"
         for relative_path in self.scaffold_manifest["requiredPaths"]:
             self.assertIn(
                 f"{prefix}{relative_path}",
@@ -255,11 +290,11 @@ class CliTests(unittest.TestCase):
 
     def create_stub_binary(self, directory: pathlib.Path) -> str:
         if os.name == "nt":
-            path = directory / "ossplate-stub.cmd"
+            path = directory / f"{WRAPPER_COMMAND}-stub.cmd"
             path.write_text("@echo {\"tool\":\"stub-tool\",\"version\":\"9.9.9\"}\r\n")
             return str(path)
 
-        path = directory / "ossplate-stub.sh"
+        path = directory / f"{WRAPPER_COMMAND}-stub.sh"
         path.write_text("#!/usr/bin/env sh\necho '{\"tool\":\"stub-tool\",\"version\":\"9.9.9\"}'\n")
         path.chmod(0o755)
         return str(path)

@@ -17,6 +17,19 @@ except ModuleNotFoundError:  # pragma: no cover - exercised in local unit tests 
 BUILD_TARGET_ENV = "OSSPLATE_PY_TARGET"
 
 
+def read_python_package_src_dir(wrapper_root: Path) -> str:
+    pyproject = (wrapper_root / "pyproject.toml").read_text(encoding="utf-8")
+    marker = 'packages = ["'
+    start = pyproject.find(marker)
+    if start == -1:
+        raise RuntimeError("wrapper-py/pyproject.toml is missing a wheel packages entry")
+    start += len(marker)
+    end = pyproject.find('"]', start)
+    if end == -1:
+        raise RuntimeError("wrapper-py/pyproject.toml has an invalid wheel packages entry")
+    return pyproject[start:end]
+
+
 def load_runtime_targets(repo_root: Path) -> list[dict]:
     return json.loads((repo_root / "runtime-targets.json").read_text(encoding="utf-8"))["targets"]
 
@@ -37,13 +50,14 @@ class CustomBuildHook(BuildHookInterface):
         binary_source = staged_runtime_binary_path(repo_root, target)
         if not binary_source.exists():
             raise RuntimeError(
-                f"required ossplate binary for target {target} is missing at {binary_source}"
+                f"required CLI binary for target {target} is missing at {binary_source}"
             )
 
         build_data["pure_python"] = False
         build_data["tag"] = f"py3-none-{platform_tag_for_target(target)}"
         force_include = build_data.setdefault("force_include", {})
-        force_include[str(binary_source)] = f"ossplate/bin/{target}/{binary_name}"
+        package_src_dir = read_python_package_src_dir(Path(self.root).resolve())
+        force_include[str(binary_source)] = f"{package_src_dir[4:]}/bin/{target}/{binary_name}"
 
 
 def staged_runtime_binary_path(repo_root: Path, target: str) -> Path:

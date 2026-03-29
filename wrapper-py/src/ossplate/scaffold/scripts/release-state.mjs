@@ -18,6 +18,10 @@ export function readRootPackage() {
   return readJson("wrapper-js/package.json");
 }
 
+export function readPyproject() {
+  return readText("wrapper-py/pyproject.toml");
+}
+
 export function readScaffoldPayload() {
   return readJson("scaffold-payload.json");
 }
@@ -91,14 +95,18 @@ export function assertRuntimePackages(rootPackage = readRootPackage()) {
 }
 
 export function assertNoTrackedGeneratedBinaries() {
-  const tracked = execGit(["ls-files"])
+  const pythonPackageDir = readPythonPackageSrcDir();
+  const pythonBinaryPattern = new RegExp(
+    `^wrapper-py/${escapeRegExp(pythonPackageDir)}/bin/[^/]+/[^/]+$`
+  );
+  const tracked = listTrackedFiles()
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean)
     .filter(
       (line) =>
         /^wrapper-js\/platform-packages\/[^/]+\/bin\//.test(line) ||
-        /^wrapper-py\/src\/ossplate\/bin\/[^/]+\/ossplate(?:\.exe)?$/.test(line)
+        pythonBinaryPattern.test(line)
     );
   if (tracked.length > 0) {
     fail(
@@ -110,9 +118,10 @@ export function assertNoTrackedGeneratedBinaries() {
 }
 
 export function scaffoldMirrorRoots(root = repoRoot) {
+  const pythonPackageDir = readPythonPackageSrcDir(root);
   return [
     join(root, "wrapper-js", "scaffold"),
-    join(root, "wrapper-py", "src", "ossplate", "scaffold")
+    join(root, "wrapper-py", pythonPackageDir, "scaffold")
   ];
 }
 
@@ -147,6 +156,7 @@ export function assertScaffoldMirrorsState(scaffoldPayload = readScaffoldPayload
 }
 
 export function assertTopLevelPackShape() {
+  const pythonBinaryPrefix = `scaffold/wrapper-py/${readPythonPackageSrcDir()}/bin/`;
   const output = execNpm(["pack", "--dry-run", "--json"], {
     cwd: join(repoRoot, "wrapper-js"),
     encoding: "utf8"
@@ -160,7 +170,7 @@ export function assertTopLevelPackShape() {
     if (/^scaffold\/wrapper-js\/bin\/(darwin|linux|win32)-/.test(file)) {
       fail(`scaffold still contains nested JS runtime binary path ${file}`);
     }
-    if (file.startsWith("scaffold/wrapper-py/src/ossplate/bin/")) {
+    if (file.startsWith(pythonBinaryPrefix)) {
       fail(`scaffold still contains nested Python runtime binary path ${file}`);
     }
   }
@@ -244,6 +254,17 @@ function execGit(args) {
   }).trim();
 }
 
+function listTrackedFiles() {
+  try {
+    return execGit(["ls-files"]);
+  } catch (error) {
+    if (isNotGitRepositoryError(error)) {
+      return "";
+    }
+    throw error;
+  }
+}
+
 function npmCommand() {
   return process.platform === "win32" ? "npm.cmd" : "npm";
 }
@@ -276,6 +297,15 @@ export function readTomlSectionValue(content, sectionName, key, fileLabel) {
   return valueMatch[1];
 }
 
+function readPythonPackageSrcDir(root = repoRoot) {
+  const pyproject = readFileSync(join(root, "wrapper-py", "pyproject.toml"), "utf8");
+  const match = pyproject.match(/packages\s*=\s*\[\s*"([^"]+)"\s*\]/);
+  if (!match) {
+    fail("wrapper-py/pyproject.toml is missing a wheel packages entry");
+  }
+  return match[1];
+}
+
 function assertAllEqual(entries, message) {
   const values = new Set(entries.map(([, value]) => value));
   if (values.size !== 1) {
@@ -299,4 +329,9 @@ function fail(message) {
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function isNotGitRepositoryError(error) {
+  const stderr = typeof error?.stderr === "string" ? error.stderr : "";
+  return error?.status === 128 && /not a git repository/i.test(stderr);
 }

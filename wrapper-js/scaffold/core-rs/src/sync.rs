@@ -154,6 +154,21 @@ pub(crate) fn managed_files() -> Vec<ManagedFile> {
             sync: metadata::sync_cargo_toml,
         },
         ManagedFile {
+            path: "runtime-targets.json",
+            validate: metadata::validate_runtime_targets_json,
+            sync: metadata::sync_runtime_targets_json,
+        },
+        ManagedFile {
+            path: "core-rs/runtime-targets.json",
+            validate: metadata::validate_runtime_targets_json,
+            sync: metadata::sync_runtime_targets_json,
+        },
+        ManagedFile {
+            path: "scaffold-payload.json",
+            validate: metadata::validate_scaffold_payload_json,
+            sync: metadata::sync_scaffold_payload_json,
+        },
+        ManagedFile {
             path: "wrapper-js/package.json",
             validate: metadata::validate_package_json,
             sync: metadata::sync_package_json,

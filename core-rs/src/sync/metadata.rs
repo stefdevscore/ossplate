@@ -31,6 +31,31 @@ fn rust_bin_file_path() -> &'static str {
     "src/main.rs"
 }
 
+fn js_wrapper_launcher_path(config: &ToolConfig) -> String {
+    format!("bin/{}.js", config.packages.command)
+}
+
+fn python_module_name(config: &ToolConfig) -> String {
+    config
+        .packages
+        .python_package
+        .chars()
+        .map(|ch| match ch {
+            'a'..='z' | 'A'..='Z' | '0'..='9' | '_' => ch,
+            '-' | '.' => '_',
+            _ => '_',
+        })
+        .collect()
+}
+
+fn python_package_src_dir(config: &ToolConfig) -> String {
+    format!("src/{}", python_module_name(config))
+}
+
+fn python_entrypoint(config: &ToolConfig) -> String {
+    format!("{}.cli:main", python_module_name(config))
+}
+
 pub(crate) fn validate_cargo_toml(
     config: &ToolConfig,
     content: &str,
@@ -247,12 +272,13 @@ pub(crate) fn validate_package_json(
         .and_then(serde_json::Value::as_str)
         .unwrap_or_default()
         .to_string();
-    if bin_target != "bin/ossplate.js" {
+    let expected_bin_target = js_wrapper_launcher_path(config);
+    if bin_target != expected_bin_target {
         issues.push(issue(
             "wrapper-js/package.json",
             "bin",
             "owned metadata differs from the canonical project identity",
-            Some("bin/ossplate.js".to_string()),
+            Some(expected_bin_target),
             Some(bin_target),
         ));
     }
@@ -296,7 +322,7 @@ pub(crate) fn sync_package_json(config: &ToolConfig, content: &str) -> Result<St
     value["license"] = serde_json::Value::String(config.project.license.clone());
     value["repository"]["url"] = serde_json::Value::String(config.project.repository.clone());
     value["bin"] = json!({
-        config.packages.command.clone(): "bin/ossplate.js"
+        config.packages.command.clone(): js_wrapper_launcher_path(config)
     });
     let version = value
         .get("version")
@@ -341,6 +367,15 @@ fn runtime_package_folder(config: &ToolConfig, target: &str) -> String {
 fn runtime_package_name(config: &ToolConfig, target: &str) -> String {
     let spec = runtime_package_spec(target);
     format!("{}-{}", config.packages.npm_package, spec.package_suffix)
+}
+
+fn runtime_binary_name(config: &ToolConfig, target: &str) -> String {
+    let spec = runtime_package_spec(target);
+    if spec.os == "win32" {
+        format!("{}.exe", config.packages.command)
+    } else {
+        config.packages.command.clone()
+    }
 }
 
 fn validate_runtime_package_json(
@@ -504,6 +539,94 @@ pub(crate) fn runtime_package_managed_files() -> Vec<ManagedFile> {
     ]
 }
 
+pub(crate) fn validate_runtime_targets_json(
+    config: &ToolConfig,
+    content: &str,
+) -> Result<Vec<ValidationIssue>> {
+    let value: serde_json::Value =
+        serde_json::from_str(content).context("failed to parse runtime-targets.json")?;
+    let targets = value
+        .get("targets")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| anyhow!("missing targets in runtime-targets.json"))?;
+    let mut issues = Vec::new();
+
+    for target in targets {
+        let target_name = target
+            .get("target")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| anyhow!("runtime target is missing target name"))?;
+        let actual_binary = target
+            .get("binary")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+        let expected_binary = runtime_binary_name(config, target_name);
+        if actual_binary != expected_binary {
+            issues.push(issue(
+                "runtime-targets.json",
+                &format!("targets.{target_name}.binary"),
+                "owned metadata differs from the canonical project identity",
+                Some(expected_binary),
+                Some(actual_binary),
+            ));
+        }
+    }
+
+    Ok(issues)
+}
+
+pub(crate) fn sync_runtime_targets_json(config: &ToolConfig, content: &str) -> Result<String> {
+    let mut value: serde_json::Value =
+        serde_json::from_str(content).context("failed to parse runtime-targets.json")?;
+    let targets = value
+        .get_mut("targets")
+        .and_then(serde_json::Value::as_array_mut)
+        .ok_or_else(|| anyhow!("missing targets in runtime-targets.json"))?;
+
+    for target in targets {
+        let target_name = target
+            .get("target")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| anyhow!("runtime target is missing target name"))?
+            .to_string();
+        target["binary"] = serde_json::Value::String(runtime_binary_name(config, &target_name));
+    }
+
+    let mut rendered = serde_json::to_string_pretty(&value)?;
+    rendered.push('\n');
+    Ok(rendered)
+}
+
+pub(crate) fn validate_scaffold_payload_json(
+    config: &ToolConfig,
+    content: &str,
+) -> Result<Vec<ValidationIssue>> {
+    let value: serde_json::Value =
+        serde_json::from_str(content).context("failed to parse scaffold-payload.json")?;
+    let normalized = normalize_scaffold_payload_json(config, value.clone())?;
+    let mut issues = Vec::new();
+    if value != normalized {
+        issues.push(issue(
+            "scaffold-payload.json",
+            "requiredPaths",
+            "owned metadata differs from the canonical project identity",
+            Some(serde_json::to_string_pretty(&normalized)?),
+            Some(serde_json::to_string_pretty(&value)?),
+        ));
+    }
+    Ok(issues)
+}
+
+pub(crate) fn sync_scaffold_payload_json(config: &ToolConfig, content: &str) -> Result<String> {
+    let value: serde_json::Value =
+        serde_json::from_str(content).context("failed to parse scaffold-payload.json")?;
+    let normalized = normalize_scaffold_payload_json(config, value)?;
+    let mut rendered = serde_json::to_string_pretty(&normalized)?;
+    rendered.push('\n');
+    Ok(rendered)
+}
+
 pub(crate) fn validate_pyproject(
     config: &ToolConfig,
     content: &str,
@@ -603,13 +726,77 @@ pub(crate) fn validate_pyproject(
         .and_then(TomlValue::as_str)
         .unwrap_or_default()
         .to_string();
-    if actual_entry != "ossplate.cli:main" {
+    let expected_entry = python_entrypoint(config);
+    if actual_entry != expected_entry {
         issues.push(issue(
             "wrapper-py/pyproject.toml",
             "project.scripts",
             "owned metadata differs from the canonical project identity",
-            Some("ossplate.cli:main".to_string()),
+            Some(expected_entry),
             Some(actual_entry),
+        ));
+    }
+    let wheel = value
+        .as_table()
+        .and_then(|t| t.get("tool"))
+        .and_then(TomlValue::as_table)
+        .and_then(|t| t.get("hatch"))
+        .and_then(TomlValue::as_table)
+        .and_then(|t| t.get("build"))
+        .and_then(TomlValue::as_table)
+        .and_then(|t| t.get("targets"))
+        .and_then(TomlValue::as_table)
+        .and_then(|t| t.get("wheel"))
+        .and_then(TomlValue::as_table)
+        .ok_or_else(|| {
+            anyhow!("missing [tool.hatch.build.targets.wheel] in wrapper-py/pyproject.toml")
+        })?;
+    let expected_package_dir = python_package_src_dir(config);
+    let actual_packages = wheel
+        .get("packages")
+        .and_then(TomlValue::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let expected_packages = vec![TomlValue::String(expected_package_dir.clone())];
+    if actual_packages != expected_packages {
+        issues.push(issue(
+            "wrapper-py/pyproject.toml",
+            "tool.hatch.build.targets.wheel.packages",
+            "owned metadata differs from the canonical project identity",
+            Some(render_toml_string_array(&expected_packages)),
+            Some(render_toml_string_array(&actual_packages)),
+        ));
+    }
+    let actual_artifacts = wheel
+        .get("artifacts")
+        .and_then(TomlValue::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let expected_artifacts = vec![TomlValue::String(format!(
+        "{expected_package_dir}/scaffold/**"
+    ))];
+    if actual_artifacts != expected_artifacts {
+        issues.push(issue(
+            "wrapper-py/pyproject.toml",
+            "tool.hatch.build.targets.wheel.artifacts",
+            "owned metadata differs from the canonical project identity",
+            Some(render_toml_string_array(&expected_artifacts)),
+            Some(render_toml_string_array(&actual_artifacts)),
+        ));
+    }
+    let actual_exclude = wheel
+        .get("exclude")
+        .and_then(TomlValue::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let expected_exclude = vec![TomlValue::String(format!("{expected_package_dir}/bin/**"))];
+    if actual_exclude != expected_exclude {
+        issues.push(issue(
+            "wrapper-py/pyproject.toml",
+            "tool.hatch.build.targets.wheel.exclude",
+            "owned metadata differs from the canonical project identity",
+            Some(render_toml_string_array(&expected_exclude)),
+            Some(render_toml_string_array(&actual_exclude)),
         ));
     }
     Ok(issues)
@@ -649,7 +836,7 @@ pub(crate) fn sync_pyproject(config: &ToolConfig, content: &str) -> Result<Strin
     let mut scripts = toml::map::Map::new();
     scripts.insert(
         config.packages.command.clone(),
-        TomlValue::String("ossplate.cli:main".to_string()),
+        TomlValue::String(python_entrypoint(config)),
     );
     project.insert("scripts".into(), TomlValue::Table(scripts));
     let urls = value
@@ -666,6 +853,36 @@ pub(crate) fn sync_pyproject(config: &ToolConfig, content: &str) -> Result<Strin
     urls.insert(
         "Repository".into(),
         TomlValue::String(config.project.repository.clone()),
+    );
+    let wheel = value
+        .as_table_mut()
+        .and_then(|t| t.get_mut("tool"))
+        .and_then(TomlValue::as_table_mut)
+        .and_then(|t| t.get_mut("hatch"))
+        .and_then(TomlValue::as_table_mut)
+        .and_then(|t| t.get_mut("build"))
+        .and_then(TomlValue::as_table_mut)
+        .and_then(|t| t.get_mut("targets"))
+        .and_then(TomlValue::as_table_mut)
+        .and_then(|t| t.get_mut("wheel"))
+        .and_then(TomlValue::as_table_mut)
+        .ok_or_else(|| {
+            anyhow!("missing [tool.hatch.build.targets.wheel] in wrapper-py/pyproject.toml")
+        })?;
+    let package_dir = python_package_src_dir(config);
+    wheel.insert(
+        "packages".into(),
+        TomlValue::Array(vec![TomlValue::String(package_dir.clone())]),
+    );
+    wheel.insert(
+        "artifacts".into(),
+        TomlValue::Array(vec![TomlValue::String(format!(
+            "{package_dir}/scaffold/**"
+        ))]),
+    );
+    wheel.insert(
+        "exclude".into(),
+        TomlValue::Array(vec![TomlValue::String(format!("{package_dir}/bin/**"))]),
     );
     Ok(toml::to_string(&value)?)
 }
@@ -714,6 +931,15 @@ fn check_json_string(
     }
 }
 
+fn render_toml_string_array(values: &[TomlValue]) -> String {
+    let rendered = values
+        .iter()
+        .map(|value| format!("\"{}\"", value.as_str().unwrap_or_default()))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("[{rendered}]")
+}
+
 fn project_urls(value: &TomlValue) -> Result<(String, String)> {
     let urls = value
         .as_table()
@@ -732,4 +958,50 @@ fn project_urls(value: &TomlValue) -> Result<(String, String)> {
             .unwrap_or_default()
             .to_string(),
     ))
+}
+
+fn normalize_scaffold_payload_json(
+    config: &ToolConfig,
+    mut value: serde_json::Value,
+) -> Result<serde_json::Value> {
+    let required_paths = value
+        .get_mut("requiredPaths")
+        .and_then(serde_json::Value::as_array_mut)
+        .ok_or_else(|| anyhow!("missing requiredPaths in scaffold-payload.json"))?;
+
+    let expected_js_launcher = format!("wrapper-js/{}", js_wrapper_launcher_path(config));
+    let expected_python_dir = python_package_src_dir(config);
+    let expected_python_init = format!("wrapper-py/{expected_python_dir}/__init__.py");
+    let expected_python_cli = format!("wrapper-py/{expected_python_dir}/cli.py");
+
+    replace_required_path(
+        required_paths,
+        |path| path.starts_with("wrapper-js/bin/") && path.ends_with(".js"),
+        &expected_js_launcher,
+    );
+    replace_required_path(
+        required_paths,
+        |path| path.starts_with("wrapper-py/src/") && path.ends_with("/__init__.py"),
+        &expected_python_init,
+    );
+    replace_required_path(
+        required_paths,
+        |path| path.starts_with("wrapper-py/src/") && path.ends_with("/cli.py"),
+        &expected_python_cli,
+    );
+
+    Ok(value)
+}
+
+fn replace_required_path(
+    required_paths: &mut [serde_json::Value],
+    matches: impl Fn(&str) -> bool,
+    expected: &str,
+) {
+    if let Some(entry) = required_paths
+        .iter_mut()
+        .find(|value| value.as_str().is_some_and(&matches))
+    {
+        *entry = serde_json::Value::String(expected.to_string());
+    }
 }
