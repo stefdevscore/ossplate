@@ -63,7 +63,10 @@ class CliTests(unittest.TestCase):
         self.assertEqual(result, 0)
 
     def test_python_wrapper_matches_rust_contract_via_env_override(self) -> None:
-        core_binary = self.repo_root / "core-rs" / "target" / "debug" / "ossplate"
+        _, host_executable = self.current_target()
+        core_binary = (
+            self.repo_root / "core-rs" / "target" / "debug" / host_executable
+        )
         repo_root = self.repo_root
         subprocess.run(["cargo", "build"], cwd=core_binary.parents[2], check=True)
         for args in (
