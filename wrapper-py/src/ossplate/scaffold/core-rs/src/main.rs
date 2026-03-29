@@ -1,10 +1,11 @@
 use anyhow::{anyhow, bail, Context, Result};
-use clap::{Args, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use toml::Value as TomlValue;
 
 const README_IDENTITY_START: &str = "<!-- ossplate:readme-identity:start -->";
@@ -55,6 +56,25 @@ enum Commands {
         #[arg(long)]
         check: bool,
     },
+    /// Publish the current checked-out version from source without mutating git state
+    Publish {
+        #[arg(long, default_value = ".")]
+        path: PathBuf,
+        #[arg(long)]
+        dry_run: bool,
+        #[arg(long, value_enum, default_value_t = PublishRegistry::All)]
+        registry: PublishRegistry,
+        #[arg(long)]
+        skip_existing: bool,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+enum PublishRegistry {
+    All,
+    Npm,
+    Pypi,
+    Cargo,
 }
 
 #[derive(Debug, Clone, Default, Args)]
@@ -187,6 +207,62 @@ fn run() -> Result<()> {
             }
         }
         Commands::Sync { path, check } => sync_repo(&path, check),
+        Commands::Publish {
+            path,
+            dry_run,
+            registry,
+            skip_existing,
+        } => publish_repo(&path, dry_run, registry, skip_existing),
+    }
+}
+
+fn publish_repo(
+    root: &Path,
+    dry_run: bool,
+    registry: PublishRegistry,
+    skip_existing: bool,
+) -> Result<()> {
+    ensure_scaffold_source_root(root)?;
+    let script_path = root.join("scripts/publish-local.mjs");
+    if !script_path.is_file() {
+        bail!(
+            "publish requires a full scaffold source checkout; missing {}",
+            script_path.display()
+        );
+    }
+
+    let root = root
+        .canonicalize()
+        .with_context(|| format!("failed to canonicalize publish path {}", root.display()))?;
+    let mut args = vec![
+        script_path.to_string_lossy().to_string(),
+        "--root".to_string(),
+        root.to_string_lossy().to_string(),
+        "--registry".to_string(),
+        match registry {
+            PublishRegistry::All => "all",
+            PublishRegistry::Npm => "npm",
+            PublishRegistry::Pypi => "pypi",
+            PublishRegistry::Cargo => "cargo",
+        }
+        .to_string(),
+    ];
+    if dry_run {
+        args.push("--dry-run".to_string());
+    }
+    if skip_existing {
+        args.push("--skip-existing".to_string());
+    }
+
+    let status = Command::new("node")
+        .args(&args)
+        .current_dir(&root)
+        .status()
+        .context("failed to start local publish helper via node")?;
+    if status.success() {
+        Ok(())
+    } else {
+        bail!("publish failed")
     }
 }
 
@@ -1721,6 +1797,35 @@ mod tests {
                 assert_eq!(overrides.command.as_deref(), Some("demo-tool"));
             }
             _ => panic!("expected create"),
+        }
+    }
+
+    #[test]
+    fn parses_publish_with_flags() {
+        let cli = Cli::try_parse_from([
+            "ossplate",
+            "publish",
+            "--path",
+            "demo",
+            "--dry-run",
+            "--registry",
+            "pypi",
+            "--skip-existing",
+        ])
+        .unwrap();
+        match cli.command {
+            Commands::Publish {
+                path,
+                dry_run,
+                registry,
+                skip_existing,
+            } => {
+                assert_eq!(path, PathBuf::from("demo"));
+                assert!(dry_run);
+                assert_eq!(registry, PublishRegistry::Pypi);
+                assert!(skip_existing);
+            }
+            _ => panic!("expected publish"),
         }
     }
 

@@ -2,7 +2,7 @@
 .venv/
 __pycache__/
 *.pyc
-.tmp-*/
+.tmp*/
 dist/
 build/
 node_modules/

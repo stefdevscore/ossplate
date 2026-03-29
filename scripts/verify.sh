@@ -40,6 +40,7 @@ run_step "rust:test" cargo test --manifest-path "$ROOT_DIR/core-rs/Cargo.toml"
 run_step "tool:validate" cargo run --quiet --manifest-path "$ROOT_DIR/core-rs/Cargo.toml" -- validate --path "$ROOT_DIR" --json
 run_step "tool:sync-check" cargo run --quiet --manifest-path "$ROOT_DIR/core-rs/Cargo.toml" -- sync --path "$ROOT_DIR" --check
 run_step "release:plan-test" node --test "$ROOT_DIR/scripts/release-plan.test.mjs"
+run_step "publish:local-test" node --test "$ROOT_DIR/scripts/publish-local.test.mjs"
 run_step "release:assert" node "$ROOT_DIR/scripts/assert-release-state.mjs"
 run_step "js:lockfile-assert" node "$ROOT_DIR/scripts/assert-js-lockfile-state.mjs" "$JS_LOCKFILE_MODE"
 run_step "publish:assert" node "$ROOT_DIR/scripts/assert-publish-readiness.mjs" publish

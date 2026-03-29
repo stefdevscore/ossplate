@@ -16,6 +16,7 @@ The main commands are:
 - `sync`
 - `create`
 - `init`
+- `publish`
 
 ## Responsibilities
 
@@ -28,6 +29,8 @@ The main commands are:
 - scaffold creation and initialization
 
 Rust is the only layer that should know the semantics of project identity and owned metadata surfaces.
+
+It also owns operator-facing source workflows such as local publish orchestration. That keeps registry sequencing and recovery behavior in the same product surface instead of scattering it across wrapper-specific tooling.
 
 ### JavaScript and Python
 

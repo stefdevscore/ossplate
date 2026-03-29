@@ -47,6 +47,23 @@ Artifact assertions are part of the required packaging layer:
 - Python wheel filenames must be platform-specific rather than `py3-none-any`
 - Python wheel size must stay within the target-specific budget enforced by the artifact test
 
+### Live Installed E2E
+
+This layer exercises the published artifacts the way an operator or user actually installs them:
+
+- `cargo install ossplate`
+- `npm install ossplate`
+- `pip install ossplate`
+
+That flow is documented in [`docs/live-e2e.md`](./live-e2e.md).
+
+### Future Optional Layers
+
+`ossplate` itself does not currently require browser automation or container orchestration, but the template should leave room for them:
+
+- browser/Playwright E2E for frontend-heavy adopters
+- Docker or container-matrix E2E for multi-ecosystem install verification
+
 ## Default Local Flow
 
 Default path:

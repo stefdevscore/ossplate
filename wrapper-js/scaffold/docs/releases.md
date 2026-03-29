@@ -39,7 +39,38 @@ Use the runtime package that matches the machine you are building on:
 - macOS Apple Silicon: `ossplate-darwin-arm64`
 - macOS Intel: `ossplate-darwin-x64`
 - Linux x64: `ossplate-linux-x64`
-- Windows x64: `ossplate-win32-x64`
+- Windows x64: `ossplate-windows-x64`
+
+## Local Operator Publish
+
+For source-based operator recovery or manual registry work, use:
+
+```bash
+cargo run --manifest-path core-rs/Cargo.toml -- publish --dry-run
+```
+
+The local publish command:
+
+- publishes the current checked-out version only
+- does not bump versions, create tags, or create GitHub releases
+- stops on the first registry failure and prints recovery guidance
+- uses local auth only; it does not use GitHub OIDC trusted publishing
+
+Common local flags:
+
+```bash
+cargo run --manifest-path core-rs/Cargo.toml -- publish --dry-run
+cargo run --manifest-path core-rs/Cargo.toml -- publish --registry npm --skip-existing
+cargo run --manifest-path core-rs/Cargo.toml -- publish --registry pypi
+```
+
+Local auth should come from environment or local registry tooling, not checked-in files:
+
+- npm: existing `npm login` state or `NPM_TOKEN`
+- crates.io: existing cargo auth state or `CARGO_REGISTRY_TOKEN`
+- PyPI: `TWINE_USERNAME=__token__` plus `TWINE_PASSWORD`, or equivalent local twine config
+
+On one machine, local publish can only build the current host runtime binary and current host Python wheel. That makes it good for dry-runs, reruns, and recovery, but not a substitute for the full multi-runner automated release.
 
 ## Versioning
 

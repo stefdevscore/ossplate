@@ -53,7 +53,7 @@ Target shape:
   - `ossplate-darwin-arm64`
   - `ossplate-darwin-x64`
   - `ossplate-linux-x64`
-  - `ossplate-win32-x64`
+  - `ossplate-windows-x64`
 - platform packages declare matching `os` / `cpu`
 - top-level `ossplate` depends on them as `optionalDependencies`
 - runtime resolution prefers the installed matching platform package
