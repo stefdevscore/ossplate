@@ -92,6 +92,8 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
+      - name: Build core binary
+        run: cargo build --manifest-path core-rs/Cargo.toml
       - name: Test and build
         run: |
           python -m pip install --upgrade pip
