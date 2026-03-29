@@ -93,6 +93,14 @@ export function runPublish(options, context) {
   );
 }
 
+const AUTH_ENV_KEYS = ["NPM_TOKEN", "CARGO_REGISTRY_TOKEN", "TWINE_USERNAME", "TWINE_PASSWORD"];
+const PUBLISH_AUTH_ENV_BY_LABEL = {
+  "npm:runtime:publish": ["NPM_TOKEN"],
+  "npm:top-level:publish": ["NPM_TOKEN"],
+  "cargo:publish": ["CARGO_REGISTRY_TOKEN"],
+  "pypi:upload": ["TWINE_USERNAME", "TWINE_PASSWORD"]
+};
+
 function printHostLimitNotice(host, context) {
   context.log(
     [
@@ -453,7 +461,7 @@ function readText(path) {
 function createSystemContext() {
   return {
     run(command) {
-      const env = { ...process.env, ...(command.env ?? {}) };
+      const env = buildCommandEnv(process.env, command);
       execFileSync(command.program, command.args, {
         cwd: command.cwd,
         env,
@@ -513,6 +521,24 @@ function createSystemContext() {
     log(message) {
       console.log(message);
     }
+  };
+}
+
+export function buildCommandEnv(baseEnv, command) {
+  const env = { ...baseEnv };
+  for (const key of AUTH_ENV_KEYS) {
+    delete env[key];
+  }
+
+  for (const key of PUBLISH_AUTH_ENV_BY_LABEL[command.label] ?? []) {
+    if (baseEnv[key] !== undefined) {
+      env[key] = baseEnv[key];
+    }
+  }
+
+  return {
+    ...env,
+    ...(command.env ?? {})
   };
 }
 

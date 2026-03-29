@@ -15,7 +15,7 @@ from unittest import mock
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 import hatch_build
 
-from ossplate.cli import cli, get_packaged_binary_path
+from ossplate.cli import build_cli_env, cli, get_packaged_binary_path
 
 
 class CliTests(unittest.TestCase):
@@ -67,6 +67,24 @@ class CliTests(unittest.TestCase):
         os.environ["OSSPLATE_BINARY"] = self.fixture
         result = cli(("version",))
         self.assertEqual(result, 0)
+
+    def test_build_cli_env_forwards_only_wrapper_contract(self) -> None:
+        env = build_cli_env(
+            {
+                "PATH": "/usr/bin",
+                "HOME": "/tmp/home",
+                "NPM_TOKEN": "npm-secret",
+                "OSSPLATE_NPM_WAIT_ATTEMPTS": "12",
+                "OSSPLATE_TEMPLATE_ROOT": "/custom/scaffold",
+                "AWS_SECRET_ACCESS_KEY": "should-not-forward",
+            }
+        )
+        self.assertEqual(env["PATH"], "/usr/bin")
+        self.assertEqual(env["HOME"], "/tmp/home")
+        self.assertEqual(env["NPM_TOKEN"], "npm-secret")
+        self.assertEqual(env["OSSPLATE_NPM_WAIT_ATTEMPTS"], "12")
+        self.assertEqual(env["OSSPLATE_TEMPLATE_ROOT"], "/custom/scaffold")
+        self.assertNotIn("AWS_SECRET_ACCESS_KEY", env)
 
     def test_python_wrapper_matches_rust_contract_via_env_override(self) -> None:
         _, host_executable = self.current_target()

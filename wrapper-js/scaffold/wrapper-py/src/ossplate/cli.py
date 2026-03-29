@@ -10,6 +10,47 @@ from pathlib import Path
 
 ENV_OVERRIDE = "OSSPLATE_BINARY"
 TEMPLATE_ROOT_ENV = "OSSPLATE_TEMPLATE_ROOT"
+FORWARDED_ENV_KEYS = (
+    "ALL_PROXY",
+    "APPDATA",
+    "CARGO_HOME",
+    "CARGO_REGISTRY_TOKEN",
+    "CI",
+    "COLORTERM",
+    "ComSpec",
+    "GIT_ASKPASS",
+    "HOME",
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "LANG",
+    "LC_ALL",
+    "LC_CTYPE",
+    "LOCALAPPDATA",
+    "NO_COLOR",
+    "NO_PROXY",
+    "NPM_TOKEN",
+    "PATH",
+    "PATHEXT",
+    "PROGRAMDATA",
+    "PYENV_ROOT",
+    "RUSTUP_HOME",
+    "SSL_CERT_DIR",
+    "SSL_CERT_FILE",
+    "SYSTEMROOT",
+    "SystemRoot",
+    "TEMP",
+    "TERM",
+    "TMP",
+    "TMPDIR",
+    "TWINE_PASSWORD",
+    "TWINE_USERNAME",
+    "USERPROFILE",
+    "VIRTUAL_ENV",
+    "XDG_CACHE_HOME",
+    "XDG_CONFIG_HOME",
+    "XDG_DATA_HOME",
+    "XDG_RUNTIME_DIR",
+)
 
 
 def load_runtime_targets() -> list[dict]:
@@ -61,7 +102,15 @@ def default_template_root() -> Path:
 
 
 def build_cli_env(env: dict[str, str] | None = None) -> dict[str, str]:
-    resolved = dict(env or os.environ.copy())
+    source_env = env or os.environ.copy()
+    resolved = {
+        key: source_env[key]
+        for key in FORWARDED_ENV_KEYS
+        if key in source_env
+    }
+    for key, value in source_env.items():
+        if key.startswith("OSSPLATE_"):
+            resolved[key] = value
     resolved.setdefault(TEMPLATE_ROOT_ENV, str(default_template_root()))
     return resolved
 

@@ -9,6 +9,47 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const ENV_OVERRIDE = "OSSPLATE_BINARY";
 const TEMPLATE_ROOT_ENV = "OSSPLATE_TEMPLATE_ROOT";
+const FORWARDED_ENV_KEYS = [
+  "ALL_PROXY",
+  "APPDATA",
+  "CARGO_HOME",
+  "CI",
+  "COLORTERM",
+  "ComSpec",
+  "GIT_ASKPASS",
+  "HOME",
+  "HTTP_PROXY",
+  "HTTPS_PROXY",
+  "LANG",
+  "LC_ALL",
+  "LC_CTYPE",
+  "LOCALAPPDATA",
+  "NO_COLOR",
+  "NO_PROXY",
+  "NPM_TOKEN",
+  "PATH",
+  "PATHEXT",
+  "PROGRAMDATA",
+  "PYENV_ROOT",
+  "RUSTUP_HOME",
+  "SSL_CERT_DIR",
+  "SSL_CERT_FILE",
+  "SYSTEMROOT",
+  "SystemRoot",
+  "TEMP",
+  "TERM",
+  "TMP",
+  "TMPDIR",
+  "TWINE_PASSWORD",
+  "TWINE_USERNAME",
+  "USERPROFILE",
+  "VIRTUAL_ENV",
+  "XDG_CACHE_HOME",
+  "XDG_CONFIG_HOME",
+  "XDG_DATA_HOME",
+  "XDG_RUNTIME_DIR",
+  "CARGO_REGISTRY_TOKEN"
+] as const;
 type RuntimeTarget = {
   target: string;
   binary?: string;
@@ -97,12 +138,10 @@ function spawnOssplate(
   args: string[],
   env: NodeJS.ProcessEnv = process.env
 ): void {
+  const childEnv = buildChildEnv(plan, env);
   const child = spawn(plan.binaryPath, args, {
     stdio: "inherit",
-    env: {
-      ...env,
-      [TEMPLATE_ROOT_ENV]: env[TEMPLATE_ROOT_ENV] ?? plan.templateRoot
-    }
+    env: childEnv
   });
 
   child.on("exit", (code) => {
@@ -113,6 +152,26 @@ function spawnOssplate(
     console.error(`ossplate: ${error.message}`);
     process.exit(1);
   });
+}
+
+export function buildChildEnv(
+  plan: WrapperExecutionPlan,
+  env: NodeJS.ProcessEnv = process.env
+): NodeJS.ProcessEnv {
+  const childEnv: NodeJS.ProcessEnv = {};
+  for (const key of FORWARDED_ENV_KEYS) {
+    const value = env[key];
+    if (value !== undefined) {
+      childEnv[key] = value;
+    }
+  }
+  for (const [key, value] of Object.entries(env)) {
+    if (key.startsWith("OSSPLATE_") && value !== undefined) {
+      childEnv[key] = value;
+    }
+  }
+  childEnv[TEMPLATE_ROOT_ENV] = env[TEMPLATE_ROOT_ENV] ?? plan.templateRoot;
+  return childEnv;
 }
 
 export function runOssplate(

@@ -4,7 +4,7 @@ import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-import { parseArgs, runPublish } from "./publish-local.mjs";
+import { buildCommandEnv, parseArgs, runPublish } from "./publish-local.mjs";
 import { waitForNpmVersions } from "./wait-for-npm-versions.mjs";
 
 test("parseArgs reads publish options", () => {
@@ -382,6 +382,42 @@ test("waitForNpmVersions reports propagation-oriented timeout diagnostics", () =
   );
 
   assert.match(logs[0], /waiting for npm runtime propagation \(1\/2\): still missing/);
+});
+
+test("buildCommandEnv only forwards registry auth to matching publish commands", () => {
+  const baseEnv = {
+    PATH: "/usr/bin",
+    NPM_TOKEN: "npm-secret",
+    CARGO_REGISTRY_TOKEN: "cargo-secret",
+    TWINE_USERNAME: "__token__",
+    TWINE_PASSWORD: "pypi-secret",
+    KEEP_ME: "yes"
+  };
+
+  const npmPublishEnv = buildCommandEnv(baseEnv, { label: "npm:top-level:publish" });
+  assert.equal(npmPublishEnv.NPM_TOKEN, "npm-secret");
+  assert.equal("CARGO_REGISTRY_TOKEN" in npmPublishEnv, false);
+  assert.equal("TWINE_PASSWORD" in npmPublishEnv, false);
+
+  const cargoPublishEnv = buildCommandEnv(baseEnv, { label: "cargo:publish" });
+  assert.equal(cargoPublishEnv.CARGO_REGISTRY_TOKEN, "cargo-secret");
+  assert.equal("NPM_TOKEN" in cargoPublishEnv, false);
+  assert.equal("TWINE_USERNAME" in cargoPublishEnv, false);
+
+  const pypiUploadEnv = buildCommandEnv(baseEnv, { label: "pypi:upload" });
+  assert.equal(pypiUploadEnv.TWINE_USERNAME, "__token__");
+  assert.equal(pypiUploadEnv.TWINE_PASSWORD, "pypi-secret");
+  assert.equal("NPM_TOKEN" in pypiUploadEnv, false);
+
+  const buildEnv = buildCommandEnv(baseEnv, {
+    label: "npm:build",
+    env: { OSSPLATE_PY_TARGET: "linux-x64" }
+  });
+  assert.equal(buildEnv.KEEP_ME, "yes");
+  assert.equal(buildEnv.OSSPLATE_PY_TARGET, "linux-x64");
+  assert.equal("NPM_TOKEN" in buildEnv, false);
+  assert.equal("CARGO_REGISTRY_TOKEN" in buildEnv, false);
+  assert.equal("TWINE_PASSWORD" in buildEnv, false);
 });
 
 function makeFixtureRoot() {

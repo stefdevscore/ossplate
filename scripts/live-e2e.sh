@@ -29,7 +29,16 @@ WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/ossplate-live-e2e.XXXXXX")"
 trap 'rm -rf "$WORK_DIR"' EXIT
 
 mkdir -p "$CAPTURE_DIR"
-exec > >(tee "$CAPTURE_FILE") 2>&1
+redact_capture_stream() {
+  sed -E \
+    -e 's/(NPM_TOKEN=)[^[:space:]]+/\1[REDACTED]/g' \
+    -e 's/(CARGO_REGISTRY_TOKEN=)[^[:space:]]+/\1[REDACTED]/g' \
+    -e 's/(TWINE_PASSWORD=)[^[:space:]]+/\1[REDACTED]/g' \
+    -e 's/(TWINE_USERNAME=)[^[:space:]]+/\1[REDACTED]/g' \
+    -e 's/(Authorization:[[:space:]]*Bearer[[:space:]]+)[^[:space:]]+/\1[REDACTED]/Ig' \
+    -e 's/([?&](token|authToken|password)=)[^&[:space:]]+/\1[REDACTED]/Ig'
+}
+exec > >(redact_capture_stream | tee "$CAPTURE_FILE") 2>&1
 
 printf '[capture]\n%s\n' "$CAPTURE_FILE"
 printf '[workdir]\n%s\n' "$WORK_DIR"

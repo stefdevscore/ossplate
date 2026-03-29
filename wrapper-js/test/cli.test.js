@@ -52,6 +52,31 @@ test("resolveOssplateBinary honors env override", async () => {
   }
 });
 
+test("buildChildEnv forwards only the wrapper contract plus selected passthrough vars", async () => {
+  const { buildChildEnv } = await loadModule();
+  const env = buildChildEnv(
+    {
+      binaryPath: "/tmp/ossplate",
+      templateRoot: "/tmp/scaffold"
+    },
+    {
+      PATH: "/usr/bin",
+      HOME: "/tmp/home",
+      NPM_TOKEN: "npm-secret",
+      OSSPLATE_NPM_WAIT_ATTEMPTS: "12",
+      OSSPLATE_TEMPLATE_ROOT: "/custom/scaffold",
+      AWS_SECRET_ACCESS_KEY: "should-not-forward"
+    }
+  );
+
+  assert.equal(env.PATH, "/usr/bin");
+  assert.equal(env.HOME, "/tmp/home");
+  assert.equal(env.NPM_TOKEN, "npm-secret");
+  assert.equal(env.OSSPLATE_NPM_WAIT_ATTEMPTS, "12");
+  assert.equal(env.OSSPLATE_TEMPLATE_ROOT, "/custom/scaffold");
+  assert.equal("AWS_SECRET_ACCESS_KEY" in env, false);
+});
+
 test("resolveOssplateBinary rejects unsupported platforms", async () => {
   const { resolveOssplateBinary } = await loadModule();
   assert.throws(
