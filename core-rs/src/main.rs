@@ -1637,7 +1637,7 @@ mod tests {
         let root = make_fixture_root();
         fs::write(
             root.join("wrapper-js/package.json"),
-            "{\n  \"name\": \"bad\"\n}\n",
+            "{\n  \"name\": \"bad\",\n  \"version\": \"0.1.13\",\n  \"optionalDependencies\": {}\n}\n",
         )
         .unwrap();
 

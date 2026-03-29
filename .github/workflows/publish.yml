@@ -38,6 +38,8 @@ jobs:
           python-version: '3.11'
       - name: Build core binary
         run: cargo build --manifest-path core-rs/Cargo.toml
+      - name: Assert release state
+        run: node ./scripts/assert-release-state.mjs
       - name: Build wheel
         env:
           OSSPLATE_PY_TARGET: ${{ matrix.target }}
@@ -69,6 +71,8 @@ jobs:
           python-version: '3.11'
       - name: Build core binary
         run: cargo build --manifest-path core-rs/Cargo.toml
+      - name: Assert release state
+        run: node ./scripts/assert-release-state.mjs
       - name: Build sdist
         run: |
           python -m pip install --upgrade pip
@@ -115,6 +119,11 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - name: Assert release state
+        run: node ./scripts/assert-release-state.mjs
       - name: Authenticate with crates.io via OIDC
         id: auth
         continue-on-error: true

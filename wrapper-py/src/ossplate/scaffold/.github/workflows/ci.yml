@@ -99,6 +99,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e .
           pip install build
+          node ../scripts/assert-release-state.mjs
           python -m unittest discover -s tests -p 'test_*.py'
         working-directory: ./wrapper-py
 
@@ -135,5 +136,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e .
           pip install build
+          node ../scripts/assert-release-state.mjs
           python -m unittest discover -s tests -p 'test_*.py'
         working-directory: ./wrapper-py

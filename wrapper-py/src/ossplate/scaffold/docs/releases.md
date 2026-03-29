@@ -17,6 +17,8 @@ Run the full gate before creating a release:
 ./scripts/verify.sh
 ```
 
+The release gate now includes `scripts/assert-release-state.mjs`, which fails if versions, scaffold snapshots, npm runtime package identities, or tracked generated binaries drift out of policy.
+
 Optional local packaging confidence checks:
 
 ```bash
@@ -54,7 +56,11 @@ After updating versions, rerun:
 1. Merge or push work to `main`.
 2. Let [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) pass on that commit.
 3. [`.github/workflows/release.yml`](../.github/workflows/release.yml) computes the next version from commit messages, bumps versions, commits the release, tags it, and creates a GitHub release.
-4. Successful completion of the release workflow triggers:
+4. The release workflow asserts release-state integrity before mutating `main`.
+5. The release workflow dispatches the publish workflows and waits for both of them to finish successfully.
+6. Successful completion of the release workflow means all intended registry publishes either completed or skipped safely.
+
+The downstream publish workflows are:
    - [`.github/workflows/publish.yml`](../.github/workflows/publish.yml)
    - [`.github/workflows/publish-npm.yml`](../.github/workflows/publish-npm.yml)
 
@@ -93,6 +99,8 @@ The publish jobs are intentionally rerun-safe.
 
 So a second run for the same version should usually succeed by skipping work rather than failing destructively.
 
+If a release created the bump commit/tag but one registry publish failed, treat that as a partial release. Fix the failing workflow, then rerun only the publish workflow for that version rather than cutting a second version immediately.
+
 ## Python Wheels
 
 - PyPI publishes one wheel per supported target and one sdist.
@@ -113,6 +121,7 @@ So a second run for the same version should usually succeed by skipping work rat
   - `@stefdevscore/ossplate-darwin-x64`
   - `@stefdevscore/ossplate-win32-x64`
 - Users still install `ossplate`; npm resolves the matching runtime package through `optionalDependencies`.
+- The top-level npm publish now checks that every expected runtime package version is visible on npm before publishing `ossplate`.
 
 ## Current Published Names
 

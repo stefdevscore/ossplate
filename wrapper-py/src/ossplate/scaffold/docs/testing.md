@@ -55,6 +55,8 @@ Default path:
 ./scripts/verify.sh
 ```
 
+That gate includes `scripts/assert-release-state.mjs`, which checks version alignment, scaffold snapshot parity, runtime package metadata, and the absence of tracked generated binaries.
+
 Underlying command order:
 
 1. `cargo fmt --check`
@@ -62,9 +64,10 @@ Underlying command order:
 3. `cargo test`
 4. `cargo run --quiet --manifest-path core-rs/Cargo.toml -- validate --json`
 5. `cargo run --quiet --manifest-path core-rs/Cargo.toml -- sync --check`
-6. `npm test`
-7. `npm pack --dry-run`
-8. `PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py'`
+6. `node scripts/assert-release-state.mjs`
+7. `npm test`
+8. `npm pack --dry-run`
+9. `PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py'`
 ## CI
 
 CI currently enforces:
@@ -73,7 +76,7 @@ CI currently enforces:
 - Rust formatting, clippy, and tests
 - JS build, tests, and package dry-run
 - JS runtime package dry-run on each supported target runner
-- Python source tests on Linux
+- Python source tests on Linux using host-available runtime binary expectations
 - Python wheel validation on `linux-x64`, `darwin-arm64`, `darwin-x64`, and `win32-x64`
 
 The current artifact tests are the required release-confidence floor.
