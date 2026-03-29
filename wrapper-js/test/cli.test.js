@@ -12,7 +12,7 @@ const repoRoot = path.resolve(wrapperRoot, "..");
 const distModule = path.join(wrapperRoot, "dist", "index.js");
 const stubBinary = path.join(__dirname, "fixtures", "ossplate-stub.sh");
 const scaffoldManifest = JSON.parse(
-  fs.readFileSync(path.join(repoRoot, "scaffold-manifest.json"), "utf8")
+  fs.readFileSync(path.join(repoRoot, "scaffold-payload.json"), "utf8")
 );
 const packageJson = JSON.parse(
   fs.readFileSync(path.join(wrapperRoot, "package.json"), "utf8")

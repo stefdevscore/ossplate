@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { getRuntimeTargets, runtimePackageFolder, runtimePackageName } from "./runtime-targets.mjs";
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
-const scaffoldManifest = readJson("scaffold-manifest.json");
+const scaffoldManifest = readJson("scaffold-payload.json");
 const rootPackage = readJson("wrapper-js/package.json");
 const runtimeTargets = getRuntimeTargets();
 

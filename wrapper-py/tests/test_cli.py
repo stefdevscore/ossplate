@@ -37,7 +37,7 @@ class CliTests(unittest.TestCase):
         self.fixture = self.create_stub_binary(pathlib.Path(self.fixture_dir.name))
         self.repo_root = pathlib.Path(__file__).resolve().parents[2]
         self.scaffold_manifest = json.loads(
-            (self.repo_root / "scaffold-manifest.json").read_text()
+            (self.repo_root / "scaffold-payload.json").read_text()
         )
 
     def tearDown(self) -> None:

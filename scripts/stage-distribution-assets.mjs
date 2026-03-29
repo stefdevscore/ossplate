@@ -20,7 +20,7 @@ import {
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const manifest = JSON.parse(
-  readFileSync(join(repoRoot, "scaffold-manifest.json"), "utf8")
+  readFileSync(join(repoRoot, "scaffold-payload.json"), "utf8")
 );
 const requiredPaths = manifest.requiredPaths;
 const excludedPrefixes = manifest.excludedPrefixes;

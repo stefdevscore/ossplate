@@ -66,7 +66,7 @@ The scaffold payload owns the generated-project baseline:
 - wrapper launchers
 - packaged binaries needed for installed-wrapper scaffold operations
 
-It is curated by `scaffold-manifest.json` and shipped so installed wrappers can still run `create` and `init`.
+It is curated by `scaffold-payload.json` and shipped so installed wrappers can still run `create` and `init`.
 
 ## ARCH-04 Ownership Boundaries
 

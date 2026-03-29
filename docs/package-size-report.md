@@ -15,7 +15,7 @@ Internal target identifiers still use values such as `win32-x64`, but published 
 ## SIZE-02 What Matters
 
 - avoid shipping nested runtime binaries in the scaffold
-- keep the scaffold curated through `scaffold-manifest.json`
+- keep the scaffold curated through `scaffold-payload.json`
 - keep top-level npm and Python artifacts focused on one install path per target
 
 For current release behavior, use [Releases](./releases.md). For current verification rules, use [Testing](./testing.md).

@@ -472,10 +472,9 @@ fn make_source_checkout_root() -> PathBuf {
         .parent()
         .unwrap()
         .to_path_buf();
-    let manifest: serde_json::Value = serde_json::from_str(
-        &fs::read_to_string(repo_root.join("scaffold-manifest.json")).unwrap(),
-    )
-    .unwrap();
+    let manifest: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(repo_root.join("scaffold-payload.json")).unwrap())
+            .unwrap();
     for relative_path in manifest["requiredPaths"].as_array().unwrap() {
         let relative_path = relative_path.as_str().unwrap();
         let source_path = repo_root.join(relative_path);

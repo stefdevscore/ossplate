@@ -11,7 +11,7 @@ Accepted
 ## ADR-0003-03 Decision
 
 - Installed wrapper artifacts ship a curated scaffold payload.
-- `scaffold-manifest.json` is the allowlist for that payload.
+- `scaffold-payload.json` is the allowlist for that payload.
 - Artifact tests assert both required content and excluded content.
 
 ## ADR-0003-04 Consequences

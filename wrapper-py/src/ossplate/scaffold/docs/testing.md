@@ -33,7 +33,7 @@ These cover:
 
 Required assertions include:
 
-- scaffold files come from `scaffold-manifest.json`
+- scaffold files come from `scaffold-payload.json`
 - top-level npm packages exclude bundled runtime binaries
 - runtime npm packages contain exactly one target binary
 - Python wheels contain exactly one target binary
