@@ -1,7 +1,7 @@
 # Ossplate
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/stefdevscore/ossplate/dev/assets/illustrations/chestplate.svg" alt="Ossplate armor" width="320">
+  <img src="https://raw.githubusercontent.com/stefdevscore/ossplate/main/assets/illustrations/chestplate.svg" alt="Ossplate armor" width="320">
 </p>
 
 `ossplate` helps you start and maintain a project that ships the same CLI through Rust, npm, and PyPI.

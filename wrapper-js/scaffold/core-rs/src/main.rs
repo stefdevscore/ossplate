@@ -945,7 +945,11 @@ fn validate_js_readme(config: &ToolConfig, content: &str) -> Result<Vec<Validati
 }
 
 fn sync_js_readme(config: &ToolConfig, _content: &str) -> Result<String> {
-    Ok(render_wrapper_readme("JavaScript", config))
+    Ok(render_wrapper_readme_with_newlines(
+        "JavaScript",
+        config,
+        detect_newline_style(_content),
+    ))
 }
 
 fn validate_py_readme(config: &ToolConfig, content: &str) -> Result<Vec<ValidationIssue>> {
@@ -953,13 +957,17 @@ fn validate_py_readme(config: &ToolConfig, content: &str) -> Result<Vec<Validati
 }
 
 fn sync_py_readme(config: &ToolConfig, _content: &str) -> Result<String> {
-    Ok(render_wrapper_readme("Python", config))
+    Ok(render_wrapper_readme_with_newlines(
+        "Python",
+        config,
+        detect_newline_style(_content),
+    ))
 }
 
 fn validate_root_readme(config: &ToolConfig, content: &str) -> Result<Vec<ValidationIssue>> {
     let expected = render_root_readme_identity(config);
     let actual = extract_marked_section(content, README_IDENTITY_START, README_IDENTITY_END)?;
-    if actual == expected {
+    if normalize_newlines(&actual) == normalize_newlines(&expected) {
         Ok(Vec::new())
     } else {
         Ok(vec![issue(
@@ -1027,7 +1035,7 @@ fn validate_wrapper_readme(
     content: &str,
 ) -> Result<Vec<ValidationIssue>> {
     let expected = render_wrapper_readme(language, config);
-    if content == expected {
+    if normalize_newlines(content) == normalize_newlines(&expected) {
         Ok(Vec::new())
     } else {
         Ok(vec![issue(
@@ -1041,47 +1049,59 @@ fn validate_wrapper_readme(
 }
 
 fn render_wrapper_readme(_language: &str, config: &ToolConfig) -> String {
+    render_wrapper_readme_with_newlines(_language, config, "\n")
+}
+
+fn render_wrapper_readme_with_newlines(
+    _language: &str,
+    config: &ToolConfig,
+    newline: &str,
+) -> String {
     let image_url = github_raw_url(
         &config.project.repository,
-        "dev",
+        "main",
         "assets/illustrations/chestplate.svg",
     );
-    format!(
-        r#"# {name}
-
-<p align="center">
-  <img src="{image_url}" alt="{name} armor" width="320">
-</p>
-
-`{command}` helps you start and maintain a project that ships the same CLI through Rust, npm, and PyPI.
-
-Use it to:
-
-- create a new scaffolded project
-- initialize an existing directory
-- validate project identity and metadata
-- keep owned files in sync
-
-Common commands:
-
-```bash
-{command} version
-{command} create <target>
-{command} init --path <dir>
-{command} validate
-{command} sync --check
-```
-
-Learn more:
-
-- [Main documentation](../docs/README.md)
-- [Testing guide](../docs/testing.md)
-- [Architecture](../docs/architecture.md)
-"#,
-        name = config.project.name,
-        command = config.packages.command,
-        image_url = image_url,
-    )
+    [
+        format!("# {}", config.project.name),
+        String::new(),
+        "<p align=\"center\">".to_string(),
+        format!(
+            "  <img src=\"{}\" alt=\"{} armor\" width=\"320\">",
+            image_url, config.project.name
+        ),
+        "</p>".to_string(),
+        String::new(),
+        format!(
+            "`{}` helps you start and maintain a project that ships the same CLI through Rust, npm, and PyPI.",
+            config.packages.command
+        ),
+        String::new(),
+        "Use it to:".to_string(),
+        String::new(),
+        "- create a new scaffolded project".to_string(),
+        "- initialize an existing directory".to_string(),
+        "- validate project identity and metadata".to_string(),
+        "- keep owned files in sync".to_string(),
+        String::new(),
+        "Common commands:".to_string(),
+        String::new(),
+        "```bash".to_string(),
+        format!("{} version", config.packages.command),
+        format!("{} create <target>", config.packages.command),
+        format!("{} init --path <dir>", config.packages.command),
+        format!("{} validate", config.packages.command),
+        format!("{} sync --check", config.packages.command),
+        "```".to_string(),
+        String::new(),
+        "Learn more:".to_string(),
+        String::new(),
+        "- [Main documentation](../docs/README.md)".to_string(),
+        "- [Testing guide](../docs/testing.md)".to_string(),
+        "- [Architecture](../docs/architecture.md)".to_string(),
+        String::new(),
+    ]
+    .join(newline)
 }
 
 fn render_root_readme_identity(config: &ToolConfig) -> String {
@@ -1107,7 +1127,7 @@ fn validate_workflow_name(
 ) -> Result<Vec<ValidationIssue>> {
     let expected = format!("name: {}\n", expected_name);
     let actual = extract_marked_section(content, WORKFLOW_NAME_START, WORKFLOW_NAME_END)?;
-    if actual == expected {
+    if normalize_newlines(&actual) == normalize_newlines(&expected) {
         Ok(Vec::new())
     } else {
         Ok(vec![issue(
@@ -1190,10 +1210,7 @@ fn extract_marked_section(content: &str, start: &str, end: &str) -> Result<Strin
         .find(end)
         .map(|index| section_start + index)
         .ok_or_else(|| anyhow!("missing marker {}", end))?;
-    Ok(content[section_start..end_index]
-        .trim_matches('\n')
-        .to_string()
-        + "\n")
+    Ok(normalize_newlines(content[section_start..end_index].trim_matches(['\r', '\n'])) + "\n")
 }
 
 fn replace_marked_section(
@@ -1202,6 +1219,7 @@ fn replace_marked_section(
     end: &str,
     replacement: &str,
 ) -> Result<String> {
+    let newline = detect_newline_style(content);
     let start_index = content
         .find(start)
         .ok_or_else(|| anyhow!("missing marker {}", start))?;
@@ -1213,11 +1231,25 @@ fn replace_marked_section(
 
     let mut rendered = String::new();
     rendered.push_str(&content[..section_start]);
-    rendered.push('\n');
-    rendered.push_str(replacement.trim_end());
-    rendered.push('\n');
+    rendered.push_str(newline);
+    rendered.push_str(&normalize_newlines(replacement).replace('\n', newline));
+    if !rendered.ends_with(newline) {
+        rendered.push_str(newline);
+    }
     rendered.push_str(&content[end_index..]);
     Ok(rendered)
+}
+
+fn normalize_newlines(value: &str) -> String {
+    value.replace("\r\n", "\n")
+}
+
+fn detect_newline_style(content: &str) -> &str {
+    if content.contains("\r\n") {
+        "\r\n"
+    } else {
+        "\n"
+    }
 }
 
 fn check_string_field(
@@ -1488,6 +1520,57 @@ version = "0.1.7"
         let synced = fs::read_to_string(root.join("README.md")).unwrap();
         assert!(synced.contains("## What This Tool Gives You"));
         assert!(synced.contains("Build one project, ship it everywhere"));
+    }
+
+    #[test]
+    fn validate_accepts_crlf_owned_text_surfaces() {
+        let root = make_fixture_root();
+        sync_repo(&root, false).unwrap();
+        for path in [
+            "README.md",
+            ".github/workflows/ci.yml",
+            ".github/workflows/publish.yml",
+            ".github/workflows/publish-npm.yml",
+            "wrapper-js/README.md",
+            "wrapper-py/README.md",
+        ] {
+            let content = fs::read_to_string(root.join(path)).unwrap();
+            fs::write(root.join(path), content.replace('\n', "\r\n")).unwrap();
+        }
+
+        let output = validate_repo(&root).unwrap();
+        assert!(output.ok, "{:?}", output.issues);
+    }
+
+    #[test]
+    fn sync_preserves_crlf_when_rewriting_marked_sections() {
+        let root = make_fixture_root();
+        let readme_path = root.join("README.md");
+        let workflow_path = root.join(".github/workflows/ci.yml");
+        let readme = fs::read_to_string(&readme_path)
+            .unwrap()
+            .replace('\n', "\r\n");
+        let workflow = fs::read_to_string(&workflow_path)
+            .unwrap()
+            .replace('\n', "\r\n");
+        fs::write(
+            &readme_path,
+            readme.replace("Build one project, ship it everywhere.", "Drifted text"),
+        )
+        .unwrap();
+        fs::write(
+            &workflow_path,
+            workflow.replace("name: Ossplate CI", "name: Drifted CI"),
+        )
+        .unwrap();
+
+        sync_repo(&root, false).unwrap();
+
+        let synced_readme = fs::read_to_string(&readme_path).unwrap();
+        let synced_workflow = fs::read_to_string(&workflow_path).unwrap();
+        assert!(synced_readme.contains("\r\n"));
+        assert!(synced_workflow.contains("\r\n"));
+        assert!(validate_repo(&root).unwrap().ok);
     }
 
     #[test]
