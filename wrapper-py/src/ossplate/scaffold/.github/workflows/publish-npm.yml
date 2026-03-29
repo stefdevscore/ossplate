@@ -40,7 +40,7 @@ jobs:
       - name: Assert release state
         run: node ./scripts/assert-release-state.mjs
       - name: Assert JS lockfile state
-        run: node ./scripts/assert-js-lockfile-state.mjs
+        run: node ./scripts/assert-js-lockfile-state.mjs placeholder
       - name: Assert publish readiness
         run: node ./scripts/assert-publish-readiness.mjs publish
       - name: Detect published version
@@ -109,7 +109,7 @@ jobs:
       - name: Assert release state
         run: node ./scripts/assert-release-state.mjs
       - name: Assert JS lockfile state
-        run: node ./scripts/assert-js-lockfile-state.mjs
+        run: node ./scripts/assert-js-lockfile-state.mjs placeholder
       - name: Assert publish readiness
         run: node ./scripts/assert-publish-readiness.mjs publish
       - name: Detect published version
@@ -143,6 +143,10 @@ jobs:
             }
           }
           NODE
+      - name: Install JS build dependencies
+        if: steps.published.outputs.already != 'true'
+        working-directory: ./wrapper-js
+        run: npm install --no-package-lock
       - name: Build top-level npm package
         if: steps.published.outputs.already != 'true'
         working-directory: ./wrapper-js

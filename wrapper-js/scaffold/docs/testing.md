@@ -57,12 +57,14 @@ Default path:
 
 That gate includes `scripts/assert-release-state.mjs`, which checks version alignment, scaffold snapshot parity, runtime package metadata, and the absence of tracked generated binaries.
 
-It also includes `scripts/assert-js-lockfile-state.mjs`, which checks that `wrapper-js/package-lock.json` matches the supported source-repo lockfile contract:
+It also includes `scripts/assert-js-lockfile-state.mjs resolved`, which checks that `wrapper-js/package-lock.json` matches the supported source-repo lockfile contract:
 
 - root version matches `wrapper-js/package.json`
 - root `optionalDependencies` match the runtime package set
 - runtime package lock entries exist and stay optional
-- the lockfile is not required to include resolved tarball metadata for unpublished future release versions
+- runtime package lock entries include `version`, `resolved`, and `integrity`
+
+Release verification uses `scripts/assert-js-lockfile-state.mjs placeholder` during the pre-publish bump window, where unresolved placeholder runtime entries are still expected.
 
 Underlying command order:
 

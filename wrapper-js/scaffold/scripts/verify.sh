@@ -18,6 +18,14 @@ find_python() {
 }
 
 PYTHON_BIN="$(find_python)"
+JS_VERSION="$(node -p "require('$ROOT_DIR/wrapper-js/package.json').version")"
+if npm view "ossplate@$JS_VERSION" version >/dev/null 2>&1; then
+  JS_LOCKFILE_MODE="resolved"
+  JS_INSTALLABLE=true
+else
+  JS_LOCKFILE_MODE="placeholder"
+  JS_INSTALLABLE=false
+fi
 
 run_step() {
   local label="$1"
@@ -32,8 +40,13 @@ run_step "rust:test" cargo test --manifest-path "$ROOT_DIR/core-rs/Cargo.toml"
 run_step "tool:validate" cargo run --quiet --manifest-path "$ROOT_DIR/core-rs/Cargo.toml" -- validate --path "$ROOT_DIR" --json
 run_step "tool:sync-check" cargo run --quiet --manifest-path "$ROOT_DIR/core-rs/Cargo.toml" -- sync --path "$ROOT_DIR" --check
 run_step "release:assert" node "$ROOT_DIR/scripts/assert-release-state.mjs"
-run_step "js:lockfile-assert" node "$ROOT_DIR/scripts/assert-js-lockfile-state.mjs"
+run_step "js:lockfile-assert" node "$ROOT_DIR/scripts/assert-js-lockfile-state.mjs" "$JS_LOCKFILE_MODE"
 run_step "publish:assert" node "$ROOT_DIR/scripts/assert-publish-readiness.mjs" publish
-run_step "js:test" bash -lc "cd \"$ROOT_DIR/wrapper-js\" && npm test"
-run_step "js:pack" bash -lc "cd \"$ROOT_DIR/wrapper-js\" && npm pack --dry-run"
+if [ "$JS_INSTALLABLE" = true ]; then
+  run_step "js:test" bash -lc "cd \"$ROOT_DIR/wrapper-js\" && npm test"
+  run_step "js:pack" bash -lc "cd \"$ROOT_DIR/wrapper-js\" && npm pack --dry-run"
+else
+  printf '\n[js:test]\n'
+  printf 'skipped: current npm version %s is not published yet; placeholder lockfile state is expected\n' "$JS_VERSION"
+fi
 run_step "py:test" bash -lc "cd \"$ROOT_DIR/wrapper-py\" && PYTHONPATH=src \"$PYTHON_BIN\" -m unittest discover -s tests -p 'test_*.py'"

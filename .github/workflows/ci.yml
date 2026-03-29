@@ -45,14 +45,30 @@ jobs:
           node-version: '24'
           cache: npm
           cache-dependency-path: ./wrapper-js/package-lock.json
-      - run: node ./scripts/assert-js-lockfile-state.mjs
+      - name: Determine JS CI mode
+        id: js_mode
+        shell: bash
+        run: |
+          VERSION=$(node -p "require('./wrapper-js/package.json').version")
+          if npm view "ossplate@$VERSION" version >/dev/null 2>&1; then
+            echo "lockfile_mode=resolved" >> "$GITHUB_OUTPUT"
+            echo "installable=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "lockfile_mode=placeholder" >> "$GITHUB_OUTPUT"
+            echo "installable=false" >> "$GITHUB_OUTPUT"
+          fi
+      - run: node ./scripts/assert-js-lockfile-state.mjs ${{ steps.js_mode.outputs.lockfile_mode }}
       - run: npm ci --omit=optional
+        if: steps.js_mode.outputs.installable == 'true'
         working-directory: ./wrapper-js
       - run: npm run build
+        if: steps.js_mode.outputs.installable == 'true'
         working-directory: ./wrapper-js
       - run: npm test
+        if: steps.js_mode.outputs.installable == 'true'
         working-directory: ./wrapper-js
       - run: npm pack --dry-run
+        if: steps.js_mode.outputs.installable == 'true'
         working-directory: ./wrapper-js
 
   js-runtime:

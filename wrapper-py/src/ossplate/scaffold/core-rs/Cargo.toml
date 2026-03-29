@@ -1,6 +1,6 @@
 [package]
 name = "ossplate"
-version = "0.1.18"
+version = "0.1.22"
 edition = "2021"
 authors = ["Stef <stefdevscore@github.com>"]
 description = "Build one project, ship it everywhere."
