@@ -27,6 +27,10 @@ fn runtime_package_specs() -> Vec<RuntimePackageSpec> {
         .targets
 }
 
+fn rust_bin_file_path() -> &'static str {
+    "src/main.rs"
+}
+
 pub(crate) fn validate_cargo_toml(
     config: &ToolConfig,
     content: &str,
@@ -44,6 +48,13 @@ pub(crate) fn validate_cargo_toml(
         "package.name",
         package.get("name"),
         &config.packages.rust_crate,
+    );
+    check_string_field(
+        &mut issues,
+        "core-rs/Cargo.toml",
+        "package.default-run",
+        package.get("default-run"),
+        &config.packages.command,
     );
     check_string_field(
         &mut issues,
@@ -90,6 +101,39 @@ pub(crate) fn validate_cargo_toml(
             Some(actual_author),
         ));
     }
+    if let Some(bin) = value
+        .get("bin")
+        .and_then(TomlValue::as_array)
+        .and_then(|bins| bins.first())
+        .and_then(TomlValue::as_table)
+    {
+        check_string_field(
+            &mut issues,
+            "core-rs/Cargo.toml",
+            "bin[0].name",
+            bin.get("name"),
+            &config.packages.command,
+        );
+        check_string_field(
+            &mut issues,
+            "core-rs/Cargo.toml",
+            "bin[0].path",
+            bin.get("path"),
+            rust_bin_file_path(),
+        );
+    } else {
+        issues.push(issue(
+            "core-rs/Cargo.toml",
+            "bin",
+            "owned metadata differs from the canonical project identity",
+            Some(format!(
+                "[[bin]] name={}, path={}",
+                config.packages.command,
+                rust_bin_file_path()
+            )),
+            None,
+        ));
+    }
     Ok(issues)
 }
 
@@ -103,6 +147,10 @@ pub(crate) fn sync_cargo_toml(config: &ToolConfig, content: &str) -> Result<Stri
     package.insert(
         "name".into(),
         TomlValue::String(config.packages.rust_crate.clone()),
+    );
+    package.insert(
+        "default-run".into(),
+        TomlValue::String(config.packages.command.clone()),
     );
     package.insert(
         "authors".into(),
@@ -127,6 +175,19 @@ pub(crate) fn sync_cargo_toml(config: &ToolConfig, content: &str) -> Result<Stri
         "homepage".into(),
         TomlValue::String(config.project.repository.clone()),
     );
+    let mut bin = toml::map::Map::new();
+    bin.insert(
+        "name".into(),
+        TomlValue::String(config.packages.command.clone()),
+    );
+    bin.insert(
+        "path".into(),
+        TomlValue::String(rust_bin_file_path().to_string()),
+    );
+    value
+        .as_table_mut()
+        .ok_or_else(|| anyhow!("core-rs/Cargo.toml must be a TOML table"))?
+        .insert("bin".into(), TomlValue::Array(vec![TomlValue::Table(bin)]));
     Ok(toml::to_string(&value)?)
 }
 

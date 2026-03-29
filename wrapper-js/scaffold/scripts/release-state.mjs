@@ -23,21 +23,16 @@ export function readScaffoldPayload() {
 }
 
 export function readCargoVersion() {
-  const cargoToml = readText("core-rs/Cargo.toml");
-  const match = cargoToml.match(/^version = "([^"]+)"$/m);
-  if (!match) {
-    fail("failed to read version from core-rs/Cargo.toml");
-  }
-  return match[1];
+  return readTomlSectionValue(readText("core-rs/Cargo.toml"), "package", "version", "core-rs/Cargo.toml");
 }
 
 export function readPyprojectVersion() {
-  const pyproject = readText("wrapper-py/pyproject.toml");
-  const match = pyproject.match(/^version = "([^"]+)"$/m);
-  if (!match) {
-    fail("failed to read version from wrapper-py/pyproject.toml");
-  }
-  return match[1];
+  return readTomlSectionValue(
+    readText("wrapper-py/pyproject.toml"),
+    "project",
+    "version",
+    "wrapper-py/pyproject.toml"
+  );
 }
 
 export function readVersions(rootPackage = readRootPackage()) {
@@ -260,6 +255,27 @@ function execNpm(args, options = {}) {
   return execFileSync(npmCommand(), args, options);
 }
 
+export function readTomlSectionValue(content, sectionName, key, fileLabel) {
+  const sectionPattern = new RegExp(`^\\[${escapeRegExp(sectionName)}\\]\\s*$`, "m");
+  const sectionMatch = sectionPattern.exec(content);
+  if (!sectionMatch) {
+    fail(`failed to read ${key} from ${fileLabel}`);
+  }
+
+  const sectionStart = sectionMatch.index + sectionMatch[0].length;
+  const nextSectionOffset = content.slice(sectionStart).search(/^\[[^\]]+\]\s*$/m);
+  const sectionBody =
+    nextSectionOffset === -1
+      ? content.slice(sectionStart)
+      : content.slice(sectionStart, sectionStart + nextSectionOffset);
+  const valuePattern = new RegExp(`^${escapeRegExp(key)}\\s*=\\s*"([^"]+)"\\s*$`, "m");
+  const valueMatch = valuePattern.exec(sectionBody);
+  if (!valueMatch) {
+    fail(`failed to read ${key} from ${fileLabel}`);
+  }
+  return valueMatch[1];
+}
+
 function assertAllEqual(entries, message) {
   const values = new Set(entries.map(([, value]) => value));
   if (values.size !== 1) {
@@ -279,4 +295,8 @@ function assertDeepEqual(actual, expected, message) {
 
 function fail(message) {
   throw new Error(message);
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

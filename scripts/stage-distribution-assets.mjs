@@ -26,6 +26,7 @@ const manifest = JSON.parse(
 const requiredPaths = manifest.requiredPaths;
 const excludedPrefixes = manifest.excludedPrefixes;
 const runtimeTargets = getRuntimeTargets();
+const rootPackage = JSON.parse(readFileSync(join(repoRoot, "wrapper-js", "package.json"), "utf8"));
 
 const wrapperTargets = [
   join(repoRoot, "wrapper-js", "scaffold"),
@@ -99,7 +100,7 @@ function cleanAllRuntimePackageBins() {
 function stageRuntimePackage(packageRoot, target) {
   const spec = runtimeTargetByName(target);
   const expectedPackageFolder = runtimePackageFolder(target);
-  const expectedPackageName = runtimePackageName("ossplate", target);
+  const expectedPackageName = runtimePackageName(rootPackage.name, target);
   const expectedPackageSuffix = `/${expectedPackageFolder}`;
   if (target !== currentTarget.target) {
     throw new Error(

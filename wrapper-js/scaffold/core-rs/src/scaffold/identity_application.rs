@@ -36,6 +36,9 @@ fn apply_overrides(config: &mut ToolConfig, overrides: &IdentityOverrides) {
     if let Some(value) = &overrides.author_email {
         config.author.email = value.clone();
     }
+    if let Some(value) = &overrides.command {
+        config.packages.command = value.clone();
+    }
     if let Some(value) = &overrides.rust_crate {
         config.packages.rust_crate = value.clone();
     }
@@ -45,7 +48,13 @@ fn apply_overrides(config: &mut ToolConfig, overrides: &IdentityOverrides) {
     if let Some(value) = &overrides.python_package {
         config.packages.python_package = value.clone();
     }
-    if let Some(value) = &overrides.command {
-        config.packages.command = value.clone();
+    if overrides.command.is_some() && overrides.rust_crate.is_none() {
+        config.packages.rust_crate = config.packages.command.clone();
+    }
+    if overrides.command.is_some() && overrides.npm_package.is_none() {
+        config.packages.npm_package = config.packages.command.clone();
+    }
+    if overrides.command.is_some() && overrides.python_package.is_none() {
+        config.packages.python_package = config.packages.command.clone();
     }
 }

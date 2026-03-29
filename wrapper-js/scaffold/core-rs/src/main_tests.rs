@@ -71,6 +71,7 @@ fn sync_check_detects_drift_and_sync_fixes_it() {
 #[test]
 fn sync_owns_runtime_package_metadata() {
     let root = make_fixture_root();
+    let config = load_config(&root).unwrap();
     fs::write(
         root.join("wrapper-js/platform-packages/ossplate-darwin-arm64/package.json"),
         "{\n  \"name\": \"bad-runtime\"\n}\n",
@@ -84,7 +85,10 @@ fn sync_owns_runtime_package_metadata() {
         root.join("wrapper-js/platform-packages/ossplate-darwin-arm64/package.json"),
     )
     .unwrap();
-    assert!(synced.contains("\"name\": \"ossplate-darwin-arm64\""));
+    assert!(synced.contains(&format!(
+        "\"name\": \"{}-darwin-arm64\"",
+        config.packages.npm_package
+    )));
     assert!(validate_repo(&root).unwrap().ok);
 }
 
@@ -288,6 +292,62 @@ fn create_applies_identity_overrides_before_sync() {
 }
 
 #[test]
+fn create_with_non_default_package_identity_is_valid_immediately() {
+    let source_root = make_source_checkout_root();
+    let target = unique_temp_path("ossplate-bootstrap-agentcode");
+    if target.exists() {
+        fs::remove_dir_all(&target).unwrap();
+    }
+
+    create_scaffold_from(
+        &source_root,
+        &target,
+        &IdentityOverrides {
+            name: Some("Agentcode".to_string()),
+            description: Some(
+                "Build and ship the agentcode CLI through Rust, npm, and PyPI.".to_string(),
+            ),
+            repository: Some("https://github.com/stefdevscore/agentcode".to_string()),
+            license: Some("Apache-2.0".to_string()),
+            author_name: Some("Azk".to_string()),
+            author_email: Some("azk@example.com".to_string()),
+            rust_crate: None,
+            npm_package: None,
+            python_package: None,
+            command: Some("agentcode".to_string()),
+        },
+    )
+    .unwrap();
+
+    assert!(validate_repo(&target).unwrap().ok);
+    assert!(sync_repo(&target, true).is_ok());
+
+    let cargo_toml = fs::read_to_string(target.join("core-rs/Cargo.toml")).unwrap();
+    assert!(cargo_toml.contains("name = \"agentcode\""));
+    assert!(cargo_toml.contains("default-run = \"agentcode\""));
+    assert!(cargo_toml.contains("[[bin]]"));
+
+    let wrapper_package: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(target.join("wrapper-js/package.json")).unwrap())
+            .unwrap();
+    assert_eq!(wrapper_package["name"], "agentcode");
+
+    let runtime_package: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(
+            target.join("wrapper-js/platform-packages/ossplate-darwin-arm64/package.json"),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(runtime_package["name"], "agentcode-darwin-arm64");
+
+    let pyproject = fs::read_to_string(target.join("wrapper-py/pyproject.toml")).unwrap();
+    assert!(pyproject.contains("name = \"agentcode\""));
+
+    fs::remove_dir_all(&target).unwrap();
+}
+
+#[test]
 fn create_fails_when_target_directory_is_not_empty() {
     let source_root = make_source_checkout_root();
     let target = unique_temp_path("ossplate-create-non-empty");
@@ -324,20 +384,18 @@ fn create_fails_when_target_is_inside_source_tree() {
 #[test]
 fn sync_preserves_unowned_root_readme_content() {
     let root = make_fixture_root();
+    let config = load_config(&root).unwrap();
     let original = fs::read_to_string(root.join("README.md")).unwrap();
     fs::write(
         root.join("README.md"),
-        original.replace(
-            "Build one project, ship it everywhere",
-            "Changed identity text",
-        ),
+        original.replace(&config.project.description, "Changed identity text"),
     )
     .unwrap();
 
     sync_repo(&root, false).unwrap();
     let synced = fs::read_to_string(root.join("README.md")).unwrap();
     assert!(synced.contains("## What It Does"));
-    assert!(synced.contains("Build one project, ship it everywhere"));
+    assert!(synced.contains(&config.project.description));
 }
 
 #[test]
@@ -357,7 +415,8 @@ fn github_link_helpers_render_absolute_main_urls() {
 fn rendered_wrapper_readmes_use_absolute_doc_links() {
     let config = load_config(&make_fixture_root()).unwrap();
     let rendered = render_wrapper_readme("Python", &config);
-    assert!(rendered.contains("https://github.com/stefdevscore/ossplate/blob/main/docs/README.md"));
+    assert!(rendered
+        .contains(&github_blob_url(&config.project.repository, "main", "docs/README.md").unwrap()));
     assert!(!rendered.contains("../docs/README.md"));
     assert!(!rendered.contains("../docs/testing.md"));
     assert!(!rendered.contains("../docs/architecture.md"));

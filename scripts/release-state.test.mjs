@@ -7,7 +7,8 @@ import path from "node:path";
 import {
   assertNpmVersionState,
   assertScaffoldMirrorsState,
-  getExpectedOptionalDependencies
+  getExpectedOptionalDependencies,
+  readTomlSectionValue
 } from "./release-state.mjs";
 
 test("expected optional dependencies are derived from the runtime contract once", () => {
@@ -121,6 +122,22 @@ test("scaffold mirror assertion uses the payload contract and fails on drift", (
   );
 
   rmSync(root, { recursive: true, force: true });
+});
+
+test("Cargo version reading is scoped to the package section", () => {
+  const cargoToml = `
+[dependencies.clap]
+version = "4.5"
+
+[package]
+name = "agentcode"
+version = "0.2.3"
+`;
+
+  assert.equal(
+    readTomlSectionValue(cargoToml, "package", "version", "core-rs/Cargo.toml"),
+    "0.2.3"
+  );
 });
 
 function mkTempTree() {
