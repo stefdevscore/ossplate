@@ -31,7 +31,7 @@ RUNTIME_PACKAGES = {
     "darwin-arm64": "ossplate-darwin-arm64",
     "darwin-x64": "ossplate-darwin-x64",
     "linux-x64": "ossplate-linux-x64",
-    "win32-x64": "ossplate-win32-x64",
+    "win32-x64": "ossplate-windows-x64",
 }
 
 

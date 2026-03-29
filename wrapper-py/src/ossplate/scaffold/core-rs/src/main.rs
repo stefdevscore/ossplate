@@ -1808,7 +1808,7 @@ version = "0.1.17"
                 "demo-wrapper-js-darwin-arm64".to_string(),
                 "demo-wrapper-js-darwin-x64".to_string(),
                 "demo-wrapper-js-linux-x64".to_string(),
-                "demo-wrapper-js-win32-x64".to_string(),
+                "demo-wrapper-js-windows-x64".to_string(),
             ]
         );
         let runtime_package: serde_json::Value = serde_json::from_str(

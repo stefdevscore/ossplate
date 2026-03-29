@@ -23,6 +23,12 @@ const runtimePackageFolders = {
   "linux-x64": "ossplate-linux-x64",
   "win32-x64": "ossplate-win32-x64"
 };
+const runtimePackageNames = {
+  "darwin-arm64": "ossplate-darwin-arm64",
+  "darwin-x64": "ossplate-darwin-x64",
+  "linux-x64": "ossplate-linux-x64",
+  "win32-x64": "ossplate-windows-x64"
+};
 
 const wrapperTargets = [
   join(repoRoot, "wrapper-js", "scaffold"),
@@ -97,6 +103,7 @@ function cleanAllRuntimePackageBins() {
 
 function stageRuntimePackage(packageRoot, target) {
   const expectedPackageFolder = runtimePackageFolders[target];
+  const expectedPackageName = runtimePackageNames[target];
   const expectedPackageSuffix = `/${expectedPackageFolder}`;
   if (!expectedPackageFolder) {
     throw new Error(`unsupported runtime package target: ${target}`);
@@ -116,11 +123,11 @@ function stageRuntimePackage(packageRoot, target) {
   }
   const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8"));
   if (
-    packageJson.name !== expectedPackageFolder &&
+    packageJson.name !== expectedPackageName &&
     !packageJson.name.endsWith(expectedPackageSuffix)
   ) {
     throw new Error(
-      `runtime package ${packageRoot} does not match target ${target}: expected name ending with ${expectedPackageFolder}, found ${packageJson.name}`
+      `runtime package ${packageRoot} does not match target ${target}: expected package name ${expectedPackageName} or a name ending with ${expectedPackageFolder}, found ${packageJson.name}`
     );
   }
 
