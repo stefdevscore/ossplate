@@ -8,7 +8,7 @@ This is separate from source-repo verification. It checks the live registry arti
 - npm: `npm install ossplate`
 - PyPI: `pip install ossplate`
 
-## Default Flow
+## E2E-01 Default Flow
 
 Run the full live install matrix:
 
@@ -42,7 +42,7 @@ Each installed CLI must pass the same checks:
 - `ossplate validate --path <tmp> --json`
 - `ossplate sync --path <tmp> --check`
 
-## Single-Ecosystem Runs
+## E2E-02 Single-Ecosystem Runs
 
 Run only one installer path when debugging:
 
@@ -52,14 +52,14 @@ Run only one installer path when debugging:
 ./scripts/live-e2e.sh python
 ```
 
-## What This Covers
+## E2E-03 What This Covers
 
 - the published package name is installable
 - the installed command is on the expected path
 - the installed CLI can create from its shipped scaffold payload
 - the installed CLI can validate and sync-check created and initialized projects
 
-## What It Does Not Cover Yet
+## E2E-04 What It Does Not Cover Yet
 
 - cross-platform live install coverage
 - containerized Linux matrix verification
