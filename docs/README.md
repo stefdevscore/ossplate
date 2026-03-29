@@ -6,6 +6,8 @@ Start here:
 
 - [Adoption Guide](./customizing-the-template.md)
 - [Architecture](./architecture.md)
+- [JavaScript Package Size Report](./javascript-package-size-report.md)
+- [Package Size Report](./package-size-report.md)
 - [Testing](./testing.md)
 - [Releases](./releases.md)
 

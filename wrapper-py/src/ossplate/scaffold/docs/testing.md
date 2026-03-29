@@ -26,6 +26,7 @@ These suites cover:
 ### Packaging
 
 - `npm pack --dry-run` in `wrapper-js/`
+- `npm pack --dry-run` in the current host runtime package under `wrapper-js/platform-packages/`
 - `OSSPLATE_PY_TARGET=<target> python -m build --wheel` in `wrapper-py/`
 - `python -m build --sdist` in `wrapper-py/`
 
@@ -36,6 +37,8 @@ Python packaging stages distribution assets through the Hatch build hook in `wra
 Artifact assertions are part of the required packaging layer:
 
 - npm tarball content must include the curated scaffold files from `scaffold-manifest.json`
+- npm top-level tarball must exclude bundled platform binaries and nested scaffold runtime binaries
+- npm runtime package tarballs must contain exactly one target binary
 - npm tarball content must exclude wrapper test files and repo-only validation scripts
 - Python wheel content must include the curated scaffold files from `scaffold-manifest.json`
 - Python wheel content must include exactly one runtime binary for its target
@@ -68,6 +71,7 @@ CI currently enforces:
 - template readiness via `validate` and `sync --check`
 - Rust formatting, clippy, and tests
 - JS build, tests, and package dry-run
+- JS runtime package dry-run on each supported target runner
 - Python source tests on Linux
 - Python wheel validation on `linux-x64`, `darwin-arm64`, `darwin-x64`, and `win32-x64`
 
