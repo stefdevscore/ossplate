@@ -181,11 +181,18 @@ jobs:
             ossplate-darwin-x64 \
             ossplate-linux-x64 \
             ossplate-windows-x64
-          node ./scripts/repair-js-lockfile.mjs
       - name: Commit post-publish lockfile sync
         if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
         run: |
           VERSION="${{ steps.plan.outputs.next_version }}"
+          git fetch origin main
+          git reset --hard origin/main
+          CURRENT_VERSION=$(node -p "require('./wrapper-js/package.json').version")
+          if [ "$CURRENT_VERSION" != "$VERSION" ]; then
+            echo "::notice title=release::post-publish JS lockfile sync skipped because main advanced to $CURRENT_VERSION."
+            exit 0
+          fi
+          node ./scripts/repair-js-lockfile.mjs
           node ./scripts/assert-js-lockfile-state.mjs resolved
           if git diff --quiet -- wrapper-js/package-lock.json wrapper-js/scaffold/wrapper-js/package-lock.json wrapper-py/src/ossplate/scaffold/wrapper-js/package-lock.json; then
             echo "::notice title=release::post-publish JS lockfile already up to date."
