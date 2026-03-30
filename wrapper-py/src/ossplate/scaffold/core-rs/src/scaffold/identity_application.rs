@@ -17,6 +17,7 @@ pub(crate) fn apply_config_overrides_to_target(
 
     apply_overrides(&mut config, overrides);
     relocate_generated_identity_paths(target_root, &original, &config)?;
+    remove_generated_python_runtime_dirs(target_root, &original, &config)?;
     normalize_cargo_lock_identity(target_root, &original, &config)?;
     write_config(target_root, &config)
 }
@@ -103,6 +104,23 @@ fn normalize_cargo_lock_identity(
     }
 
     fs::write(lock_path, content.replacen(&old_name, &new_name, 1))?;
+    Ok(())
+}
+
+fn remove_generated_python_runtime_dirs(
+    target_root: &Path,
+    original: &ToolConfig,
+    updated: &ToolConfig,
+) -> Result<()> {
+    for package_dir in [
+        wrapper_py_package_dir(original),
+        wrapper_py_package_dir(updated),
+    ] {
+        let generated_bin_dir = target_root.join(package_dir).join("bin");
+        if generated_bin_dir.exists() {
+            fs::remove_dir_all(&generated_bin_dir)?;
+        }
+    }
     Ok(())
 }
 
