@@ -385,7 +385,10 @@ fn inspect_json_derives_scoped_runtime_package_names_from_configured_identity() 
 
     let output: serde_json::Value =
         serde_json::from_str(&inspect_repo_json(&target).unwrap()).unwrap();
-    assert_eq!(output["config"]["packages"]["npm_package"], "@acme/scoped-tool");
+    assert_eq!(
+        output["config"]["packages"]["npm_package"],
+        "@acme/scoped-tool"
+    );
     assert_eq!(
         output["derived"]["runtimePackages"][0]["folder"],
         "wrapper-js/platform-packages/ossplate-darwin-arm64"
