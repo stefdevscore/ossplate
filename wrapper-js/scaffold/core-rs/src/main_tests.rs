@@ -358,6 +358,48 @@ fn inspect_json_returns_config_and_contracts() {
 }
 
 #[test]
+fn inspect_json_derives_scoped_runtime_package_names_from_configured_identity() {
+    let source_root = make_source_checkout_root();
+    let target = unique_temp_path("ossplate-inspect-scoped");
+    if target.exists() {
+        fs::remove_dir_all(&target).unwrap();
+    }
+
+    create_scaffold_from(
+        &source_root,
+        &target,
+        &IdentityOverrides {
+            name: Some("Scoped Tool".to_string()),
+            description: None,
+            repository: Some("https://github.com/acme/scoped-tool".to_string()),
+            license: None,
+            author_name: None,
+            author_email: None,
+            rust_crate: Some("scoped-tool-core".to_string()),
+            npm_package: Some("@acme/scoped-tool".to_string()),
+            python_package: Some("scoped-tool-py".to_string()),
+            command: Some("scoped-tool".to_string()),
+        },
+    )
+    .unwrap();
+
+    let output: serde_json::Value =
+        serde_json::from_str(&inspect_repo_json(&target).unwrap()).unwrap();
+    assert_eq!(output["config"]["packages"]["npm_package"], "@acme/scoped-tool");
+    assert_eq!(
+        output["derived"]["runtimePackages"][0]["folder"],
+        "wrapper-js/platform-packages/ossplate-darwin-arm64"
+    );
+    assert_eq!(
+        output["derived"]["runtimePackages"][0]["packageName"],
+        "@acme/scoped-tool-darwin-arm64"
+    );
+
+    fs::remove_dir_all(&source_root).unwrap();
+    fs::remove_dir_all(&target).unwrap();
+}
+
+#[test]
 fn inspect_json_omits_source_checkout_when_not_present() {
     let root = make_fixture_root();
     fs::remove_file(root.join("source-checkout.json")).unwrap();

@@ -170,10 +170,11 @@ function runOperatorPreflight(registries, options, context) {
 }
 
 function canSkipNpmPublish(options, context) {
+  const metadata = loadMetadata(resolve(options.root));
   return (
     !options.dryRun &&
     options.skipExisting &&
-    context.npmVersionExists("ossplate", loadMetadata(resolve(options.root)).version)
+    context.npmVersionExists(metadata.rootPackage.name, metadata.version)
   );
 }
 

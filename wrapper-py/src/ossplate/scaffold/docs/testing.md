@@ -91,8 +91,8 @@ That gate currently runs, in order:
 11. `node scripts/release-check.mjs release-state`
 12. `node scripts/assert-js-lockfile-state.mjs <resolved-or-placeholder>`
 13. `node scripts/release-check.mjs publish-readiness publish`
-14. `npm test` when the current npm version is already published
-15. `npm pack --dry-run` when the current npm version is already published
+14. `npm test`
+15. `npm pack --dry-run`
 16. `PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py'`
 
 The important JS release checks are:
@@ -102,7 +102,7 @@ The important JS release checks are:
 - `scripts/assert-js-lockfile-state.mjs`
 - `scripts/release-check.mjs publish-readiness publish`
 
-If the current npm version is not yet published, `verify.sh` keeps the lockfile in placeholder mode and skips install-based JS checks for that run.
+If the current npm version is not yet published, `verify.sh` still keeps the lockfile in placeholder mode, but it continues to run the local JS wrapper checks. Registry visibility only affects the expected lockfile state, not whether local JS validation runs.
 
 `verify --json` returns the same phase order as structured per-step results with:
 

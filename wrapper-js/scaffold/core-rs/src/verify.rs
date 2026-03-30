@@ -87,15 +87,11 @@ fn verify_repo_steps(root: &Path, runner: &dyn VerifyRunner) -> Result<Vec<Verif
         "placeholder"
     };
 
-    let steps = verify_steps(root, js_lockfile_mode, js_installable)?;
+    let steps = verify_steps(root, js_lockfile_mode)?;
     run_verify_steps(root, &steps, runner)
 }
 
-fn verify_steps(
-    root: &Path,
-    js_lockfile_mode: &str,
-    js_installable: bool,
-) -> Result<Vec<VerifyStep>> {
+fn verify_steps(root: &Path, js_lockfile_mode: &str) -> Result<Vec<VerifyStep>> {
     let python = find_python(root)?;
     let mut steps = vec![
         step(
@@ -214,37 +210,9 @@ fn verify_steps(
                 "publish",
             ],
         ),
+        step("js:test", "wrapper-js", vec!["npm", "test"]),
+        step("js:pack", "wrapper-js", vec!["npm", "pack", "--dry-run"]),
     ];
-
-    if js_installable {
-        steps.push(step("js:test", "wrapper-js", vec!["npm", "test"]));
-        steps.push(step(
-            "js:pack",
-            "wrapper-js",
-            vec!["npm", "pack", "--dry-run"],
-        ));
-    } else {
-        let reason = format!(
-            "current npm version {} is not published yet; placeholder lockfile state is expected",
-            wrapper_js_identity(root)?.1
-        );
-        steps.push(VerifyStep {
-            name: "js:test",
-            cwd: "wrapper-js",
-            cmd: Vec::new(),
-            env: BTreeMap::new(),
-            skip: Some(SkipRule {
-                reason: reason.clone(),
-            }),
-        });
-        steps.push(VerifyStep {
-            name: "js:pack",
-            cwd: "wrapper-js",
-            cmd: Vec::new(),
-            env: BTreeMap::new(),
-            skip: Some(SkipRule { reason }),
-        });
-    }
 
     let mut py_env = BTreeMap::new();
     py_env.insert("PYTHONPATH".to_string(), "src".to_string());
@@ -479,5 +447,19 @@ mod tests {
         assert_eq!(results[0].skipped, true);
         assert_eq!(results[0].reason.as_deref(), Some("skip reason"));
         assert_eq!(results[1].name, "run");
+    }
+
+    #[test]
+    fn verify_steps_always_include_local_js_checks() {
+        let root = std::env::temp_dir();
+        let steps = verify_steps(&root, "placeholder").unwrap();
+        let js_test = steps.iter().find(|step| step.name == "js:test").unwrap();
+        let js_pack = steps.iter().find(|step| step.name == "js:pack").unwrap();
+        assert!(js_test.skip.is_none());
+        assert!(js_pack.skip.is_none());
+        assert_eq!(js_test.cwd, "wrapper-js");
+        assert_eq!(js_pack.cwd, "wrapper-js");
+        assert_eq!(js_test.cmd, vec!["npm", "test"]);
+        assert_eq!(js_pack.cmd, vec!["npm", "pack", "--dry-run"]);
     }
 }

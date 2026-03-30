@@ -180,11 +180,6 @@ export function assertRuntimePackageNames(rootPackage = readRootPackage()) {
   const runtimePackages = getRuntimePackageNames(rootPackage);
   const supportedRuntimePackages = getSupportedRuntimePackageNames(rootPackage);
   for (const packageName of runtimePackages) {
-    if (packageName.startsWith("@")) {
-      fail(
-        `runtime package ${packageName} is scoped; current release policy requires unscoped publishable runtime package names`
-      );
-    }
     if (!supportedRuntimePackages.has(packageName)) {
       fail(`runtime package ${packageName} does not match the supported npm runtime package contract`);
     }

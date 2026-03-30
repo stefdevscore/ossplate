@@ -41,20 +41,13 @@ It can:
 - multi-registry distribution through Cargo, npm, and PyPI
 - deterministic ownership, validation, and sync contracts
 
-When an AI agent is driving repo setup or maintenance, the high-signal loop is:
+## Installed Usage
 
-- `cargo run --manifest-path core-rs/Cargo.toml -- create <target>` to produce a coherent Rust-core baseline
-- `cargo run --manifest-path core-rs/Cargo.toml -- validate --json` to inspect repo health in machine-readable form
-- `cargo run --manifest-path core-rs/Cargo.toml -- inspect --json` to read the effective config, owned files, and derived runtime contract
-- `cargo run --manifest-path core-rs/Cargo.toml -- sync --check --json` or `-- sync --plan --json` to inspect bounded drift
-- `cargo run --manifest-path core-rs/Cargo.toml -- sync --json` to apply bounded repairs with a structured result
-- `cargo run --manifest-path core-rs/Cargo.toml -- publish --plan --json` to inspect local publish preflight without side effects
-- `cargo run --manifest-path core-rs/Cargo.toml -- verify --json` to run the full repo gate with per-step structured results
-
-## Quick Start
+If `ossplate` is already installed, lead with the CLI directly:
 
 ```bash
-cargo run --manifest-path core-rs/Cargo.toml -- create ../my-new-project \
+ossplate version
+ossplate create ../my-new-project \
   --name "My Project" \
   --repository "https://github.com/acme/my-project" \
   --author-name "Acme" \
@@ -68,8 +61,43 @@ cargo run --manifest-path core-rs/Cargo.toml -- create ../my-new-project \
 Then check that everything is aligned:
 
 ```bash
-cargo run --manifest-path core-rs/Cargo.toml -- validate
-cargo run --manifest-path core-rs/Cargo.toml -- sync --check --json
+ossplate validate --path ../my-new-project --json
+ossplate sync --path ../my-new-project --check --json
+```
+
+## Source Checkout Usage
+
+If you are working from a source checkout instead of an installed binary, the equivalent commands are:
+
+- `cargo run --manifest-path core-rs/Cargo.toml -- create <target>` to produce a coherent Rust-core baseline
+- `cargo run --manifest-path core-rs/Cargo.toml -- validate --json` to inspect repo health in machine-readable form
+- `cargo run --manifest-path core-rs/Cargo.toml -- inspect --json` to read the effective config, owned files, and derived runtime contract
+- `cargo run --manifest-path core-rs/Cargo.toml -- sync --check --json` or `-- sync --plan --json` to inspect bounded drift
+- `cargo run --manifest-path core-rs/Cargo.toml -- sync --json` to apply bounded repairs with a structured result
+- `cargo run --manifest-path core-rs/Cargo.toml -- publish --plan --json` to inspect local publish preflight without side effects
+- `cargo run --manifest-path core-rs/Cargo.toml -- verify --json` to run the full repo gate with per-step structured results
+
+When an AI agent is driving repo setup or maintenance from source, that `cargo run --manifest-path core-rs/Cargo.toml -- ...` form is the direct way to invoke the same CLI surface without installing first.
+
+## Quick Start
+
+```bash
+ossplate create ../my-new-project \
+  --name "My Project" \
+  --repository "https://github.com/acme/my-project" \
+  --author-name "Acme" \
+  --author-email "oss@acme.dev" \
+  --rust-crate "my-project" \
+  --npm-package "@acme/my-project" \
+  --python-package "my-project-py" \
+  --command "my-project"
+```
+
+Then check that everything is aligned:
+
+```bash
+ossplate validate --path ../my-new-project --json
+ossplate sync --path ../my-new-project --check --json
 ```
 
 For a generated-repo-safe operations guide, see [docs/agent-operations.md](https://github.com/stefdevscore/ossplate/blob/main/docs/agent-operations.md).
@@ -77,18 +105,18 @@ For a generated-repo-safe operations guide, see [docs/agent-operations.md](https
 ## Core Commands
 
 ```bash
-cargo run --manifest-path core-rs/Cargo.toml -- version
-cargo run --manifest-path core-rs/Cargo.toml -- create <target>
-cargo run --manifest-path core-rs/Cargo.toml -- init --path <dir>
-cargo run --manifest-path core-rs/Cargo.toml -- validate --json
-cargo run --manifest-path core-rs/Cargo.toml -- inspect --json
-cargo run --manifest-path core-rs/Cargo.toml -- sync --plan --json
-cargo run --manifest-path core-rs/Cargo.toml -- sync --json
-cargo run --manifest-path core-rs/Cargo.toml -- publish --plan --json
-cargo run --manifest-path core-rs/Cargo.toml -- verify --json
+ossplate version
+ossplate create <target>
+ossplate init --path <dir>
+ossplate validate --json
+ossplate inspect --json
+ossplate sync --plan --json
+ossplate sync --json
+ossplate publish --plan --json
+ossplate verify --json
 ```
 
-The same command surface is available through the Rust binary and the packaged JS/Python wrappers.
+The same command surface is available through the Rust binary and the packaged JS/Python wrappers. From a source checkout, prefix the same subcommands with `cargo run --manifest-path core-rs/Cargo.toml --`.
 
 ## Why It’s Useful
 
