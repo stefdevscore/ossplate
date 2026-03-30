@@ -67,18 +67,30 @@ pub(crate) fn validate_repo(root: &Path) -> Result<ValidationOutput> {
 }
 
 pub(crate) fn sync_repo(root: &Path, check: bool) -> Result<()> {
+    sync_repo_internal(root, check, false)
+}
+
+pub(crate) fn sync_repo_quiet(root: &Path, check: bool) -> Result<()> {
+    sync_repo_internal(root, check, true)
+}
+
+fn sync_repo_internal(root: &Path, check: bool, quiet: bool) -> Result<()> {
     let drifted = build_sync_changes(root)?;
 
     if check {
         if drifted.is_empty() {
-            println!("sync check ok");
+            if !quiet {
+                println!("sync check ok");
+            }
             return Ok(());
         }
         let issues = drifted
             .iter()
             .flat_map(|change| change.issues.iter().cloned())
             .collect::<Vec<_>>();
-        println!("{}", format_human_issues("sync check failed:", &issues));
+        if !quiet {
+            println!("{}", format_human_issues("sync check failed:", &issues));
+        }
         bail!("sync check failed")
     }
 
@@ -88,7 +100,9 @@ pub(crate) fn sync_repo(root: &Path, check: bool) -> Result<()> {
             .with_context(|| format!("failed to write {}", target.display()))?;
     }
 
-    println!("sync complete");
+    if !quiet {
+        println!("sync complete");
+    }
     Ok(())
 }
 
@@ -132,7 +146,7 @@ pub(crate) fn inspect_repo_json(root: &Path) -> Result<String> {
         .collect();
     let runtime_targets = read_json(root, "runtime-targets.json")?;
     let scaffold_payload = read_json(root, "scaffold-payload.json")?;
-    let source_checkout = read_json(root, "source-checkout.json")?;
+    let source_checkout = read_optional_json(root, "source-checkout.json")?;
     crate::output::render_inspect_output(crate::output::InspectOutput {
         config,
         managed_files,
@@ -183,6 +197,14 @@ fn read_json(root: &Path, relative_path: &str) -> Result<serde_json::Value> {
             .with_context(|| format!("failed to read {}", root.join(relative_path).display()))?,
     )
     .with_context(|| format!("failed to parse {}", root.join(relative_path).display()))
+}
+
+fn read_optional_json(root: &Path, relative_path: &str) -> Result<Option<serde_json::Value>> {
+    let target = root.join(relative_path);
+    if !target.is_file() {
+        return Ok(None);
+    }
+    Ok(Some(read_json(root, relative_path)?))
 }
 
 pub(crate) fn managed_files() -> Vec<ManagedFile> {

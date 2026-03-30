@@ -59,10 +59,10 @@ fn plan_publish_helper_invocation(
     registry: PublishRegistry,
     skip_existing: bool,
 ) -> Result<PublishHelperInvocation> {
-    let script_path = publish_helper_script_path(root)?;
     let root = root
         .canonicalize()
         .with_context(|| format!("failed to canonicalize publish path {}", root.display()))?;
+    let script_path = publish_helper_script_path(&root)?;
     let args = build_publish_args(&script_path, &root, dry_run, registry, skip_existing);
     Ok(PublishHelperInvocation {
         root,

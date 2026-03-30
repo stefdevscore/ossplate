@@ -57,7 +57,8 @@ pub(crate) struct InspectOutput {
     #[serde(rename = "scaffoldPayload")]
     pub(crate) scaffold_payload: Value,
     #[serde(rename = "sourceCheckout")]
-    pub(crate) source_checkout: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) source_checkout: Option<Value>,
 }
 
 #[derive(Debug, Clone, Serialize)]

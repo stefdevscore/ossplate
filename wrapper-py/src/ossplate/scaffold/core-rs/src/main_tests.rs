@@ -264,6 +264,15 @@ fn inspect_json_returns_config_and_contracts() {
 }
 
 #[test]
+fn inspect_json_omits_source_checkout_when_not_present() {
+    let root = make_fixture_root();
+    fs::remove_file(root.join("source-checkout.json")).unwrap();
+    let output: serde_json::Value =
+        serde_json::from_str(&inspect_repo_json(&root).unwrap()).unwrap();
+    assert!(output.get("sourceCheckout").is_none());
+}
+
+#[test]
 fn create_json_returns_effective_identity() {
     let target = unique_temp_path("ossplate-create-json");
     if target.exists() {
@@ -294,6 +303,33 @@ fn create_json_returns_effective_identity() {
     assert_eq!(output["action"], "create");
     assert_eq!(output["created"], true);
     assert_eq!(output["config"]["packages"]["command"], "agentcode");
+    fs::remove_dir_all(&target).unwrap();
+}
+
+#[test]
+fn create_json_emits_only_json() {
+    let target = unique_temp_path("ossplate-create-json-clean");
+    if target.exists() {
+        fs::remove_dir_all(&target).unwrap();
+    }
+    let rendered = create_scaffold_json(
+        &target,
+        &IdentityOverrides {
+            name: Some("Json Tool".to_string()),
+            description: None,
+            repository: None,
+            license: None,
+            author_name: None,
+            author_email: None,
+            rust_crate: None,
+            npm_package: None,
+            python_package: None,
+            command: Some("json-tool".to_string()),
+        },
+    )
+    .unwrap();
+    let output: serde_json::Value = serde_json::from_str(&rendered).unwrap();
+    assert_eq!(output["ok"], true);
     fs::remove_dir_all(&target).unwrap();
 }
 
@@ -356,10 +392,12 @@ fn publish_plan_json_returns_helper_invocation() {
     assert_eq!(output["registry"], "Pypi");
     assert_eq!(output["dryRun"], true);
     assert_eq!(output["skipExisting"], true);
+    assert!(output["helper"].as_str().unwrap().starts_with('/'));
     assert!(output["helper"]
         .as_str()
         .unwrap()
         .ends_with("scripts/publish-local.mjs"));
+    assert!(output["argv"][0].as_str().unwrap().starts_with('/'));
     assert!(output["argv"].as_array().unwrap().len() >= 5);
     fs::remove_dir_all(&root).unwrap();
 }
