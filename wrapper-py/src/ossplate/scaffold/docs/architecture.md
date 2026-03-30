@@ -24,9 +24,11 @@ The product commands are:
 - `version`
 - `validate`
 - `sync`
+- `inspect`
 - `create`
 - `init`
 - `publish`
+- `verify`
 
 The agent-facing JSON/plan surfaces are part of that contract:
 
@@ -36,6 +38,7 @@ The agent-facing JSON/plan surfaces are part of that contract:
 - `sync --json`
 - `inspect --json`
 - `publish --plan --json`
+- `verify --json`
 
 ## ARCH-02 Current Rust Slices
 
@@ -132,3 +135,5 @@ Keep the rules simple as the product grows:
 - [ADR 0009: Centralize Release State Policy](./adrs/0009-centralize-release-state-policy.md)
 - [ADR 0011: Consolidate Release Assertion Commands](./adrs/0011-consolidate-release-assertion-commands.md)
 - [ADR 0005: Verification Enforces Source And Installed Contracts](./adrs/0005-verification-enforces-source-and-installed-contracts.md)
+- [ADR 0015: Agent-First Machine-Readable Repo Contract](./adrs/0015-agent-first-machine-readable-repo-contract.md)
+- [ADR 0016: Structured Verification Gate For Agent Operators](./adrs/0016-structured-verification-gate-for-agent-operators.md)

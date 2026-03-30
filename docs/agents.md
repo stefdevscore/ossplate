@@ -8,8 +8,10 @@ Use this sequence:
 
 1. `ossplate create <target>` to bootstrap a new pattern-1 repo.
 2. `ossplate validate --json` to inspect consistency without guessing.
-3. `ossplate sync --check` to confirm owned metadata is aligned.
-4. `ossplate sync` only when a bounded repair is needed.
+3. `ossplate inspect --json` to read the effective config, owned files, and runtime contract.
+4. `ossplate sync --check --json` or `ossplate sync --plan --json` to inspect bounded drift.
+5. `ossplate sync --json` only when a bounded repair is needed.
+6. `ossplate verify --json` to close the full repo gate in machine-readable form.
 
 This keeps the agent inside the supported ownership boundary instead of rewriting random files heuristically.
 
@@ -44,9 +46,11 @@ Use `validate --json` for structured issue detection. Use `sync --check --json` 
 Prefer this mutation order:
 
 1. update canonical identity in `ossplate.toml`
-2. run `ossplate sync`
-3. run `ossplate validate --json`
-4. run `ossplate sync --check`
+2. run `ossplate inspect --json`
+3. run `ossplate sync --plan --json`
+4. run `ossplate sync --json`
+5. run `ossplate validate --json`
+6. run `ossplate verify --json`
 
 Do not treat generated scaffold mirrors as editable source. Edit the root source checkout and regenerate packaging assets through the existing scripts.
 

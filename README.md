@@ -16,7 +16,7 @@ It gives you a working baseline with:
 - thin JavaScript and Python wrappers
 - release-ready workflows for Cargo, npm, and PyPI
 - a scaffold you can create, adopt, and keep in sync
-- machine-checkable validation and sync commands for agent loops
+- machine-checkable validation, planning, repair, inspection, and verification commands for agent loops
 
 ## What It Does
 
@@ -28,6 +28,9 @@ It can:
 - initialize an existing directory with the expected structure
 - validate project identity and metadata
 - synchronize the files it owns
+- inspect effective repo contracts
+- plan publish behavior and local preflight state without mutation
+- run the full repo gate as a structured JSON contract
 
 ## Pattern-1 Fit
 
@@ -42,8 +45,10 @@ When an AI agent is driving repo setup or maintenance, the high-signal loop is:
 
 - `cargo run --manifest-path core-rs/Cargo.toml -- create <target>` to produce a coherent pattern-1 baseline
 - `cargo run --manifest-path core-rs/Cargo.toml -- validate --json` to inspect repo health in machine-readable form
+- `cargo run --manifest-path core-rs/Cargo.toml -- inspect --json` to read the effective config, owned files, and derived runtime contract
 - `cargo run --manifest-path core-rs/Cargo.toml -- sync --check --json` or `-- sync --plan --json` to inspect bounded drift
 - `cargo run --manifest-path core-rs/Cargo.toml -- sync --json` to apply bounded repairs with a structured result
+- `cargo run --manifest-path core-rs/Cargo.toml -- publish --plan --json` to inspect local publish preflight without side effects
 - `cargo run --manifest-path core-rs/Cargo.toml -- verify --json` to run the full repo gate with per-step structured results
 
 ## Quick Start
@@ -76,8 +81,10 @@ cargo run --manifest-path core-rs/Cargo.toml -- version
 cargo run --manifest-path core-rs/Cargo.toml -- create <target>
 cargo run --manifest-path core-rs/Cargo.toml -- init --path <dir>
 cargo run --manifest-path core-rs/Cargo.toml -- validate --json
+cargo run --manifest-path core-rs/Cargo.toml -- inspect --json
 cargo run --manifest-path core-rs/Cargo.toml -- sync --plan --json
 cargo run --manifest-path core-rs/Cargo.toml -- sync --json
+cargo run --manifest-path core-rs/Cargo.toml -- publish --plan --json
 cargo run --manifest-path core-rs/Cargo.toml -- verify --json
 ```
 

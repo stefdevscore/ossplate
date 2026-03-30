@@ -26,6 +26,13 @@ Run the full gate before releasing:
 ./scripts/verify.sh
 ```
 
+For a structured planning/operator equivalent, use:
+
+```bash
+cargo run --manifest-path core-rs/Cargo.toml -- publish --plan --json
+cargo run --manifest-path core-rs/Cargo.toml -- verify --json
+```
+
 The release gate includes:
 
 - `scripts/release-check.mjs release-state`
@@ -48,6 +55,7 @@ Important facts:
 - it runs local preflight checks for required tools and detectable auth before publish work starts
 - it uses local toolchain and local auth only
 - it is host-limited: one machine can only build the current host npm runtime binary and current host Python wheel
+- `publish --plan --json` exposes the same helper invocation, selected registries, host target, and local preflight state without mutating anything
 
 Common local flags:
 

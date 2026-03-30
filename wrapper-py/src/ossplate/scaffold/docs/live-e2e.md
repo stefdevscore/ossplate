@@ -37,10 +37,11 @@ Each installed CLI must pass the same checks:
 - `ossplate version`
 - `ossplate create <tmp>`
 - `ossplate validate --path <tmp> --json`
-- `ossplate sync --path <tmp> --check`
+- `ossplate inspect --path <tmp> --json`
+- `ossplate sync --path <tmp> --check --json`
 - `ossplate init --path <tmp>`
 - `ossplate validate --path <tmp> --json`
-- `ossplate sync --path <tmp> --check`
+- `ossplate sync --path <tmp> --check --json`
 
 ## E2E-02 Single-Ecosystem Runs
 

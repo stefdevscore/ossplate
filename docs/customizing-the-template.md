@@ -21,6 +21,7 @@ The adoption rule is simple:
 - npm package name
 - Python package name
 - CLI command name
+- projected package discoverability metadata for Cargo, npm, and PyPI manifests
 
 ## ADOPT-02 Required Identity Changes
 
@@ -55,10 +56,11 @@ Not owned today:
 ## ADOPT-04 First Adoption Pass
 
 1. Update `ossplate.toml` directly or use `create` / `init` with identity flags.
-2. Run `cargo run --manifest-path core-rs/Cargo.toml -- sync`.
-3. Run `cargo run --manifest-path core-rs/Cargo.toml -- validate`.
-4. Run the verification flow from [Testing](./testing.md).
-5. Only then expand product code or publish configuration.
+2. Run `cargo run --manifest-path core-rs/Cargo.toml -- inspect --json` to confirm the effective identity and owned contract.
+3. Run `cargo run --manifest-path core-rs/Cargo.toml -- sync --plan --json` or `-- sync --json`.
+4. Run `cargo run --manifest-path core-rs/Cargo.toml -- validate --json`.
+5. Run the verification flow from [Testing](./testing.md).
+6. Only then expand product code or publish configuration.
 
 ## ADOPT-05 Create A New Project
 
@@ -81,6 +83,7 @@ cargo run --manifest-path core-rs/Cargo.toml -- create ../my-new-project \
 - copies the curated scaffold payload into the target directory
 - applies identity overrides to `ossplate.toml`
 - runs `sync` on the new target
+- can return the effective generated identity through `--json`
 - rejects non-empty targets
 - rejects targets inside the source template tree
 
@@ -101,6 +104,7 @@ cargo run --manifest-path core-rs/Cargo.toml -- init \
 - copies any missing scaffold files
 - applies requested identity overrides
 - runs `sync` so owned metadata matches `ossplate.toml`
+- can return the effective initialized identity through `--json`
 
 ## ADOPT-07 Identity Flags
 
@@ -119,3 +123,4 @@ cargo run --manifest-path core-rs/Cargo.toml -- init \
 
 - [ADR 0002: Sync Owns Bounded Identity Surfaces](./adrs/0002-sync-owns-bounded-identity.md)
 - [ADR 0003: Ship A Curated Scaffold Payload](./adrs/0003-curated-scaffold-payload.md)
+- [ADR 0015: Agent-First Machine-Readable Repo Contract](./adrs/0015-agent-first-machine-readable-repo-contract.md)

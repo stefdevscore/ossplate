@@ -47,3 +47,5 @@ Use these when debugging a specific operational topic rather than learning the p
 - [ADR 0009: Centralize Release State Policy](./adrs/0009-centralize-release-state-policy.md)
 - [ADR 0011: Consolidate Release Assertion Commands](./adrs/0011-consolidate-release-assertion-commands.md)
 - [ADR 0005: Verification Enforces Source And Installed Contracts](./adrs/0005-verification-enforces-source-and-installed-contracts.md)
+- [ADR 0015: Agent-First Machine-Readable Repo Contract](./adrs/0015-agent-first-machine-readable-repo-contract.md)
+- [ADR 0016: Structured Verification Gate For Agent Operators](./adrs/0016-structured-verification-gate-for-agent-operators.md)

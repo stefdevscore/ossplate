@@ -96,6 +96,7 @@ The shell is partly implemented already:
 - release orchestration exists in `core-rs/src/release.rs`
 - scaffold synthesis exists in `core-rs/src/scaffold.rs`
 - verification exists through `scripts/verify.sh`, artifact checks, CI, and live E2E
+- the same verification slice is now exposed through `verify --json` for agent operators
 
 What is still pending is deeper enforcement, not basic slice existence:
 

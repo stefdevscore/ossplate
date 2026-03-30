@@ -2,7 +2,7 @@
 
 `ossplate` uses layered verification so the source checkout and installed wrapper artifacts stay aligned.
 
-For generated or adopted repos, pair this guide with [Agent Operations](./agent-operations.md). The key agent-safe commands are `validate --json`, `sync --check --json`, `sync --plan --json`, `sync --json`, `verify --json`, and `verify.sh`.
+For generated or adopted repos, pair this guide with [Agent Operations](./agent-operations.md). The key agent-safe commands are `validate --json`, `inspect --json`, `sync --check --json`, `sync --plan --json`, `sync --json`, `publish --plan --json`, `verify --json`, and `verify.sh`.
 
 ## TEST-01 Verification Layers
 
@@ -70,6 +70,12 @@ Run:
 ./scripts/verify.sh
 ```
 
+For a structured machine-readable equivalent, use:
+
+```bash
+cargo run --manifest-path core-rs/Cargo.toml -- verify --json
+```
+
 That gate currently runs, in order:
 
 1. `cargo fmt --check`
@@ -97,6 +103,16 @@ The important JS release checks are:
 - `scripts/release-check.mjs publish-readiness publish`
 
 If the current npm version is not yet published, `verify.sh` keeps the lockfile in placeholder mode and skips install-based JS checks for that run.
+
+`verify --json` returns the same phase order as structured per-step results with:
+
+- `name`
+- `ok`
+- `exitCode`
+- `stdout`
+- `stderr`
+- `skipped`
+- optional `reason`
 
 ## TEST-03 CI
 
