@@ -9,7 +9,7 @@ Use this guide when cutting or recovering an `ossplate` release.
 - PyPI publishes `ossplate`
 - the CLI name is `ossplate`
 
-Current npm runtime package names are:
+Current npm runtime package names for this repository are:
 
 - `ossplate-darwin-arm64`
 - `ossplate-darwin-x64`
@@ -17,6 +17,12 @@ Current npm runtime package names are:
 - `ossplate-windows-x64`
 
 `win32-x64` remains the internal target identifier. `ossplate-windows-x64` is the published Windows npm package name.
+
+For generated projects, the canonical rule is:
+
+- the top-level npm package may be scoped or unscoped
+- runtime package names are derived from that configured npm package plus the target suffix
+- on-disk runtime package folders remain scaffold implementation details and are not the public package naming contract
 
 ## REL-02 Required Preflight
 

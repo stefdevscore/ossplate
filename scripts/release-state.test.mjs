@@ -6,6 +6,7 @@ import path from "node:path";
 
 import {
   assertNpmVersionState,
+  assertRuntimePackageNames,
   assertScaffoldMirrorsState,
   getExpectedOptionalDependencies,
   readTomlSectionValue
@@ -86,6 +87,30 @@ test("release readiness fails when any npm package version is already published"
         npmVersionExists: (packageName) => packageName === "ossplate-darwin-arm64"
       }),
     /release preflight requires a clean npm version state/
+  );
+});
+
+test("scoped root npm packages derive accepted scoped runtime package names", () => {
+  const rootPackage = {
+    name: "@acme/my-project",
+    version: "1.2.3",
+    optionalDependencies: {
+      "@acme/my-project-darwin-arm64": "1.2.3",
+      "@acme/my-project-darwin-x64": "1.2.3",
+      "@acme/my-project-linux-x64": "1.2.3",
+      "@acme/my-project-windows-x64": "1.2.3"
+    }
+  };
+
+  assert.deepEqual(getExpectedOptionalDependencies(rootPackage), rootPackage.optionalDependencies);
+  assert.doesNotThrow(() => assertRuntimePackageNames(rootPackage));
+  assert.doesNotThrow(() =>
+    assertNpmVersionState({
+      mode: "publish",
+      version: "1.2.3",
+      rootPackage,
+      npmVersionExists: () => false
+    })
   );
 });
 

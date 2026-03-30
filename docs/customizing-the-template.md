@@ -37,6 +37,8 @@ Replace these inherited defaults before reuse:
 | Author/email | `Stef <stefdevscore@github.com>` / `stefdevscore@github.com` | Rust, npm, and Python metadata |
 | Package-facing branding | `ossplate` identity in wrapper docs | `wrapper-js/README.md`, `wrapper-py/README.md` |
 
+Scoped npm packages are supported. If `npm_package` is scoped, the generated runtime package names follow the same configured package identity plus the target suffix.
+
 ## ADOPT-03 What `validate` And `sync` Own
 
 Owned today:
@@ -52,6 +54,11 @@ Not owned today:
 - publish auth logic
 - arbitrary docs prose
 - content outside bounded markers
+
+Implementation note:
+
+- runtime package folder paths under `wrapper-js/platform-packages/` are scaffold internals
+- published runtime package names are derived from the configured npm package identity, not from a hard-coded `ossplate-*` public naming rule
 
 ## ADOPT-04 First Adoption Pass
 

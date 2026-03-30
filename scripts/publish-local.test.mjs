@@ -203,6 +203,36 @@ test("runPublish only requires tools for the selected registry", () => {
   );
 });
 
+test("runPublish npm skip-existing checks the configured root package name", () => {
+  const root = makeFixtureRoot({
+    wrapperPackageName: "@acme/my-project"
+  });
+  const context = makeFakeContext({
+    npmVersions: new Set([
+      "@acme/my-project@0.1.22",
+      "@acme/my-project-darwin-arm64@0.1.22",
+      "@acme/my-project-darwin-x64@0.1.22",
+      "@acme/my-project-linux-x64@0.1.22",
+      "@acme/my-project-windows-x64@0.1.22"
+    ])
+  });
+
+  runPublish(
+    {
+      root,
+      dryRun: false,
+      registry: "npm",
+      skipExisting: true
+    },
+    context
+  );
+
+  assert.equal(context.labels().includes("npm:wait-runtime-versions"), false);
+  assert.equal(context.labels().includes("npm:install-build-deps"), false);
+  assert.equal(context.labels().includes("npm:build"), false);
+  assert.equal(context.logs().some((entry) => entry.includes("@acme/my-project@0.1.22")), true);
+});
+
 test("runPublish still fails npm preflight when npm is unavailable", () => {
   const root = makeFixtureRoot();
   const context = makeFakeContext({
@@ -420,7 +450,7 @@ test("buildCommandEnv only forwards registry auth to matching publish commands",
   assert.equal("TWINE_PASSWORD" in buildEnv, false);
 });
 
-function makeFixtureRoot() {
+function makeFixtureRoot({ wrapperPackageName = "ossplate" } = {}) {
   const root = mkdtempSync(join(tmpdir(), "ossplate-publish-local-"));
   mkdirSync(join(root, "core-rs"), { recursive: true });
   mkdirSync(join(root, "scripts"), { recursive: true });
@@ -453,13 +483,13 @@ version = "0.1.22"
     join(root, "wrapper-js", "package.json"),
     JSON.stringify(
       {
-        name: "ossplate",
+        name: wrapperPackageName,
         version: "0.1.22",
         optionalDependencies: {
-          "ossplate-darwin-arm64": "0.1.22",
-          "ossplate-darwin-x64": "0.1.22",
-          "ossplate-linux-x64": "0.1.22",
-          "ossplate-windows-x64": "0.1.22"
+          [`${wrapperPackageName}-darwin-arm64`]: "0.1.22",
+          [`${wrapperPackageName}-darwin-x64`]: "0.1.22",
+          [`${wrapperPackageName}-linux-x64`]: "0.1.22",
+          [`${wrapperPackageName}-windows-x64`]: "0.1.22"
         }
       },
       null,
