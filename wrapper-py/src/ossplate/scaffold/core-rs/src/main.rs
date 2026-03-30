@@ -18,7 +18,9 @@ use config::IdentityOverrides;
 use output::{print_validation_output, render_version_output};
 use release::{publish_repo, render_publish_plan, PublishRegistry};
 use scaffold::{create_scaffold, create_scaffold_json, init_scaffold, init_scaffold_json};
-use sync::{inspect_repo_json, sync_check_json, sync_plan_json, sync_repo, validate_repo};
+use sync::{
+    inspect_repo_json, sync_apply_json, sync_check_json, sync_plan_json, sync_repo, validate_repo,
+};
 
 #[derive(Parser)]
 #[command(name = "ossplate")]
@@ -154,6 +156,9 @@ fn run() -> Result<()> {
                 Ok(())
             } else if check && json {
                 println!("{}", sync_check_json(&path)?);
+                Ok(())
+            } else if json {
+                println!("{}", sync_apply_json(&path)?);
                 Ok(())
             } else {
                 sync_repo(&path, check)

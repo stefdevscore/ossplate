@@ -12,7 +12,7 @@ license = { text = "Unlicense" }
 authors = [
   { name = "Stef", email = "stefdevscore@github.com" }
 ]
-keywords = ["automation", "bootstrap", "distribution", "packaging", "cli", "rust", "python", "npm"]
+keywords = ["cli", "bootstrap", "distribution", "packaging", "multi-registry", "rust", "python", "npm"]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Environment :: Console",

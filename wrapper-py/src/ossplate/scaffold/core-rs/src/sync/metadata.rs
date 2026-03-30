@@ -56,6 +56,26 @@ fn python_entrypoint(config: &ToolConfig) -> String {
     format!("{}.cli:main", python_module_name(config))
 }
 
+fn toml_string_array(values: &[String]) -> TomlValue {
+    TomlValue::Array(
+        values
+            .iter()
+            .cloned()
+            .map(TomlValue::String)
+            .collect::<Vec<_>>(),
+    )
+}
+
+fn json_string_array(values: &[String]) -> serde_json::Value {
+    serde_json::Value::Array(
+        values
+            .iter()
+            .cloned()
+            .map(serde_json::Value::String)
+            .collect::<Vec<_>>(),
+    )
+}
+
 pub(crate) fn validate_cargo_toml(
     config: &ToolConfig,
     content: &str,
@@ -108,6 +128,20 @@ pub(crate) fn validate_cargo_toml(
         "package.homepage",
         package.get("homepage"),
         &config.project.repository,
+    );
+    check_string_array_field(
+        &mut issues,
+        "core-rs/Cargo.toml",
+        "package.keywords",
+        package.get("keywords"),
+        &config.metadata.rust_keywords,
+    );
+    check_string_array_field(
+        &mut issues,
+        "core-rs/Cargo.toml",
+        "package.categories",
+        package.get("categories"),
+        &config.metadata.rust_categories,
     );
     let expected_author = format!("{} <{}>", config.author.name, config.author.email);
     let actual_author = package
@@ -199,6 +233,14 @@ pub(crate) fn sync_cargo_toml(config: &ToolConfig, content: &str) -> Result<Stri
     package.insert(
         "homepage".into(),
         TomlValue::String(config.project.repository.clone()),
+    );
+    package.insert(
+        "keywords".into(),
+        toml_string_array(&config.metadata.rust_keywords),
+    );
+    package.insert(
+        "categories".into(),
+        toml_string_array(&config.metadata.rust_categories),
     );
     let mut bin = toml::map::Map::new();
     bin.insert(
@@ -309,6 +351,27 @@ pub(crate) fn validate_package_json(
             Some(serde_json::to_string_pretty(&actual_optional_dependencies)?),
         ));
     }
+    let actual_keywords = value
+        .get("keywords")
+        .and_then(serde_json::Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let expected_keywords = config
+        .metadata
+        .npm_keywords
+        .iter()
+        .cloned()
+        .map(serde_json::Value::String)
+        .collect::<Vec<_>>();
+    if actual_keywords != expected_keywords {
+        issues.push(issue(
+            "wrapper-js/package.json",
+            "keywords",
+            "owned metadata differs from the canonical project identity",
+            Some(serde_json::to_string_pretty(&expected_keywords)?),
+            Some(serde_json::to_string_pretty(&actual_keywords)?),
+        ));
+    }
     Ok(issues)
 }
 
@@ -324,6 +387,7 @@ pub(crate) fn sync_package_json(config: &ToolConfig, content: &str) -> Result<St
     value["bin"] = json!({
         config.packages.command.clone(): js_wrapper_launcher_path(config)
     });
+    value["keywords"] = json_string_array(&config.metadata.npm_keywords);
     let version = value
         .get("version")
         .and_then(serde_json::Value::as_str)
@@ -711,6 +775,20 @@ pub(crate) fn validate_pyproject(
             Some(actual_email),
         ));
     }
+    check_string_array_field(
+        &mut issues,
+        "wrapper-py/pyproject.toml",
+        "project.keywords",
+        project.get("keywords"),
+        &config.metadata.python_keywords,
+    );
+    check_string_array_field(
+        &mut issues,
+        "wrapper-py/pyproject.toml",
+        "project.classifiers",
+        project.get("classifiers"),
+        &config.metadata.python_classifiers,
+    );
     let urls = project_urls(&value)?;
     if urls.0 != config.project.repository {
         issues.push(issue(
@@ -848,6 +926,14 @@ pub(crate) fn sync_pyproject(config: &ToolConfig, content: &str) -> Result<Strin
         "authors".into(),
         TomlValue::Array(vec![TomlValue::Table(author)]),
     );
+    project.insert(
+        "keywords".into(),
+        toml_string_array(&config.metadata.python_keywords),
+    );
+    project.insert(
+        "classifiers".into(),
+        toml_string_array(&config.metadata.python_classifiers),
+    );
     let mut scripts = toml::map::Map::new();
     scripts.insert(
         config.packages.command.clone(),
@@ -920,6 +1006,33 @@ fn check_string_field(
             "owned metadata differs from the canonical project identity",
             Some(expected.to_string()),
             Some(actual),
+        ));
+    }
+}
+
+fn check_string_array_field(
+    issues: &mut Vec<ValidationIssue>,
+    file: &str,
+    code: &str,
+    value: Option<&TomlValue>,
+    expected: &[String],
+) {
+    let actual = value
+        .and_then(TomlValue::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let expected_values = expected
+        .iter()
+        .cloned()
+        .map(TomlValue::String)
+        .collect::<Vec<_>>();
+    if actual != expected_values {
+        issues.push(issue(
+            file,
+            code,
+            "owned metadata differs from the canonical project identity",
+            Some(render_toml_string_array(&expected_values)),
+            Some(render_toml_string_array(&actual)),
         ));
     }
 }

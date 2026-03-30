@@ -8,7 +8,7 @@ use crate::scaffold::{
 use crate::sync::format_human_issues;
 use crate::sync::{
     github_blob_url, github_raw_url, inspect_repo_json, issue, render_wrapper_readme,
-    sync_check_json, sync_plan_json, sync_repo, validate_repo,
+    sync_apply_json, sync_check_json, sync_plan_json, sync_repo, validate_repo,
 };
 use crate::test_support::{fs, load_config, Path};
 use crate::{Cli, Commands};
@@ -245,6 +245,25 @@ fn sync_plan_json_includes_synced_content_and_does_not_mutate() {
     let current = fs::read_to_string(root.join("wrapper-js/package.json")).unwrap();
     assert_ne!(current, original);
     assert!(current.contains("\"name\": \"bad\""));
+}
+
+#[test]
+fn sync_apply_json_mutates_and_reports_changed_files() {
+    let root = make_fixture_root();
+    fs::write(
+        root.join("wrapper-js/package.json"),
+        "{\n  \"name\": \"bad\",\n  \"version\": \"0.1.19\",\n  \"optionalDependencies\": {}\n}\n",
+    )
+    .unwrap();
+
+    let planned: serde_json::Value = serde_json::from_str(&sync_plan_json(&root).unwrap()).unwrap();
+    let applied: serde_json::Value =
+        serde_json::from_str(&sync_apply_json(&root).unwrap()).unwrap();
+
+    assert_eq!(applied["mode"], "apply");
+    assert_eq!(applied["issues"], planned["issues"]);
+    assert_eq!(applied["changes"], planned["changes"]);
+    assert!(validate_repo(&root).unwrap().ok);
 }
 
 #[test]
@@ -577,10 +596,65 @@ fn create_with_non_default_package_identity_is_valid_immediately() {
     assert!(pyproject.contains("name = \"agentcode\""));
     assert!(pyproject.contains("agentcode.cli:main"));
     assert!(pyproject.contains("packages = [\"src/agentcode\"]"));
+    assert!(pyproject.contains("keywords = [\"cli\", \"bootstrap\", \"distribution\", \"packaging\", \"multi-registry\", \"rust\", \"python\", \"npm\"]"));
     assert!(target.join("wrapper-py/src/agentcode/cli.py").exists());
     assert!(!target.join("wrapper-py/src/ossplate/cli.py").exists());
 
+    let generated_readme = fs::read_to_string(target.join("README.md")).unwrap();
+    let generated_docs_index = fs::read_to_string(target.join("docs/README.md")).unwrap();
+    let generated_agent_ops = fs::read_to_string(target.join("docs/agent-operations.md")).unwrap();
+    assert!(generated_readme.contains("docs/agent-operations.md"));
+    assert!(!generated_readme.contains("docs/agents.md"));
+    assert!(generated_docs_index.contains("./agent-operations.md"));
+    assert!(!generated_docs_index.contains("./agents.md"));
+    assert!(!generated_agent_ops.contains("ossplate create"));
+    assert!(!generated_agent_ops.contains("ossplate init"));
+
     fs::remove_dir_all(&target).unwrap();
+}
+
+#[test]
+fn metadata_sync_uses_config_owned_discoverability_fields() {
+    let root = make_fixture_root();
+    fs::write(
+        root.join("core-rs/Cargo.toml"),
+        fs::read_to_string(root.join("core-rs/Cargo.toml"))
+            .unwrap()
+            .replace("keywords = [\"cli\", \"bootstrap\", \"distribution\", \"packaging\", \"multi-registry\"]", "keywords = [\"wrong\"]")
+            .replace("categories = [\"command-line-utilities\", \"development-tools\"]", "categories = [\"wrong\"]"),
+    )
+    .unwrap();
+    fs::write(
+        root.join("wrapper-js/package.json"),
+        fs::read_to_string(root.join("wrapper-js/package.json"))
+            .unwrap()
+            .replace("\"keywords\": [\n    \"bootstrap\",\n    \"distribution\",\n    \"packaging\",\n    \"multi-registry\",\n    \"rust\",\n    \"python\",\n    \"npm\",\n    \"cli\"\n  ],", "\"keywords\": [\"wrong\"],"),
+    )
+    .unwrap();
+    fs::write(
+        root.join("wrapper-py/pyproject.toml"),
+        fs::read_to_string(root.join("wrapper-py/pyproject.toml"))
+            .unwrap()
+            .replace("keywords = [\"cli\", \"bootstrap\", \"distribution\", \"packaging\", \"multi-registry\", \"rust\", \"python\", \"npm\"]", "keywords = [\"wrong\"]")
+            .replace(
+                "classifiers = [\n  \"Development Status :: 4 - Beta\",\n  \"Environment :: Console\",\n  \"Intended Audience :: Developers\",\n  \"Programming Language :: Python :: 3\",\n  \"Topic :: Software Development :: Build Tools\",\n  \"Topic :: Software Development :: Code Generators\",\n  \"Topic :: Utilities\",\n  \"License :: Public Domain\",\n  \"Operating System :: OS Independent\"\n]",
+                "classifiers = [\"Wrong :: Classifier\"]",
+            ),
+    )
+    .unwrap();
+
+    sync_repo(&root, false).unwrap();
+    assert!(validate_repo(&root).unwrap().ok);
+    let cargo = fs::read_to_string(root.join("core-rs/Cargo.toml")).unwrap();
+    let js = fs::read_to_string(root.join("wrapper-js/package.json")).unwrap();
+    let py = fs::read_to_string(root.join("wrapper-py/pyproject.toml")).unwrap();
+    assert!(cargo.contains(
+        "keywords = [\"cli\", \"bootstrap\", \"distribution\", \"packaging\", \"multi-registry\"]"
+    ));
+    assert!(cargo.contains("categories = [\"command-line-utilities\", \"development-tools\"]"));
+    assert!(js.contains("\"multi-registry\""));
+    assert!(py.contains("keywords = [\"cli\", \"bootstrap\", \"distribution\", \"packaging\", \"multi-registry\", \"rust\", \"python\", \"npm\"]"));
+    assert!(py.contains("\"Topic :: Utilities\""));
 }
 
 #[test]

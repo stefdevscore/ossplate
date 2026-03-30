@@ -29,13 +29,14 @@ That makes it a good bootstrap for agent-operated infrastructure CLIs, code tool
 These commands are the most useful for agents:
 
 - `ossplate validate --json`
-- `ossplate sync --check`
-- `ossplate sync`
+- `ossplate sync --check --json`
+- `ossplate sync --plan --json`
+- `ossplate sync --json`
 - `./scripts/verify.sh`
 - `node ./scripts/release-check.mjs release-state`
 - `node ./scripts/release-check.mjs publish-readiness publish`
 
-Use `validate --json` for structured issue detection. Use `sync --check` before any mutation. Use `verify.sh` when the agent needs the full repo gate.
+Use `validate --json` for structured issue detection. Use `sync --check --json` or `sync --plan --json` before mutation. Use `sync --json` when the bounded repair is intended. Use `verify.sh` when the agent needs the full repo gate.
 
 ## AGENT-04 Safe Mutation Model
 

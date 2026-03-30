@@ -8,7 +8,7 @@ license = "Unlicense"
 readme = "../README.md"
 repository = "https://github.com/stefdevscore/ossplate"
 homepage = "https://github.com/stefdevscore/ossplate"
-keywords = ["cli", "automation", "packaging", "distribution", "bootstrap"]
+keywords = ["cli", "bootstrap", "distribution", "packaging", "multi-registry"]
 categories = ["command-line-utilities", "development-tools"]
 default-run = "ossplate"
 

@@ -8,7 +8,7 @@ Scaffold and maintain one Rust-core CLI that ships cleanly through Cargo, npm, a
   <img src="https://raw.githubusercontent.com/stefdevscore/ossplate/main/assets/illustrations/chestplate.svg" alt="Ossplate armor" width="360">
 </p>
 
-`ossplate` helps agents and maintainers start and keep a single CLI aligned across Rust, npm, and PyPI.
+`ossplate` helps maintainers and agents start and keep a single CLI aligned across Rust, npm, and PyPI.
 
 It gives you a working baseline with:
 
@@ -29,18 +29,21 @@ It can:
 - validate project identity and metadata
 - synchronize the files it owns
 
-## Agentic AI Fit
+## Pattern-1 Fit
 
-`ossplate` is especially useful when an AI agent is driving repo setup or maintenance and needs a narrow, deterministic contract instead of vague prose.
+`ossplate` is optimized for a pattern-1 repo shape:
 
-The core loop for agents is:
+- one Rust-core CLI
+- thin JavaScript and Python wrappers
+- multi-registry distribution through Cargo, npm, and PyPI
+- deterministic ownership, validation, and sync contracts
 
-- `ossplate create <target>` to produce a coherent pattern-1 baseline
-- `ossplate validate --json` to inspect repo health in machine-readable form
-- `ossplate sync --check` to confirm owned metadata is aligned without mutating state
-- `ossplate sync` to repair bounded identity drift when needed
+When an AI agent is driving repo setup or maintenance, the high-signal loop is:
 
-That lets an agent bootstrap, inspect, and repair the repo without inventing its own policy layer.
+- `cargo run --manifest-path core-rs/Cargo.toml -- create <target>` to produce a coherent pattern-1 baseline
+- `cargo run --manifest-path core-rs/Cargo.toml -- validate --json` to inspect repo health in machine-readable form
+- `cargo run --manifest-path core-rs/Cargo.toml -- sync --check --json` or `-- sync --plan --json` to inspect bounded drift
+- `cargo run --manifest-path core-rs/Cargo.toml -- sync --json` to apply bounded repairs with a structured result
 
 ## Quick Start
 
@@ -60,19 +63,20 @@ Then check that everything is aligned:
 
 ```bash
 cargo run --manifest-path core-rs/Cargo.toml -- validate
-cargo run --manifest-path core-rs/Cargo.toml -- sync --check
+cargo run --manifest-path core-rs/Cargo.toml -- sync --check --json
 ```
 
-For an agent-facing walkthrough, see [docs/agents.md](https://github.com/stefdevscore/ossplate/blob/main/docs/agents.md).
+For a generated-repo-safe operations guide, see [docs/agent-operations.md](https://github.com/stefdevscore/ossplate/blob/main/docs/agent-operations.md).
 
 ## Core Commands
 
 ```bash
-ossplate version
-ossplate create <target>
-ossplate init --path <dir>
-ossplate validate
-ossplate sync --check
+cargo run --manifest-path core-rs/Cargo.toml -- version
+cargo run --manifest-path core-rs/Cargo.toml -- create <target>
+cargo run --manifest-path core-rs/Cargo.toml -- init --path <dir>
+cargo run --manifest-path core-rs/Cargo.toml -- validate --json
+cargo run --manifest-path core-rs/Cargo.toml -- sync --plan --json
+cargo run --manifest-path core-rs/Cargo.toml -- sync --json
 ```
 
 The same command surface is available through the Rust binary and the packaged JS/Python wrappers.
@@ -88,7 +92,7 @@ The same command surface is available through the Rust binary and the packaged J
 ## Learn More
 
 - [Documentation](https://github.com/stefdevscore/ossplate/blob/main/docs/README.md)
-- [Agent Guide](https://github.com/stefdevscore/ossplate/blob/main/docs/agents.md)
+- [Agent Operations](https://github.com/stefdevscore/ossplate/blob/main/docs/agent-operations.md)
 - [Adoption Guide](https://github.com/stefdevscore/ossplate/blob/main/docs/customizing-the-template.md)
 - [Testing Guide](https://github.com/stefdevscore/ossplate/blob/main/docs/testing.md)
 - [Release Guide](https://github.com/stefdevscore/ossplate/blob/main/docs/releases.md)

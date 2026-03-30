@@ -12,6 +12,7 @@
     "LICENSE",
     "README.md",
     "docs/README.md",
+    "docs/agent-operations.md",
     "docs/adrs/README.md",
     "docs/architecture.md",
     "docs/hexagonal-shell.md",

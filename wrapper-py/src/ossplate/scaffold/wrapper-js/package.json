@@ -16,15 +16,14 @@
     "scaffold/.gitignore"
   ],
   "keywords": [
-    "automation",
+    "cli",
     "bootstrap",
     "distribution",
-    "ossplate",
     "packaging",
+    "multi-registry",
     "rust",
     "python",
-    "npm",
-    "cli"
+    "npm"
   ],
   "license": "Unlicense",
   "main": "./dist/index.js",

@@ -138,6 +138,27 @@ pub(crate) fn sync_plan_json(root: &Path) -> Result<String> {
     crate::output::render_sync_output("plan", issues, changes, true)
 }
 
+pub(crate) fn sync_apply_json(root: &Path) -> Result<String> {
+    let drifted = build_sync_changes(root)?;
+    let issues = drifted
+        .iter()
+        .flat_map(|change| change.issues.iter().cloned())
+        .collect::<Vec<_>>();
+    let changes = drifted
+        .iter()
+        .map(|change| SyncChangePlan {
+            path: change.path.to_string(),
+            synced: change.synced.clone(),
+        })
+        .collect::<Vec<_>>();
+    for change in drifted {
+        let target = root.join(change.path);
+        fs::write(&target, change.synced)
+            .with_context(|| format!("failed to write {}", target.display()))?;
+    }
+    crate::output::render_sync_output("apply", issues, changes, true)
+}
+
 pub(crate) fn inspect_repo_json(root: &Path) -> Result<String> {
     let config = load_config(root)?;
     let managed_files = managed_files()

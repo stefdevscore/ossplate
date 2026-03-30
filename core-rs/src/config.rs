@@ -33,6 +33,7 @@ pub(crate) struct ToolConfig {
     pub(crate) project: ProjectConfig,
     pub(crate) author: AuthorConfig,
     pub(crate) packages: PackageConfig,
+    pub(crate) metadata: MetadataConfig,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -55,6 +56,15 @@ pub(crate) struct PackageConfig {
     pub(crate) npm_package: String,
     pub(crate) python_package: String,
     pub(crate) command: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub(crate) struct MetadataConfig {
+    pub(crate) rust_keywords: Vec<String>,
+    pub(crate) rust_categories: Vec<String>,
+    pub(crate) npm_keywords: Vec<String>,
+    pub(crate) python_keywords: Vec<String>,
+    pub(crate) python_classifiers: Vec<String>,
 }
 
 pub(crate) fn load_config(root: &Path) -> Result<ToolConfig> {

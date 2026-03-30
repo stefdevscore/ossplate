@@ -2,7 +2,7 @@
 
 `ossplate` is one product distributed through three package channels.
 
-It is also designed to be operable by agents through narrow, deterministic commands rather than unbounded repo heuristics.
+It is also designed to be operable by agents through narrow, deterministic commands rather than unbounded repo heuristics. This is the pattern-1 shape `ossplate` optimizes for: one Rust-core CLI, thin JS/Python wrappers, multi-registry distribution, and deterministic ownership/sync contracts.
 
 ## ARCH-00 Design Principles
 
@@ -27,6 +27,15 @@ The product commands are:
 - `create`
 - `init`
 - `publish`
+
+The agent-facing JSON/plan surfaces are part of that contract:
+
+- `validate --json`
+- `sync --check --json`
+- `sync --plan --json`
+- `sync --json`
+- `inspect --json`
+- `publish --plan --json`
 
 ## ARCH-02 Current Rust Slices
 
