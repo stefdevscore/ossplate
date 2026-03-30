@@ -32,9 +32,9 @@ It can:
 - plan publish behavior and local preflight state without mutation
 - run the full repo gate as a structured JSON contract
 
-## Pattern-1 Fit
+## Best Fit
 
-`ossplate` is optimized for a pattern-1 repo shape:
+`ossplate` is optimized for projects with this structure:
 
 - one Rust-core CLI
 - thin JavaScript and Python wrappers
@@ -43,7 +43,7 @@ It can:
 
 When an AI agent is driving repo setup or maintenance, the high-signal loop is:
 
-- `cargo run --manifest-path core-rs/Cargo.toml -- create <target>` to produce a coherent pattern-1 baseline
+- `cargo run --manifest-path core-rs/Cargo.toml -- create <target>` to produce a coherent Rust-core baseline
 - `cargo run --manifest-path core-rs/Cargo.toml -- validate --json` to inspect repo health in machine-readable form
 - `cargo run --manifest-path core-rs/Cargo.toml -- inspect --json` to read the effective config, owned files, and derived runtime contract
 - `cargo run --manifest-path core-rs/Cargo.toml -- sync --check --json` or `-- sync --plan --json` to inspect bounded drift
