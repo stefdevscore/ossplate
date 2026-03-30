@@ -17,6 +17,7 @@ pub(crate) fn apply_config_overrides_to_target(
 
     apply_overrides(&mut config, overrides);
     relocate_generated_identity_paths(target_root, &original, &config)?;
+    normalize_cargo_lock_identity(target_root, &original, &config)?;
     write_config(target_root, &config)
 }
 
@@ -77,6 +78,31 @@ fn relocate_generated_identity_paths(
         wrapper_py_package_dir(original),
         wrapper_py_package_dir(updated),
     )?;
+    Ok(())
+}
+
+fn normalize_cargo_lock_identity(
+    target_root: &Path,
+    original: &ToolConfig,
+    updated: &ToolConfig,
+) -> Result<()> {
+    if original.packages.rust_crate == updated.packages.rust_crate {
+        return Ok(());
+    }
+
+    let lock_path = target_root.join("core-rs/Cargo.lock");
+    if !lock_path.exists() {
+        return Ok(());
+    }
+
+    let content = fs::read_to_string(&lock_path)?;
+    let old_name = format!("name = \"{}\"", original.packages.rust_crate);
+    let new_name = format!("name = \"{}\"", updated.packages.rust_crate);
+    if !content.contains(&old_name) {
+        return Ok(());
+    }
+
+    fs::write(lock_path, content.replacen(&old_name, &new_name, 1))?;
     Ok(())
 }
 

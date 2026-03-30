@@ -325,9 +325,11 @@ fn create_with_non_default_package_identity_is_valid_immediately() {
     assert_release_check_scaffold_mirrors(&target);
 
     let cargo_toml = fs::read_to_string(target.join("core-rs/Cargo.toml")).unwrap();
+    let cargo_lock = fs::read_to_string(target.join("core-rs/Cargo.lock")).unwrap();
     assert!(cargo_toml.contains("name = \"agentcode\""));
     assert!(cargo_toml.contains("default-run = \"agentcode\""));
     assert!(cargo_toml.contains("[[bin]]"));
+    assert!(cargo_lock.contains("name = \"agentcode\""));
 
     let wrapper_package: serde_json::Value =
         serde_json::from_str(&fs::read_to_string(target.join("wrapper-js/package.json")).unwrap())
