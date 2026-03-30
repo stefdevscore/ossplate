@@ -1,8 +1,12 @@
 use crate::source_checkout::ensure_source_checkout;
 use anyhow::{bail, Context, Result};
 use clap::ValueEnum;
+use serde::Serialize;
+use serde_json::json;
+use std::env;
 use std::path::Path;
-use std::process::{Command, ExitStatus};
+use std::path::PathBuf;
+use std::process::{Command, ExitStatus, Stdio};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, serde::Serialize)]
 pub(crate) enum PublishRegistry {
@@ -51,6 +55,13 @@ struct PublishHelperInvocation {
     dry_run: bool,
     skip_existing: bool,
     args: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct PublishHostInfo {
+    target: String,
+    os: String,
+    arch: String,
 }
 
 fn plan_publish_helper_invocation(
@@ -141,6 +152,12 @@ pub(crate) fn render_publish_plan(
 ) -> Result<String> {
     ensure_source_checkout(root, "publish requires")?;
     let invocation = plan_publish_helper_invocation(root, dry_run, registry, skip_existing)?;
+    let selected_registries = selected_registries(registry)
+        .into_iter()
+        .map(|entry| registry_arg(entry).to_string())
+        .collect::<Vec<_>>();
+    let host = resolve_host_target();
+    let preflight = build_publish_preflight(&selected_registries, dry_run, skip_existing)?;
     crate::output::render_publish_plan_output(crate::output::PublishPlanOutput {
         ok: true,
         root: invocation.root.display().to_string(),
@@ -149,7 +166,243 @@ pub(crate) fn render_publish_plan(
         skip_existing: invocation.skip_existing,
         helper: invocation.helper.display().to_string(),
         argv: invocation.args,
+        selected_registries,
+        host: serde_json::to_value(host)?,
+        preflight,
     })
+}
+
+fn selected_registries(registry: PublishRegistry) -> Vec<PublishRegistry> {
+    match registry {
+        PublishRegistry::All => vec![
+            PublishRegistry::Npm,
+            PublishRegistry::Pypi,
+            PublishRegistry::Cargo,
+        ],
+        other => vec![other],
+    }
+}
+
+fn build_publish_preflight(
+    selected_registries: &[String],
+    dry_run: bool,
+    skip_existing: bool,
+) -> Result<serde_json::Value> {
+    let mut tools = Vec::new();
+    let mut auth = Vec::new();
+    let mut issues = Vec::new();
+    let selected = selected_registries
+        .iter()
+        .map(String::as_str)
+        .collect::<Vec<_>>();
+
+    let node_required = true;
+    let cargo_required = selected
+        .iter()
+        .any(|entry| matches!(*entry, "npm" | "pypi" | "cargo"));
+    let npm_required = selected.contains(&"npm");
+    let curl_required = selected.contains(&"cargo") && skip_existing;
+    let python_required = selected.contains(&"pypi");
+    let npm_publish_required = selected.contains(&"npm") && !dry_run;
+    let cargo_publish_required = selected.contains(&"cargo") && !dry_run && !skip_existing;
+    let pypi_publish_required = selected.contains(&"pypi") && !dry_run;
+
+    for (name, required_now, required_publish) in [
+        ("node", node_required, node_required),
+        ("cargo", cargo_required, cargo_required),
+        ("npm", npm_required && !dry_run, npm_required),
+        ("curl", curl_required && !dry_run, curl_required),
+    ] {
+        let available = !required_publish || command_exists(name);
+        if required_now && !available {
+            issues.push(format!("required executable not found on PATH: {name}"));
+        }
+        tools.push(json!({
+            "name": name,
+            "required": required_now,
+            "requiredForPublish": required_publish,
+            "available": available
+        }));
+    }
+
+    let python = if python_required {
+        match python_command() {
+            Ok(command) => {
+                tools.push(json!({
+                    "name": command,
+                    "required": !dry_run,
+                    "requiredForPublish": true,
+                    "available": true,
+                    "kind": "python"
+                }));
+                Some(command)
+            }
+            Err(error) => {
+                if !dry_run {
+                    issues.push(error.to_string());
+                }
+                tools.push(json!({
+                    "name": "python3.10+",
+                    "required": !dry_run,
+                    "requiredForPublish": true,
+                    "available": false,
+                    "kind": "python"
+                }));
+                None
+            }
+        }
+    } else {
+        None
+    };
+
+    for (kind, required_now, required_publish, available) in [
+        (
+            "npm",
+            npm_publish_required,
+            selected.contains(&"npm"),
+            has_npm_auth(),
+        ),
+        (
+            "cargo",
+            cargo_publish_required,
+            selected.contains(&"cargo"),
+            has_cargo_auth(),
+        ),
+        (
+            "pypi",
+            pypi_publish_required,
+            selected.contains(&"pypi"),
+            has_pypi_auth(),
+        ),
+    ] {
+        if required_now && !available {
+            issues.push(format!("missing auth for {kind} publish"));
+        }
+        auth.push(json!({
+            "kind": kind,
+            "required": required_now,
+            "requiredForPublish": required_publish,
+            "available": available
+        }));
+    }
+
+    Ok(json!({
+        "ok": issues.is_empty(),
+        "tools": tools,
+        "auth": auth,
+        "python": python,
+        "issues": issues,
+        "notes": [
+            "publish --plan --json reports local preflight state and helper invocation only",
+            "it does not perform live registry propagation or auth validation beyond local presence checks"
+        ]
+    }))
+}
+
+fn resolve_host_target() -> PublishHostInfo {
+    let os = env::consts::OS.to_string();
+    let arch = env::consts::ARCH.to_string();
+    let target = match (env::consts::OS, env::consts::ARCH) {
+        ("macos", "aarch64") => "darwin-arm64",
+        ("macos", "x86_64") => "darwin-x64",
+        ("linux", "x86_64") => "linux-x64",
+        ("windows", "x86_64") => "win32-x64",
+        _ => "unsupported",
+    }
+    .to_string();
+    PublishHostInfo { target, os, arch }
+}
+
+fn command_exists(command: &str) -> bool {
+    if cfg!(windows) {
+        Command::new(env::var("ComSpec").unwrap_or_else(|_| "cmd.exe".to_string()))
+            .args(["/d", "/s", "/c", "where", command])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .map(|status| status.success())
+            .unwrap_or(false)
+    } else {
+        Command::new("sh")
+            .args(["-lc", &format!("command -v \"{command}\"")])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .map(|status| status.success())
+            .unwrap_or(false)
+    }
+}
+
+fn has_npm_auth() -> bool {
+    if env::var_os("NPM_TOKEN").is_some() {
+        return true;
+    }
+    let status = if cfg!(windows) {
+        Command::new(env::var("ComSpec").unwrap_or_else(|_| "cmd.exe".to_string()))
+            .args(["/d", "/s", "/c", "npm", "whoami"])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+    } else {
+        Command::new("npm")
+            .args(["whoami"])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+    };
+    status.map(|entry| entry.success()).unwrap_or(false)
+}
+
+fn has_cargo_auth() -> bool {
+    if env::var_os("CARGO_REGISTRY_TOKEN").is_some() {
+        return true;
+    }
+    let home = env::var_os("HOME")
+        .map(PathBuf::from)
+        .or_else(|| env::var_os("USERPROFILE").map(PathBuf::from));
+    if let Some(home) = home {
+        return home.join(".cargo/credentials.toml").is_file()
+            || home.join(".cargo/credentials").is_file();
+    }
+    false
+}
+
+fn has_pypi_auth() -> bool {
+    if env::var_os("TWINE_USERNAME").is_some() && env::var_os("TWINE_PASSWORD").is_some() {
+        return true;
+    }
+    let home = env::var_os("HOME")
+        .map(PathBuf::from)
+        .or_else(|| env::var_os("USERPROFILE").map(PathBuf::from));
+    if let Some(home) = home {
+        return home.join(".pypirc").is_file();
+    }
+    false
+}
+
+fn python_command() -> Result<String> {
+    for candidate in [
+        "python3.14",
+        "python3.13",
+        "python3.12",
+        "python3.11",
+        "python3.10",
+        "python3",
+        "python",
+    ] {
+        let status = Command::new(candidate)
+            .args([
+                "-c",
+                "import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)",
+            ])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+        if status.map(|entry| entry.success()).unwrap_or(false) {
+            return Ok(candidate.to_string());
+        }
+    }
+    bail!("no Python 3.10+ interpreter found on PATH");
 }
 
 #[cfg(test)]

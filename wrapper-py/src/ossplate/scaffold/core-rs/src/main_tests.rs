@@ -280,6 +280,16 @@ fn inspect_json_returns_config_and_contracts() {
     assert!(output["runtimeTargets"]["targets"].is_array());
     assert!(output["scaffoldPayload"]["requiredPaths"].is_array());
     assert!(output["sourceCheckout"]["requiredPaths"].is_array());
+    assert_eq!(
+        output["derived"]["paths"]["jsWrapperLauncher"],
+        "wrapper-js/bin/ossplate.js"
+    );
+    assert_eq!(output["derived"]["paths"]["pythonModule"], "ossplate");
+    assert!(output["derived"]["runtimePackages"].is_array());
+    assert_eq!(
+        output["derived"]["runtimePackages"][0]["folder"],
+        "wrapper-js/platform-packages/ossplate-darwin-arm64"
+    );
 }
 
 #[test]
@@ -411,6 +421,8 @@ fn publish_plan_json_returns_helper_invocation() {
     assert_eq!(output["registry"], "Pypi");
     assert_eq!(output["dryRun"], true);
     assert_eq!(output["skipExisting"], true);
+    assert_eq!(output["selectedRegistries"], serde_json::json!(["pypi"]));
+    assert!(output["host"]["target"].is_string());
     assert!(output["helper"].as_str().unwrap().starts_with('/'));
     assert!(output["helper"]
         .as_str()
@@ -418,6 +430,30 @@ fn publish_plan_json_returns_helper_invocation() {
         .ends_with("scripts/publish-local.mjs"));
     assert!(output["argv"][0].as_str().unwrap().starts_with('/'));
     assert!(output["argv"].as_array().unwrap().len() >= 5);
+    assert!(output["preflight"]["tools"].is_array());
+    assert!(output["preflight"]["auth"].is_array());
+    assert!(output["preflight"]["issues"].is_array());
+    assert_eq!(output["preflight"]["tools"][2]["name"], "npm");
+    assert_eq!(output["preflight"]["tools"][2]["required"], false);
+    assert_eq!(output["preflight"]["tools"][2]["requiredForPublish"], false);
+    fs::remove_dir_all(&root).unwrap();
+}
+
+#[test]
+fn publish_plan_json_marks_publish_only_requirements_separately() {
+    let root = make_fixture_root();
+    let output: serde_json::Value = serde_json::from_str(
+        &render_publish_plan(&root, true, PublishRegistry::All, false).unwrap(),
+    )
+    .unwrap();
+    let tools = output["preflight"]["tools"].as_array().unwrap();
+    let npm = tools.iter().find(|tool| tool["name"] == "npm").unwrap();
+    assert_eq!(npm["required"], false);
+    assert_eq!(npm["requiredForPublish"], true);
+    let auth = output["preflight"]["auth"].as_array().unwrap();
+    let npm_auth = auth.iter().find(|entry| entry["kind"] == "npm").unwrap();
+    assert_eq!(npm_auth["required"], false);
+    assert_eq!(npm_auth["requiredForPublish"], true);
     fs::remove_dir_all(&root).unwrap();
 }
 

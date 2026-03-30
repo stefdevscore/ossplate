@@ -168,13 +168,78 @@ pub(crate) fn inspect_repo_json(root: &Path) -> Result<String> {
     let runtime_targets = read_json(root, "runtime-targets.json")?;
     let scaffold_payload = read_json(root, "scaffold-payload.json")?;
     let source_checkout = read_optional_json(root, "source-checkout.json")?;
+    let derived = build_inspect_derived(&config, &runtime_targets)?;
     crate::output::render_inspect_output(crate::output::InspectOutput {
         config,
         managed_files,
         runtime_targets,
         scaffold_payload,
         source_checkout,
+        derived,
     })
+}
+
+fn build_inspect_derived(
+    config: &ToolConfig,
+    runtime_targets: &serde_json::Value,
+) -> Result<serde_json::Value> {
+    let python_module = python_module_name(&config.packages.python_package);
+    let js_launcher = format!("wrapper-js/bin/{}.js", config.packages.command);
+    let python_package_dir = format!("wrapper-py/src/{python_module}");
+    let source_root = format!("{python_package_dir}/cli.py");
+    let runtime_packages = runtime_targets
+        .get("targets")
+        .and_then(serde_json::Value::as_array)
+        .cloned()
+        .unwrap_or_default()
+        .into_iter()
+        .map(|target| {
+            let target_name = target
+                .get("target")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or_default()
+                .to_string();
+            let folder_suffix = target
+                .get("folderSuffix")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or_default();
+            let package_suffix = target
+                .get("packageSuffix")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or_default();
+            serde_json::json!({
+                "target": target_name,
+                "binary": target.get("binary").cloned().unwrap_or(serde_json::Value::Null),
+                "folder": format!("wrapper-js/platform-packages/ossplate-{}", folder_suffix),
+                "packageName": format!("{}-{}", config.packages.npm_package, package_suffix),
+            })
+        })
+        .collect::<Vec<_>>();
+    Ok(serde_json::json!({
+        "paths": {
+            "jsWrapperLauncher": js_launcher,
+            "pythonModule": python_module,
+            "pythonPackageDir": python_package_dir,
+            "pythonEntrypoint": format!("{}.cli:main", python_module_name(&config.packages.python_package)),
+            "pythonCliModulePath": source_root,
+            "scaffoldMirrors": [
+                "wrapper-js/scaffold",
+                format!("wrapper-py/src/{}/scaffold", python_module_name(&config.packages.python_package))
+            ]
+        },
+        "runtimePackages": runtime_packages
+    }))
+}
+
+fn python_module_name(package_name: &str) -> String {
+    package_name
+        .chars()
+        .map(|ch| match ch {
+            'a'..='z' | 'A'..='Z' | '0'..='9' | '_' => ch,
+            '-' | '.' => '_',
+            _ => '_',
+        })
+        .collect()
 }
 
 fn build_sync_changes(root: &Path) -> Result<Vec<SyncChange>> {

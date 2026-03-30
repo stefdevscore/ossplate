@@ -59,6 +59,8 @@ pub(crate) struct InspectOutput {
     #[serde(rename = "sourceCheckout")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) source_checkout: Option<Value>,
+    #[serde(rename = "derived")]
+    pub(crate) derived: Value,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -72,6 +74,10 @@ pub(crate) struct PublishPlanOutput {
     pub(crate) skip_existing: bool,
     pub(crate) helper: String,
     pub(crate) argv: Vec<String>,
+    #[serde(rename = "selectedRegistries")]
+    pub(crate) selected_registries: Vec<String>,
+    pub(crate) host: Value,
+    pub(crate) preflight: Value,
 }
 
 pub(crate) fn render_sync_output(
