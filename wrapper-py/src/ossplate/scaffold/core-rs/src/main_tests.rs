@@ -12,6 +12,7 @@ use crate::test_support::{fs, load_config, Path};
 use crate::{Cli, Commands};
 use clap::Parser;
 use std::path::PathBuf;
+use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -321,6 +322,7 @@ fn create_with_non_default_package_identity_is_valid_immediately() {
 
     assert!(validate_repo(&target).unwrap().ok);
     assert!(sync_repo(&target, true).is_ok());
+    assert_release_check_scaffold_mirrors(&target);
 
     let cargo_toml = fs::read_to_string(target.join("core-rs/Cargo.toml")).unwrap();
     assert!(cargo_toml.contains("name = \"agentcode\""));
@@ -356,6 +358,46 @@ fn create_with_non_default_package_identity_is_valid_immediately() {
     assert!(target.join("wrapper-py/src/agentcode/cli.py").exists());
     assert!(!target.join("wrapper-py/src/ossplate/cli.py").exists());
 
+    fs::remove_dir_all(&target).unwrap();
+}
+
+#[test]
+fn create_skips_local_generated_artifacts_from_template_source() {
+    let source_root = make_source_checkout_root();
+    fs::create_dir_all(source_root.join(".dist-assets/runtime/linux-x64")).unwrap();
+    fs::create_dir_all(source_root.join(".live-e2e")).unwrap();
+    fs::create_dir_all(source_root.join("wrapper-py/.tmp-inspect")).unwrap();
+    fs::create_dir_all(source_root.join("core-rs/target/debug")).unwrap();
+    fs::write(
+        source_root.join(".dist-assets/runtime/linux-x64/ossplate"),
+        "generated-binary",
+    )
+    .unwrap();
+    fs::write(source_root.join(".live-e2e/generated.log"), "generated-log").unwrap();
+    fs::write(
+        source_root.join("wrapper-py/.tmp-inspect/generated.txt"),
+        "generated-temp",
+    )
+    .unwrap();
+    fs::write(
+        source_root.join("core-rs/target/debug/ossplate"),
+        "generated-target",
+    )
+    .unwrap();
+
+    let target = unique_temp_path("ossplate-create-clean-source-copy");
+    if target.exists() {
+        fs::remove_dir_all(&target).unwrap();
+    }
+
+    create_scaffold_from(&source_root, &target, &IdentityOverrides::default()).unwrap();
+
+    assert!(!target.join(".dist-assets").exists());
+    assert!(!target.join(".live-e2e").exists());
+    assert!(!target.join("wrapper-py/.tmp-inspect").exists());
+    assert!(!target.join("core-rs/target").exists());
+
+    fs::remove_dir_all(&source_root).unwrap();
     fs::remove_dir_all(&target).unwrap();
 }
 
@@ -518,6 +560,20 @@ fn discover_template_root_honors_env_override() {
         std::env::remove_var("OSSPLATE_TEMPLATE_ROOT");
     }
     assert_eq!(discovered, source_root);
+}
+
+fn assert_release_check_scaffold_mirrors(root: &Path) {
+    let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .to_path_buf();
+    let status = Command::new("node")
+        .arg(repo_root.join("scripts/release-check.mjs"))
+        .arg("scaffold-mirrors")
+        .current_dir(root)
+        .status()
+        .unwrap();
+    assert!(status.success(), "expected scaffold mirror check to pass");
 }
 
 fn make_fixture_root() -> PathBuf {
