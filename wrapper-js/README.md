@@ -15,7 +15,7 @@ Use it to:
 - inspect the effective repo contract
 - run the full repo gate in structured JSON
 
-This package is the installed npm delivery adapter for the same `ossplate` CLI described in the main docs. It forwards to the bundled native binary for your current platform and exposes the same subcommands as the Rust core.
+This package is the installed JavaScript delivery adapter for the same `ossplate` CLI described in the main docs. It forwards to the bundled native binary for your current platform and exposes the same subcommands as the Rust core.
 
 Common commands:
 

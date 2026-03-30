@@ -151,7 +151,7 @@ pub(crate) fn render_wrapper_readme(language: &str, config: &ToolConfig) -> Stri
 }
 
 fn render_wrapper_readme_with_newlines(
-    _language: &str,
+    language: &str,
     config: &ToolConfig,
     newline: &str,
 ) -> String {
@@ -198,6 +198,12 @@ fn render_wrapper_readme_with_newlines(
         "- inspect the effective repo contract".to_string(),
         "- run the full repo gate in structured JSON".to_string(),
         String::new(),
+        format!(
+            "This package is the installed {} delivery adapter for the same `{}` CLI described in the main docs. It forwards to the bundled native binary for your current platform and exposes the same subcommands as the Rust core.",
+            language,
+            config.packages.command
+        ),
+        String::new(),
         "Common commands:".to_string(),
         String::new(),
         "```bash".to_string(),
@@ -208,6 +214,36 @@ fn render_wrapper_readme_with_newlines(
         format!("{} inspect --json", config.packages.command),
         format!("{} sync --check --json", config.packages.command),
         format!("{} verify --json", config.packages.command),
+        "```".to_string(),
+        String::new(),
+        "Typical workflow:".to_string(),
+        String::new(),
+        "```bash".to_string(),
+        format!("{} create ../my-new-project \\", config.packages.command),
+        "  --name \"My Project\" \\".to_string(),
+        "  --repository \"https://github.com/acme/my-project\" \\".to_string(),
+        "  --author-name \"Acme OSS\" \\".to_string(),
+        "  --author-email \"oss@acme.dev\" \\".to_string(),
+        "  --rust-crate \"my-project-core\" \\".to_string(),
+        "  --npm-package \"@acme/my-project\" \\".to_string(),
+        "  --python-package \"my-project-py\" \\".to_string(),
+        "  --command \"my-project\"".to_string(),
+        String::new(),
+        format!("{} validate --path ../my-new-project --json", config.packages.command),
+        format!("{} inspect --path ../my-new-project --json", config.packages.command),
+        format!(
+            "{} sync --path ../my-new-project --check --json",
+            config.packages.command
+        ),
+        "```".to_string(),
+        String::new(),
+        format!(
+            "If you are working from a source checkout instead of an installed {} package, use the same subcommands through:",
+            if language == "JavaScript" { "npm" } else { "Python" }
+        ),
+        String::new(),
+        "```bash".to_string(),
+        "cargo run --manifest-path core-rs/Cargo.toml -- <subcommand> ...".to_string(),
         "```".to_string(),
         String::new(),
         "Learn more:".to_string(),
