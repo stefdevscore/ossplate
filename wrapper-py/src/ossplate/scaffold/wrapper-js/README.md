@@ -12,6 +12,8 @@ Use it to:
 - initialize an existing directory
 - validate project identity and metadata
 - keep owned files in sync
+- inspect the effective repo contract
+- run the full repo gate in structured JSON
 
 Common commands:
 
@@ -19,12 +21,15 @@ Common commands:
 ossplate version
 ossplate create <target>
 ossplate init --path <dir>
-ossplate validate
-ossplate sync --check
+ossplate validate --json
+ossplate inspect --json
+ossplate sync --check --json
+ossplate verify --json
 ```
 
 Learn more:
 
 - [Main documentation](https://github.com/stefdevscore/ossplate/blob/main/docs/README.md)
+- [Agent Operations](https://github.com/stefdevscore/ossplate/blob/main/docs/agent-operations.md)
 - [Testing guide](https://github.com/stefdevscore/ossplate/blob/main/docs/testing.md)
 - [Architecture](https://github.com/stefdevscore/ossplate/blob/main/docs/architecture.md)

@@ -168,6 +168,12 @@ fn render_wrapper_readme_with_newlines(
     let architecture_url =
         github_blob_url(&config.project.repository, "main", "docs/architecture.md")
             .expect("wrapper README rendering requires a GitHub repository URL");
+    let agent_ops_url = github_blob_url(
+        &config.project.repository,
+        "main",
+        "docs/agent-operations.md",
+    )
+    .expect("wrapper README rendering requires a GitHub repository URL");
     [
         format!("# {}", config.project.name),
         String::new(),
@@ -189,6 +195,8 @@ fn render_wrapper_readme_with_newlines(
         "- initialize an existing directory".to_string(),
         "- validate project identity and metadata".to_string(),
         "- keep owned files in sync".to_string(),
+        "- inspect the effective repo contract".to_string(),
+        "- run the full repo gate in structured JSON".to_string(),
         String::new(),
         "Common commands:".to_string(),
         String::new(),
@@ -196,13 +204,16 @@ fn render_wrapper_readme_with_newlines(
         format!("{} version", config.packages.command),
         format!("{} create <target>", config.packages.command),
         format!("{} init --path <dir>", config.packages.command),
-        format!("{} validate", config.packages.command),
-        format!("{} sync --check", config.packages.command),
+        format!("{} validate --json", config.packages.command),
+        format!("{} inspect --json", config.packages.command),
+        format!("{} sync --check --json", config.packages.command),
+        format!("{} verify --json", config.packages.command),
         "```".to_string(),
         String::new(),
         "Learn more:".to_string(),
         String::new(),
         format!("- [Main documentation]({docs_url})"),
+        format!("- [Agent Operations]({agent_ops_url})"),
         format!("- [Testing guide]({testing_url})"),
         format!("- [Architecture]({architecture_url})"),
         String::new(),
