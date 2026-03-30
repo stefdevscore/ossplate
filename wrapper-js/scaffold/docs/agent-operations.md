@@ -10,7 +10,8 @@ Use this sequence:
 2. `cargo run --manifest-path core-rs/Cargo.toml -- sync --check --json` to confirm owned metadata is aligned without mutating state.
 3. `cargo run --manifest-path core-rs/Cargo.toml -- sync --plan --json` to inspect proposed repairs before mutation.
 4. `cargo run --manifest-path core-rs/Cargo.toml -- sync --json` to apply bounded repairs and capture the changed files.
-5. `./scripts/verify.sh` when the full repo gate is needed.
+5. `cargo run --manifest-path core-rs/Cargo.toml -- verify --json` when the full repo gate is needed in machine-readable form.
+6. `./scripts/verify.sh` when a shell-oriented full gate is preferred.
 
 The goal is to keep automation inside the repo's supported ownership boundary instead of rewriting files heuristically.
 
@@ -20,7 +21,8 @@ The goal is to keep automation inside the repo's supported ownership boundary in
 - `sync --check --json` reports drift without mutating files.
 - `sync --plan --json` reports the exact owned files and synced content that would be written.
 - `sync --json` applies that bounded repair and returns the same changed-file surface.
-- `verify.sh` runs the full source, packaging, and release-facing verification contract.
+- `verify --json` runs the same full gate and returns structured per-step results.
+- `verify.sh` runs the same source, packaging, and release-facing verification contract in shell form.
 
 ## OPS-03 Safe Mutation Model
 
@@ -30,7 +32,8 @@ Prefer this order:
 2. run `cargo run --manifest-path core-rs/Cargo.toml -- validate --json`
 3. inspect `cargo run --manifest-path core-rs/Cargo.toml -- sync --check --json` or `-- sync --plan --json`
 4. run `cargo run --manifest-path core-rs/Cargo.toml -- sync --json` only when the bounded repair is intended
-5. rerun `cargo run --manifest-path core-rs/Cargo.toml -- validate --json` and `./scripts/verify.sh`
+5. rerun `cargo run --manifest-path core-rs/Cargo.toml -- validate --json`
+6. run `cargo run --manifest-path core-rs/Cargo.toml -- verify --json` for a structured full-gate result or `./scripts/verify.sh` for the shell form
 
 ## OPS-04 What Not To Assume
 

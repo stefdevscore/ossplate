@@ -32,11 +32,12 @@ These commands are the most useful for agents:
 - `ossplate sync --check --json`
 - `ossplate sync --plan --json`
 - `ossplate sync --json`
+- `ossplate verify --json`
 - `./scripts/verify.sh`
 - `node ./scripts/release-check.mjs release-state`
 - `node ./scripts/release-check.mjs publish-readiness publish`
 
-Use `validate --json` for structured issue detection. Use `sync --check --json` or `sync --plan --json` before mutation. Use `sync --json` when the bounded repair is intended. Use `verify.sh` when the agent needs the full repo gate.
+Use `validate --json` for structured issue detection. Use `sync --check --json` or `sync --plan --json` before mutation. Use `sync --json` when the bounded repair is intended. Use `verify --json` for a structured full-gate result, or `verify.sh` when a human shell-oriented gate is sufficient.
 
 ## AGENT-04 Safe Mutation Model
 

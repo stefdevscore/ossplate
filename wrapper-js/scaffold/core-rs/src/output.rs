@@ -1,6 +1,7 @@
 use crate::config::ToolConfig;
 use crate::release::PublishRegistry;
 use crate::sync::{SyncChangePlan, ValidationOutput};
+use crate::verify::VerifyStepResult;
 use anyhow::{bail, Result};
 use serde::Serialize;
 use serde_json::Value;
@@ -80,6 +81,12 @@ pub(crate) struct PublishPlanOutput {
     pub(crate) preflight: Value,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub(crate) struct VerifyOutput {
+    pub(crate) ok: bool,
+    pub(crate) steps: Vec<VerifyStepResult>,
+}
+
 pub(crate) fn render_sync_output(
     mode: &'static str,
     issues: Vec<crate::sync::ValidationIssue>,
@@ -124,6 +131,11 @@ pub(crate) fn render_inspect_output(output: InspectOutput) -> Result<String> {
 
 pub(crate) fn render_publish_plan_output(output: PublishPlanOutput) -> Result<String> {
     Ok(serde_json::to_string(&output)?)
+}
+
+pub(crate) fn render_verify_output(steps: Vec<VerifyStepResult>) -> Result<String> {
+    let ok = steps.iter().all(|step| step.ok || step.skipped);
+    Ok(serde_json::to_string(&VerifyOutput { ok, steps })?)
 }
 
 pub(crate) fn print_validation_output(output: &ValidationOutput, as_json: bool) -> Result<()> {

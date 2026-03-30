@@ -49,6 +49,7 @@
     "core-rs/src/release.rs",
     "core-rs/src/scaffold.rs",
     "core-rs/src/scaffold_manifest.rs",
+    "core-rs/src/verify.rs",
     "core-rs/src/scaffold/identity_application.rs",
     "core-rs/src/scaffold/projection.rs",
     "core-rs/src/scaffold/template_root.rs",

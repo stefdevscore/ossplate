@@ -460,6 +460,7 @@ mod tests {
         fs::write(root.join("core-rs/src/output.rs"), "// output\n").unwrap();
         fs::write(root.join("core-rs/src/release.rs"), "// release\n").unwrap();
         fs::write(root.join("core-rs/src/scaffold.rs"), "// scaffold\n").unwrap();
+        fs::write(root.join("core-rs/src/verify.rs"), "// verify\n").unwrap();
         fs::write(
             root.join("core-rs/src/scaffold_manifest.rs"),
             "// scaffold manifest\n",

@@ -13,6 +13,7 @@ mod source_checkout;
 mod sync;
 #[cfg(test)]
 mod test_support;
+mod verify;
 
 use config::IdentityOverrides;
 use output::{print_validation_output, render_version_output};
@@ -21,6 +22,7 @@ use scaffold::{create_scaffold, create_scaffold_json, init_scaffold, init_scaffo
 use sync::{
     inspect_repo_json, sync_apply_json, sync_check_json, sync_plan_json, sync_repo, validate_repo,
 };
+use verify::verify_repo_output;
 
 #[derive(Parser)]
 #[command(name = "ossplate")]
@@ -92,6 +94,13 @@ enum Commands {
         skip_existing: bool,
         #[arg(long)]
         plan: bool,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Run the full repo verification gate
+    Verify {
+        #[arg(long, default_value = ".")]
+        path: PathBuf,
         #[arg(long)]
         json: bool,
     },
@@ -190,6 +199,19 @@ fn run() -> Result<()> {
                 Ok(())
             } else {
                 publish_repo(&path, dry_run, registry, skip_existing)
+            }
+        }
+        Commands::Verify { path, json } => {
+            if !json {
+                anyhow::bail!("verify currently requires --json");
+            }
+            let output = verify_repo_output(&path)?;
+            let rendered = output::render_verify_output(output.steps)?;
+            println!("{rendered}");
+            if output.ok {
+                Ok(())
+            } else {
+                anyhow::bail!("verify failed")
             }
         }
     }

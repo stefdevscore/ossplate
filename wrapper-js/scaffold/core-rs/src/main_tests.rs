@@ -11,6 +11,7 @@ use crate::sync::{
     sync_apply_json, sync_check_json, sync_plan_json, sync_repo, validate_repo,
 };
 use crate::test_support::{fs, load_config, Path};
+use crate::verify::VerifyStepResult;
 use crate::{Cli, Commands};
 use clap::Parser;
 use std::path::PathBuf;
@@ -197,6 +198,18 @@ fn parses_publish_with_flags() {
 }
 
 #[test]
+fn parses_verify_with_json() {
+    let cli = Cli::try_parse_from(["ossplate", "verify", "--path", "demo", "--json"]).unwrap();
+    match cli.command {
+        Commands::Verify { path, json } => {
+            assert_eq!(path, PathBuf::from("demo"));
+            assert!(json);
+        }
+        _ => panic!("expected verify"),
+    }
+}
+
+#[test]
 fn sync_check_json_returns_ok_on_clean_repo() {
     let root = make_fixture_root();
     let output: serde_json::Value = serde_json::from_str(&sync_check_json(&root).unwrap()).unwrap();
@@ -264,6 +277,58 @@ fn sync_apply_json_mutates_and_reports_changed_files() {
     assert_eq!(applied["issues"], planned["issues"]);
     assert_eq!(applied["changes"], planned["changes"]);
     assert!(validate_repo(&root).unwrap().ok);
+}
+
+#[test]
+fn render_verify_output_serializes_step_results() {
+    let json = crate::output::render_verify_output(vec![
+        VerifyStepResult {
+            name: "tool:validate".into(),
+            ok: true,
+            exit_code: 0,
+            stdout: "{\"ok\":true}".into(),
+            stderr: String::new(),
+            skipped: false,
+            reason: None,
+        },
+        VerifyStepResult {
+            name: "js:test".into(),
+            ok: true,
+            exit_code: 0,
+            stdout: String::new(),
+            stderr: String::new(),
+            skipped: true,
+            reason: Some("not published".into()),
+        },
+    ])
+    .unwrap();
+    let output: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert_eq!(output["ok"], true);
+    assert_eq!(output["steps"][0]["name"], "tool:validate");
+    assert_eq!(output["steps"][0]["exitCode"], 0);
+    assert_eq!(output["steps"][1]["skipped"], true);
+    assert_eq!(output["steps"][1]["reason"], "not published");
+}
+
+#[test]
+fn verify_json_failure_still_renders_machine_readable_output() {
+    let output = crate::output::VerifyOutput {
+        ok: false,
+        steps: vec![VerifyStepResult {
+            name: "rust:test".into(),
+            ok: false,
+            exit_code: 1,
+            stdout: String::new(),
+            stderr: "boom".into(),
+            skipped: false,
+            reason: None,
+        }],
+    };
+    let rendered = crate::output::render_verify_output(output.steps).unwrap();
+    let value: serde_json::Value = serde_json::from_str(&rendered).unwrap();
+    assert_eq!(value["ok"], false);
+    assert_eq!(value["steps"][0]["name"], "rust:test");
+    assert_eq!(value["steps"][0]["stderr"], "boom");
 }
 
 #[test]

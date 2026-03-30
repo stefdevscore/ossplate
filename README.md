@@ -44,6 +44,7 @@ When an AI agent is driving repo setup or maintenance, the high-signal loop is:
 - `cargo run --manifest-path core-rs/Cargo.toml -- validate --json` to inspect repo health in machine-readable form
 - `cargo run --manifest-path core-rs/Cargo.toml -- sync --check --json` or `-- sync --plan --json` to inspect bounded drift
 - `cargo run --manifest-path core-rs/Cargo.toml -- sync --json` to apply bounded repairs with a structured result
+- `cargo run --manifest-path core-rs/Cargo.toml -- verify --json` to run the full repo gate with per-step structured results
 
 ## Quick Start
 
@@ -77,6 +78,7 @@ cargo run --manifest-path core-rs/Cargo.toml -- init --path <dir>
 cargo run --manifest-path core-rs/Cargo.toml -- validate --json
 cargo run --manifest-path core-rs/Cargo.toml -- sync --plan --json
 cargo run --manifest-path core-rs/Cargo.toml -- sync --json
+cargo run --manifest-path core-rs/Cargo.toml -- verify --json
 ```
 
 The same command surface is available through the Rust binary and the packaged JS/Python wrappers.
