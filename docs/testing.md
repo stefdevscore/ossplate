@@ -2,6 +2,8 @@
 
 `ossplate` uses layered verification so the source checkout and installed wrapper artifacts stay aligned.
 
+For agent-operated repos, pair this guide with [Agents](./agents.md). The key agent-safe commands are `validate --json`, `sync --check`, and `verify.sh`.
+
 ## TEST-01 Verification Layers
 
 ### TEST-01A Core Smoke

@@ -1,6 +1,6 @@
 [project]
 name = "Ossplate"
-description = "Build one project, ship it everywhere."
+description = "Scaffold and maintain one Rust-core CLI that ships cleanly through Cargo, npm, and PyPI."
 repository = "https://github.com/stefdevscore/ossplate"
 license = "Unlicense"
 

@@ -3,11 +3,13 @@ name = "ossplate"
 version = "0.2.8"
 edition = "2021"
 authors = ["Stef <stefdevscore@github.com>"]
-description = "Build one project, ship it everywhere."
+description = "Scaffold and maintain one Rust-core CLI that ships cleanly through Cargo, npm, and PyPI."
 license = "Unlicense"
 readme = "../README.md"
 repository = "https://github.com/stefdevscore/ossplate"
 homepage = "https://github.com/stefdevscore/ossplate"
+keywords = ["cli", "automation", "packaging", "distribution", "bootstrap"]
+categories = ["command-line-utilities", "development-tools"]
 default-run = "ossplate"
 
 [dependencies]

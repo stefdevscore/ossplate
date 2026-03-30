@@ -5,15 +5,22 @@ build-backend = "hatchling.build"
 [project]
 name = "ossplate"
 version = "0.2.8"
-description = "Build one project, ship it everywhere."
+description = "Scaffold and maintain one Rust-core CLI that ships cleanly through Cargo, npm, and PyPI."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Unlicense" }
 authors = [
   { name = "Stef", email = "stefdevscore@github.com" }
 ]
+keywords = ["automation", "bootstrap", "distribution", "packaging", "cli", "rust", "python", "npm"]
 classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
   "Programming Language :: Python :: 3",
+  "Topic :: Software Development :: Build Tools",
+  "Topic :: Software Development :: Code Generators",
+  "Topic :: Utilities",
   "License :: Public Domain",
   "Operating System :: OS Independent"
 ]

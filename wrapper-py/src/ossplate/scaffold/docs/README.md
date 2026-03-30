@@ -14,11 +14,12 @@ The canonical docs assume three repo-wide principles:
 
 - [Architecture](./architecture.md): current product shape and ownership boundaries
 - [Hexagonal Shell](./hexagonal-shell.md): forward-looking slice model and current implementation status
+- [Agents](./agents.md): the high-signal bootstrap, validate, and repair loop for AI operators
 - [Adoption Guide](./customizing-the-template.md): how to adopt, create, init, and rename safely
 - [Testing](./testing.md): the real verification contract, CI, and live install confidence path
 - [Releases](./releases.md): operator release flow, rerun behavior, and local publish recovery
 
-Read those five first. Everything else is either reference material or a decision record.
+Read those six first. Everything else is either reference material or a decision record.
 
 ## DOC-02 Reference / Reports
 

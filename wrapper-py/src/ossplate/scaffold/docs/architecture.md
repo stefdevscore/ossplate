@@ -2,6 +2,8 @@
 
 `ossplate` is one product distributed through three package channels.
 
+It is also designed to be operable by agents through narrow, deterministic commands rather than unbounded repo heuristics.
+
 ## ARCH-00 Design Principles
 
 The current codebase applies three explicit architecture rules:

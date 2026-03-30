@@ -3,7 +3,7 @@
   "bin": {
     "ossplate": "bin/ossplate.js"
   },
-  "description": "Build one project, ship it everywhere.",
+  "description": "Scaffold and maintain one Rust-core CLI that ships cleanly through Cargo, npm, and PyPI.",
   "devDependencies": {
     "@types/node": "^24.6.0",
     "typescript": "^5.9.3"
@@ -16,8 +16,14 @@
     "scaffold/.gitignore"
   ],
   "keywords": [
-    "oss",
+    "automation",
+    "bootstrap",
+    "distribution",
     "ossplate",
+    "packaging",
+    "rust",
+    "python",
+    "npm",
     "cli"
   ],
   "license": "Unlicense",
