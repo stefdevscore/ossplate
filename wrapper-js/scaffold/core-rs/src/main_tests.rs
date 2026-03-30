@@ -1,12 +1,14 @@
 use crate::config::IdentityOverrides;
 use crate::output::VersionOutput;
-use crate::release::PublishRegistry;
+use crate::release::{render_publish_plan, PublishRegistry};
 use crate::scaffold::{
-    create_scaffold_from, discover_template_root, ensure_scaffold_source_root, init_scaffold_from,
+    create_scaffold_from, create_scaffold_json, discover_template_root,
+    ensure_scaffold_source_root, init_scaffold_from, init_scaffold_json,
 };
 use crate::sync::format_human_issues;
 use crate::sync::{
-    github_blob_url, github_raw_url, issue, render_wrapper_readme, sync_repo, validate_repo,
+    github_blob_url, github_raw_url, inspect_repo_json, issue, render_wrapper_readme,
+    sync_check_json, sync_plan_json, sync_repo, validate_repo,
 };
 use crate::test_support::{fs, load_config, Path};
 use crate::{Cli, Commands};
@@ -137,6 +139,7 @@ fn parses_create_with_identity_overrides() {
         "ossplate",
         "create",
         "demo",
+        "--json",
         "--name",
         "Demo Tool",
         "--command",
@@ -144,8 +147,13 @@ fn parses_create_with_identity_overrides() {
     ])
     .unwrap();
     match cli.command {
-        Commands::Create { target, overrides } => {
+        Commands::Create {
+            target,
+            json,
+            overrides,
+        } => {
             assert_eq!(target, PathBuf::from("demo"));
+            assert!(json);
             assert_eq!(overrides.name.as_deref(), Some("Demo Tool"));
             assert_eq!(overrides.command.as_deref(), Some("demo-tool"));
         }
@@ -160,6 +168,8 @@ fn parses_publish_with_flags() {
         "publish",
         "--path",
         "demo",
+        "--plan",
+        "--json",
         "--dry-run",
         "--registry",
         "pypi",
@@ -172,14 +182,186 @@ fn parses_publish_with_flags() {
             dry_run,
             registry,
             skip_existing,
+            plan,
+            json,
         } => {
             assert_eq!(path, PathBuf::from("demo"));
             assert!(dry_run);
             assert_eq!(registry, PublishRegistry::Pypi);
             assert!(skip_existing);
+            assert!(plan);
+            assert!(json);
         }
         _ => panic!("expected publish"),
     }
+}
+
+#[test]
+fn sync_check_json_returns_ok_on_clean_repo() {
+    let root = make_fixture_root();
+    let output: serde_json::Value = serde_json::from_str(&sync_check_json(&root).unwrap()).unwrap();
+    assert_eq!(output["ok"], true);
+    assert_eq!(output["mode"], "check");
+    assert_eq!(output["issues"], serde_json::json!([]));
+    assert_eq!(output["changes"], serde_json::json!([]));
+}
+
+#[test]
+fn sync_check_json_returns_structured_drift() {
+    let root = make_fixture_root();
+    fs::write(
+        root.join("wrapper-js/package.json"),
+        "{\n  \"name\": \"bad\",\n  \"version\": \"0.1.19\",\n  \"optionalDependencies\": {}\n}\n",
+    )
+    .unwrap();
+
+    let output: serde_json::Value = serde_json::from_str(&sync_check_json(&root).unwrap()).unwrap();
+    assert_eq!(output["ok"], false);
+    assert_eq!(output["mode"], "check");
+    assert!(output["issues"].as_array().unwrap().len() > 0);
+    assert!(output["changes"].as_array().unwrap().len() > 0);
+    assert!(output["changes"][0].get("synced").is_none());
+}
+
+#[test]
+fn sync_plan_json_includes_synced_content_and_does_not_mutate() {
+    let root = make_fixture_root();
+    let original = fs::read_to_string(root.join("wrapper-js/package.json")).unwrap();
+    fs::write(
+        root.join("wrapper-js/package.json"),
+        "{\n  \"name\": \"bad\",\n  \"version\": \"0.1.19\",\n  \"optionalDependencies\": {}\n}\n",
+    )
+    .unwrap();
+
+    let output: serde_json::Value = serde_json::from_str(&sync_plan_json(&root).unwrap()).unwrap();
+    assert_eq!(output["ok"], false);
+    assert_eq!(output["mode"], "plan");
+    let changes = output["changes"].as_array().unwrap();
+    assert!(changes
+        .iter()
+        .any(|change| change["file"] == "wrapper-js/package.json"));
+    assert!(changes.iter().all(|change| change["synced"].is_string()));
+
+    let current = fs::read_to_string(root.join("wrapper-js/package.json")).unwrap();
+    assert_ne!(current, original);
+    assert!(current.contains("\"name\": \"bad\""));
+}
+
+#[test]
+fn inspect_json_returns_config_and_contracts() {
+    let root = make_source_checkout_root();
+    let output: serde_json::Value =
+        serde_json::from_str(&inspect_repo_json(&root).unwrap()).unwrap();
+    assert_eq!(output["config"]["project"]["name"], "Ossplate");
+    assert!(output["managedFiles"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|entry| entry == "core-rs/Cargo.toml"));
+    assert!(output["runtimeTargets"]["targets"].is_array());
+    assert!(output["scaffoldPayload"]["requiredPaths"].is_array());
+    assert!(output["sourceCheckout"]["requiredPaths"].is_array());
+}
+
+#[test]
+fn create_json_returns_effective_identity() {
+    let target = unique_temp_path("ossplate-create-json");
+    if target.exists() {
+        fs::remove_dir_all(&target).unwrap();
+    }
+    let output: serde_json::Value = serde_json::from_str(
+        &create_scaffold_json(
+            &target,
+            &IdentityOverrides {
+                name: Some("Agentcode".to_string()),
+                description: Some(
+                    "Build and ship the agentcode CLI through Rust, npm, and PyPI.".to_string(),
+                ),
+                repository: Some("https://github.com/stefdevscore/agentcode".to_string()),
+                license: Some("Apache-2.0".to_string()),
+                author_name: Some("Azk".to_string()),
+                author_email: Some("azk@example.com".to_string()),
+                rust_crate: None,
+                npm_package: None,
+                python_package: None,
+                command: Some("agentcode".to_string()),
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(output["ok"], true);
+    assert_eq!(output["action"], "create");
+    assert_eq!(output["created"], true);
+    assert_eq!(output["config"]["packages"]["command"], "agentcode");
+    fs::remove_dir_all(&target).unwrap();
+}
+
+#[test]
+fn init_json_returns_effective_identity() {
+    let source_root = make_source_checkout_root();
+    let target = unique_temp_path("ossplate-init-json");
+    if target.exists() {
+        fs::remove_dir_all(&target).unwrap();
+    }
+    fs::create_dir_all(target.join("core-rs")).unwrap();
+    fs::write(
+        target.join("ossplate.toml"),
+        fs::read_to_string(source_root.join("ossplate.toml")).unwrap(),
+    )
+    .unwrap();
+    fs::write(
+        target.join("core-rs/Cargo.toml"),
+        "[package]\nname = \"bad-core\"\nversion = \"0.1.22\"\n",
+    )
+    .unwrap();
+
+    let output: serde_json::Value = serde_json::from_str(
+        &init_scaffold_json(
+            &target,
+            &IdentityOverrides {
+                name: Some("Agentcode".to_string()),
+                description: Some(
+                    "Build and ship the agentcode CLI through Rust, npm, and PyPI.".to_string(),
+                ),
+                repository: Some("https://github.com/stefdevscore/agentcode".to_string()),
+                license: Some("Apache-2.0".to_string()),
+                author_name: Some("Azk".to_string()),
+                author_email: Some("azk@example.com".to_string()),
+                rust_crate: None,
+                npm_package: None,
+                python_package: None,
+                command: Some("agentcode".to_string()),
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(output["ok"], true);
+    assert_eq!(output["action"], "init");
+    assert_eq!(output["initialized"], true);
+    assert_eq!(output["config"]["packages"]["command"], "agentcode");
+    fs::remove_dir_all(&source_root).unwrap();
+    fs::remove_dir_all(&target).unwrap();
+}
+
+#[test]
+fn publish_plan_json_returns_helper_invocation() {
+    let root = make_fixture_root();
+    let output: serde_json::Value = serde_json::from_str(
+        &render_publish_plan(&root, true, PublishRegistry::Pypi, true).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(output["ok"], true);
+    assert_eq!(output["registry"], "Pypi");
+    assert_eq!(output["dryRun"], true);
+    assert_eq!(output["skipExisting"], true);
+    assert!(output["helper"]
+        .as_str()
+        .unwrap()
+        .ends_with("scripts/publish-local.mjs"));
+    assert!(output["argv"].as_array().unwrap().len() >= 5);
+    fs::remove_dir_all(&root).unwrap();
 }
 
 #[test]
@@ -611,6 +793,11 @@ fn copy_required_paths_from_manifest(source_root: &Path, target_root: &Path) {
     fs::copy(
         source_root.join("scaffold-payload.json"),
         target_root.join("scaffold-payload.json"),
+    )
+    .unwrap();
+    fs::copy(
+        source_root.join("source-checkout.json"),
+        target_root.join("source-checkout.json"),
     )
     .unwrap();
     let manifest: serde_json::Value = serde_json::from_str(

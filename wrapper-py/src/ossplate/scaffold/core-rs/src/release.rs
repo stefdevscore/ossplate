@@ -4,7 +4,7 @@ use clap::ValueEnum;
 use std::path::Path;
 use std::process::{Command, ExitStatus};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, serde::Serialize)]
 pub(crate) enum PublishRegistry {
     All,
     Npm,
@@ -46,6 +46,10 @@ fn publish_repo_with_runner(
 
 struct PublishHelperInvocation {
     root: std::path::PathBuf,
+    helper: std::path::PathBuf,
+    registry: PublishRegistry,
+    dry_run: bool,
+    skip_existing: bool,
     args: Vec<String>,
 }
 
@@ -60,7 +64,14 @@ fn plan_publish_helper_invocation(
         .canonicalize()
         .with_context(|| format!("failed to canonicalize publish path {}", root.display()))?;
     let args = build_publish_args(&script_path, &root, dry_run, registry, skip_existing);
-    Ok(PublishHelperInvocation { root, args })
+    Ok(PublishHelperInvocation {
+        root,
+        helper: script_path,
+        registry,
+        dry_run,
+        skip_existing,
+        args,
+    })
 }
 
 fn publish_helper_script_path(root: &Path) -> Result<std::path::PathBuf> {
@@ -120,6 +131,25 @@ impl PublishHelperRunner for NodePublishHelperRunner {
             .status()
             .context("failed to start local publish helper via node")
     }
+}
+
+pub(crate) fn render_publish_plan(
+    root: &Path,
+    dry_run: bool,
+    registry: PublishRegistry,
+    skip_existing: bool,
+) -> Result<String> {
+    ensure_source_checkout(root, "publish requires")?;
+    let invocation = plan_publish_helper_invocation(root, dry_run, registry, skip_existing)?;
+    crate::output::render_publish_plan_output(crate::output::PublishPlanOutput {
+        ok: true,
+        root: invocation.root.display().to_string(),
+        registry: invocation.registry,
+        dry_run: invocation.dry_run,
+        skip_existing: invocation.skip_existing,
+        helper: invocation.helper.display().to_string(),
+        argv: invocation.args,
+    })
 }
 
 #[cfg(test)]

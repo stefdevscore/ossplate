@@ -4,6 +4,7 @@ mod template_root;
 
 use crate::config::load_config;
 use crate::config::IdentityOverrides;
+use crate::output::render_bootstrap_output;
 use crate::sync::sync_repo;
 use anyhow::Result;
 use std::path::Path;
@@ -18,13 +19,15 @@ pub(crate) use template_root::{discover_template_root, ensure_scaffold_source_ro
 pub(crate) fn create_scaffold(target: &Path, overrides: &IdentityOverrides) -> Result<()> {
     let source_root = discover_template_root()?;
     ensure_scaffold_source_root(&source_root)?;
-    create_scaffold_from(&source_root, target, overrides)
+    create_scaffold_from(&source_root, target, overrides)?;
+    Ok(())
 }
 
 pub(crate) fn init_scaffold(target: &Path, overrides: &IdentityOverrides) -> Result<()> {
     let source_root = discover_template_root()?;
     ensure_scaffold_source_root(&source_root)?;
-    init_scaffold_from(&source_root, target, overrides)
+    init_scaffold_from(&source_root, target, overrides)?;
+    Ok(())
 }
 
 pub(crate) fn create_scaffold_from(
@@ -59,4 +62,22 @@ pub(crate) fn init_scaffold_from(
     stage_scaffold_mirrors(&target_root, &config)?;
     println!("initialized scaffold at {}", target_root.display());
     Ok(())
+}
+
+pub(crate) fn create_scaffold_json(target: &Path, overrides: &IdentityOverrides) -> Result<String> {
+    let source_root = discover_template_root()?;
+    ensure_scaffold_source_root(&source_root)?;
+    create_scaffold_from(&source_root, target, overrides)?;
+    let target_root = target.canonicalize()?;
+    let config = load_config(&target_root)?;
+    render_bootstrap_output("create", &target_root, config)
+}
+
+pub(crate) fn init_scaffold_json(target: &Path, overrides: &IdentityOverrides) -> Result<String> {
+    let source_root = discover_template_root()?;
+    ensure_scaffold_source_root(&source_root)?;
+    init_scaffold_from(&source_root, target, overrides)?;
+    let target_root = target.canonicalize()?;
+    let config = load_config(&target_root)?;
+    render_bootstrap_output("init", &target_root, config)
 }

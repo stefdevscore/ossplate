@@ -35,6 +35,12 @@ struct SyncChange {
     synced: String,
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
+pub(crate) struct SyncChangePlan {
+    pub(crate) path: String,
+    pub(crate) synced: String,
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct ManagedFile {
     pub(crate) path: &'static str,
@@ -86,6 +92,56 @@ pub(crate) fn sync_repo(root: &Path, check: bool) -> Result<()> {
     Ok(())
 }
 
+pub(crate) fn sync_check_json(root: &Path) -> Result<String> {
+    let drifted = build_sync_changes(root)?;
+    let issues = drifted
+        .iter()
+        .flat_map(|change| change.issues.iter().cloned())
+        .collect::<Vec<_>>();
+    let changes = drifted
+        .into_iter()
+        .map(|change| SyncChangePlan {
+            path: change.path.to_string(),
+            synced: change.synced,
+        })
+        .collect();
+    crate::output::render_sync_output("check", issues, changes, false)
+}
+
+pub(crate) fn sync_plan_json(root: &Path) -> Result<String> {
+    let drifted = build_sync_changes(root)?;
+    let issues = drifted
+        .iter()
+        .flat_map(|change| change.issues.iter().cloned())
+        .collect::<Vec<_>>();
+    let changes = drifted
+        .into_iter()
+        .map(|change| SyncChangePlan {
+            path: change.path.to_string(),
+            synced: change.synced,
+        })
+        .collect();
+    crate::output::render_sync_output("plan", issues, changes, true)
+}
+
+pub(crate) fn inspect_repo_json(root: &Path) -> Result<String> {
+    let config = load_config(root)?;
+    let managed_files = managed_files()
+        .into_iter()
+        .map(|file| file.path.to_string())
+        .collect();
+    let runtime_targets = read_json(root, "runtime-targets.json")?;
+    let scaffold_payload = read_json(root, "scaffold-payload.json")?;
+    let source_checkout = read_json(root, "source-checkout.json")?;
+    crate::output::render_inspect_output(crate::output::InspectOutput {
+        config,
+        managed_files,
+        runtime_targets,
+        scaffold_payload,
+        source_checkout,
+    })
+}
+
 fn build_sync_changes(root: &Path) -> Result<Vec<SyncChange>> {
     let config = load_config(root)?;
     let current = collect_current_files(root)?;
@@ -119,6 +175,14 @@ fn collect_current_files(root: &Path) -> Result<BTreeMap<&'static str, String>> 
         );
     }
     Ok(files)
+}
+
+fn read_json(root: &Path, relative_path: &str) -> Result<serde_json::Value> {
+    serde_json::from_str(
+        &fs::read_to_string(root.join(relative_path))
+            .with_context(|| format!("failed to read {}", root.join(relative_path).display()))?,
+    )
+    .with_context(|| format!("failed to parse {}", root.join(relative_path).display()))
 }
 
 pub(crate) fn managed_files() -> Vec<ManagedFile> {
