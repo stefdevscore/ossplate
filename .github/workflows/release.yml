@@ -194,11 +194,11 @@ jobs:
           fi
           node ./scripts/repair-js-lockfile.mjs
           node ./scripts/assert-js-lockfile-state.mjs resolved
-          if git diff --quiet -- wrapper-js/package-lock.json wrapper-js/scaffold/wrapper-js/package-lock.json wrapper-py/src/ossplate/scaffold/wrapper-js/package-lock.json; then
+          if git diff --quiet -- wrapper-js/package-lock.json; then
             echo "::notice title=release::post-publish JS lockfile already up to date."
             exit 0
           fi
-          git add wrapper-js/package-lock.json wrapper-js/scaffold/wrapper-js/package-lock.json wrapper-py/src/ossplate/scaffold/wrapper-js/package-lock.json
+          git add wrapper-js/package-lock.json
           git commit -m "Sync JS lockfile after ossplate ${VERSION} release [skip ci]"
           if ! git push origin main; then
             echo "::notice title=release::post-publish JS lockfile sync could not be pushed because main moved. Rerun the lockfile sync on current main if it is still needed."

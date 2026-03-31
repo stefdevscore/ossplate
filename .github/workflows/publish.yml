@@ -130,6 +130,8 @@ jobs:
         run: node ./scripts/release-check.mjs release-state
       - name: Assert publish readiness
         run: node ./scripts/release-check.mjs publish-readiness publish
+      - name: Stage embedded template payload for cargo package verification
+        run: node ./scripts/stage-distribution-assets.mjs embedded-template
       - name: Authenticate with crates.io via OIDC
         id: auth
         continue-on-error: true
