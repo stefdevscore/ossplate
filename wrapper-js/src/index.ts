@@ -64,7 +64,7 @@ type WrapperPackage = {
 function runtimeTargetsManifestPath(): string {
   const packageRoot = join(__dirname, "..");
   const scaffoldPath = join(packageRoot, "scaffold", "runtime-targets.json");
-  const sourcePath = join(packageRoot, "..", "runtime-targets.json");
+  const sourcePath = join(packageRoot, "runtime-targets.json");
   return existsSync(scaffoldPath) ? scaffoldPath : sourcePath;
 }
 

@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { cpSync, mkdtempSync, rmSync } from "node:fs";
+import { cpSync, copyFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -36,6 +36,7 @@ export function dryRunTopLevelPackage() {
 }
 
 export function packTopLevelPackage({ outDir }) {
+  mkdirSync(outDir, { recursive: true });
   return withTempPackageRoot((packageRoot) => {
     const tarballName = execNpm(["pack", "--pack-destination", outDir], {
       cwd: packageRoot,
@@ -81,6 +82,7 @@ function stagePackageRoot(packageRoot) {
   execNode([join(repoRoot, "scripts", "stage-distribution-assets.mjs"), "scaffold-package", join(packageRoot, "scaffold")], {
     cwd: repoRoot
   });
+  copyFileSync(join(repoRoot, "runtime-targets.json"), join(packageRoot, "runtime-targets.json"));
 }
 
 function execNode(args, options = {}) {

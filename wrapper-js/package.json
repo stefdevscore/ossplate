@@ -12,6 +12,7 @@
     "bin",
     "dist",
     "README.md",
+    "runtime-targets.json",
     "scaffold",
     "scaffold/.gitignore"
   ],

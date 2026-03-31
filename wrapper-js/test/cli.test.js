@@ -186,6 +186,7 @@ test("top-level npm package excludes bundled runtime binaries and scaffold runti
         `expected packaged scaffold file ${relativePath}`
       );
     }
+    assert.ok(packagedFiles.includes("runtime-targets.json"));
     for (const excludedPrefix of scaffoldManifest.excludedPrefixes) {
       assert.ok(
         !packagedFiles.some((file) => file.startsWith(path.join("scaffold", excludedPrefix))),

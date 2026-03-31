@@ -28,7 +28,7 @@ These cover:
 
 ### TEST-01C Packaging And Artifact Checks
 
-- `npm pack --dry-run` in `wrapper-js/`
+- `node ../scripts/package-js.mjs dry-run-json` from `wrapper-js/`
 - runtime package dry-runs under `wrapper-js/platform-packages/`
 - `OSSPLATE_PY_TARGET=<target> python -m build --wheel` in `wrapper-py/`
 - `python -m build --sdist` in `wrapper-py/`
@@ -92,7 +92,7 @@ That gate currently runs, in order:
 12. `node scripts/assert-js-lockfile-state.mjs <resolved-or-placeholder>`
 13. `node scripts/release-check.mjs publish-readiness publish`
 14. `npm test`
-15. `npm pack --dry-run`
+15. `node scripts/package-js.mjs dry-run-json`
 16. `PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py'`
 
 The important JS release checks are:

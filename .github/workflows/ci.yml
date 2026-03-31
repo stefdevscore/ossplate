@@ -72,7 +72,7 @@ jobs:
       - run: npm test
         if: steps.js_mode.outputs.installable == 'true'
         working-directory: ./wrapper-js
-      - run: npm pack --dry-run
+      - run: node ../scripts/package-js.mjs dry-run-json
         if: steps.js_mode.outputs.installable == 'true'
         working-directory: ./wrapper-js
 
@@ -186,15 +186,18 @@ jobs:
         working-directory: ./wrapper-js
         run: npm run build
       - name: Pack top-level npm package
-        working-directory: ./wrapper-js
-        run: npm pack
+        id: pack_top_level_npm
+        run: |
+          mkdir -p "$RUNNER_TEMP/ossplate-js-pack"
+          TARBALL=$(node ./scripts/package-js.mjs pack "$RUNNER_TEMP/ossplate-js-pack")
+          echo "tarball=${TARBALL}" >> "$GITHUB_OUTPUT"
       - name: Resolve npm pack artifacts
         id: npm_pack_artifacts
         shell: bash
         run: |
           VERSION=$(node -p "require('./wrapper-js/package.json').version")
           echo "runtime_tgz=${GITHUB_WORKSPACE}/wrapper-js/platform-packages/ossplate-linux-x64/ossplate-linux-x64-${VERSION}.tgz" >> "$GITHUB_OUTPUT"
-          echo "package_tgz=${GITHUB_WORKSPACE}/wrapper-js/ossplate-${VERSION}.tgz" >> "$GITHUB_OUTPUT"
+          echo "package_tgz=${{ steps.pack_top_level_npm.outputs.tarball }}" >> "$GITHUB_OUTPUT"
       - name: Verify installed npm flow from current checkout artifacts
         env:
           OSSPLATE_LIVE_E2E_NPM_RUNTIME_SPEC: ${{ steps.npm_pack_artifacts.outputs.runtime_tgz }}

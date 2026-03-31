@@ -206,6 +206,12 @@ export function assertTopLevelPackShape() {
   });
   const parsed = JSON.parse(output);
   const files = parsed[0]?.files?.map((entry) => entry.path) ?? [];
+  if (!files.includes("runtime-targets.json")) {
+    fail("top-level npm package is missing runtime-targets.json");
+  }
+  if (!files.includes("scaffold/ossplate.toml")) {
+    fail("top-level npm package is missing scaffold/ossplate.toml");
+  }
   for (const file of files) {
     if (/^bin\/(darwin|linux|win32)-/.test(file)) {
       fail(`top-level npm package still contains bundled runtime binary path ${file}`);

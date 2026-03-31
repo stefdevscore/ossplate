@@ -144,19 +144,27 @@ jobs:
         if: steps.published.outputs.already != 'true'
         working-directory: ./wrapper-js
         run: npm run build
+      - name: Pack top-level npm package
+        if: steps.published.outputs.already != 'true'
+        id: pack_top_level_npm
+        working-directory: ./
+        run: |
+          mkdir -p "$RUNNER_TEMP/ossplate-js-pack"
+          TARBALL=$(node ./scripts/package-js.mjs pack "$RUNNER_TEMP/ossplate-js-pack")
+          echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
       - name: Publish to npm
         if: steps.published.outputs.already != 'true'
-        working-directory: ./wrapper-js
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           logfile=$(mktemp)
+          tarball="${{ steps.pack_top_level_npm.outputs.tarball }}"
           cleanup() {
             rm -f "$logfile"
           }
           trap cleanup EXIT
           set +e
-          npm publish --access public --provenance 2>&1 | tee "$logfile"
+          npm publish "$tarball" --access public --provenance 2>&1 | tee "$logfile"
           status=${PIPESTATUS[0]}
           set -e
           if [ "$status" -eq 0 ]; then
@@ -172,4 +180,4 @@ jobs:
             exit 0
           fi
           echo "::warning title=npm::OIDC publish failed; retrying with NPM_TOKEN fallback."
-          npm publish --access public
+          npm publish "$tarball" --access public
