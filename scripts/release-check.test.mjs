@@ -31,6 +31,14 @@ test("release-check package-cleanliness preserves the no-leak contract", () => {
   assert.equal(output, "package cleanliness ok");
 });
 
+test("release-check generated-project-dogfood exercises the generated project gate", () => {
+  const output = execFileSync("node", [cli, "generated-project-dogfood"], {
+    cwd: repoRoot,
+    encoding: "utf8"
+  }).trim();
+  assert.equal(output, "generated project dogfood ok");
+});
+
 test("release-check rejects unknown subcommands", () => {
   assert.throws(
     () =>

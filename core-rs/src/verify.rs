@@ -191,6 +191,15 @@ fn verify_steps(root: &Path, js_lockfile_mode: &str) -> Result<Vec<VerifyStep>> 
             vec!["node", "--test", "scripts/publish-local.test.mjs"],
         ),
         step(
+            "dogfood:generated-project",
+            ".",
+            vec![
+                "node",
+                "scripts/release-check.mjs",
+                "generated-project-dogfood",
+            ],
+        ),
+        step(
             "scaffold:assets-assert",
             ".",
             vec!["node", "scripts/release-check.mjs", "scaffold-assets"],

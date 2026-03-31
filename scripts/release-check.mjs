@@ -9,9 +9,11 @@ import {
 
 const [command, ...rest] = process.argv.slice(2);
 
-main();
+main().catch((error) => {
+  throw error;
+});
 
-function main() {
+async function main() {
   switch (command) {
     case "release-state":
       assertReleaseState(readRootPackage());
@@ -26,6 +28,12 @@ function main() {
       assertNoRepoPackagingLeakage();
       console.log("package cleanliness ok");
       return;
+    case "generated-project-dogfood": {
+      const { runGeneratedProjectDogfood } = await import("./dogfood-generated-project.mjs");
+      runGeneratedProjectDogfood();
+      console.log("generated project dogfood ok");
+      return;
+    }
     case "publish-readiness": {
       const mode = rest[0] ?? "publish";
       const rootPackage = readRootPackage();
@@ -36,7 +44,7 @@ function main() {
     }
     default:
       throw new Error(
-        "usage: node scripts/release-check.mjs <release-state|scaffold-mirrors|scaffold-assets|package-cleanliness|publish-readiness> [args]"
+        "usage: node scripts/release-check.mjs <release-state|scaffold-mirrors|scaffold-assets|package-cleanliness|generated-project-dogfood|publish-readiness> [args]"
       );
   }
 }

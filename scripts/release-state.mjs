@@ -7,8 +7,8 @@ import { getRuntimeTargets, runtimePackageFolder, runtimePackageName } from "./r
 
 export const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 const GENERATED_REPOSITORY_PLACEHOLDER = "https://example.com/replace-with-your-repository";
-const GENERATED_AUTHOR_NAME_PLACEHOLDER = "TODO: set author name";
-const GENERATED_AUTHOR_EMAIL_PLACEHOLDER = "you@example.com";
+export const GENERATED_AUTHOR_NAME_PLACEHOLDER = "TODO: set author name";
+export const GENERATED_AUTHOR_EMAIL_PLACEHOLDER = "you@example.com";
 
 export function readText(relativePath) {
   return readFileSync(join(repoRoot, relativePath), "utf8");
