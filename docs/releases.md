@@ -18,6 +18,11 @@ Current npm runtime package names for this repository are:
 
 `win32-x64` remains the internal target identifier. `ossplate-windows-x64` is the published Windows npm package name.
 
+The checked-in runtime package folders still use target-oriented paths such as `wrapper-js/platform-packages/ossplate-win32-x64/`, but the published npm package name is derived from the public package identity plus the runtime suffix. For Windows that means:
+
+- internal target and folder: `win32-x64`
+- published runtime package: `ossplate-windows-x64`
+
 For generated projects, the canonical rule is:
 
 - the top-level npm package may be scoped or unscoped
@@ -44,8 +49,31 @@ The release gate includes:
 - `scripts/release-check.mjs release-state`
 - `scripts/assert-js-lockfile-state.mjs resolved`
 - `scripts/release-check.mjs publish-readiness publish`
+- generated-project dogfooding from the scaffold payload
+- package dry-runs for the top-level JS package and runtime packages
+- Python wheel build and wrapper tests
 
 ## REL-03 Local Operator Publish
+
+Use the repo-local planner before any publish attempt:
+
+```bash
+cargo run --manifest-path core-rs/Cargo.toml -- publish --plan --json
+```
+
+That plan reports:
+
+- the helper invocation `publish` will run
+- which registries are selected
+- whether the run is `--dry-run`
+- whether `--skip-existing` recovery mode is enabled
+- the current host target and local preflight state
+
+The executable publish surface is:
+
+```bash
+cargo run --manifest-path core-rs/Cargo.toml -- publish [--dry-run] [--skip-existing] [--registry <cargo|npm|python|all>]
+```
 
 For source-based recovery or manual registry work, use:
 
@@ -149,3 +177,4 @@ Post-publish confidence also includes native-runner live install checks on the s
 - keep auth and trusted publishing docs aligned with real workflow configuration
 - keep lockfile guidance aligned with the current resolved-vs-placeholder release model
 - treat release docs as operator guidance, not a historical log
+- for recovery runs, rerun the planner first and then rerun `publish` with the narrowest registry scope and `--skip-existing` only when the upstream state already proves that artifact exists
