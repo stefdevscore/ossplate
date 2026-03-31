@@ -79,28 +79,38 @@ cargo run --manifest-path core-rs/Cargo.toml -- verify --json
 That gate currently runs, in order:
 
 1. `cargo fmt --check`
-2. `cargo clippy --manifest-path core-rs/Cargo.toml -- -D warnings`
-3. `cargo test`
-4. `cargo run --quiet --manifest-path core-rs/Cargo.toml -- validate --json`
-5. `cargo run --quiet --manifest-path core-rs/Cargo.toml -- sync --check`
-6. `node --test scripts/release-plan.test.mjs`
-7. `node --test scripts/release-check.test.mjs`
-8. `node --test scripts/release-state.test.mjs`
-9. `node --test scripts/publish-local.test.mjs`
-10. `node scripts/release-check.mjs scaffold-assets`
-11. `node scripts/release-check.mjs release-state`
-12. `node scripts/assert-js-lockfile-state.mjs <resolved-or-placeholder>`
-13. `node scripts/release-check.mjs publish-readiness publish`
-14. `npm test`
-15. `node scripts/package-js.mjs dry-run-json`
-16. `PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py'`
+2. `node scripts/stage-distribution-assets.mjs embedded-template`
+3. `cargo clippy --manifest-path core-rs/Cargo.toml -- -D warnings`
+4. `cargo test --manifest-path core-rs/Cargo.toml`
+5. `cargo run --quiet --manifest-path core-rs/Cargo.toml -- validate --path <repo> --json`
+6. `cargo run --quiet --manifest-path core-rs/Cargo.toml -- sync --path <repo> --check --json`
+7. `node --test scripts/release-plan.test.mjs`
+8. `node --test scripts/release-check.test.mjs`
+9. `node --test scripts/release-state.test.mjs`
+10. `node --test scripts/bootstrap-pattern1.test.mjs`
+11. `node --test scripts/publish-local.test.mjs`
+12. `node scripts/release-check.mjs generated-project-dogfood`
+13. `node scripts/release-check.mjs scaffold-assets`
+14. `node scripts/release-check.mjs release-state`
+15. `node scripts/assert-js-lockfile-state.mjs <resolved-or-placeholder>`
+16. `node scripts/release-check.mjs publish-readiness publish`
+17. `npm test`
+18. `node scripts/package-js.mjs dry-run-json`
+19. `PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py'`
 
 The important JS release checks are:
 
+- `scripts/bootstrap-pattern1.test.mjs`
+- `scripts/release-check.mjs generated-project-dogfood`
 - `scripts/release-check.mjs scaffold-assets`
 - `scripts/release-check.mjs release-state`
 - `scripts/assert-js-lockfile-state.mjs`
 - `scripts/release-check.mjs publish-readiness publish`
+
+Two parts of the gate are easy to miss if you only skim the shell script:
+
+- `stage-distribution-assets.mjs embedded-template` refreshes the generated embedded template before Rust linting and tests run, so verification checks the packaged scaffold shape instead of stale generated artifacts.
+- `generated-project-dogfood` and `bootstrap-pattern1.test.mjs` validate that a freshly generated project is immediately buildable and wrapper-executable without manual repair.
 
 If the current npm version is not yet published, `verify.sh` still keeps the lockfile in placeholder mode, but it continues to run the local JS wrapper checks. Registry visibility only affects the expected lockfile state, not whether local JS validation runs.
 
