@@ -708,7 +708,7 @@ fn create_with_non_default_package_identity_is_valid_immediately() {
 
     assert!(validate_repo(&target).unwrap().ok);
     assert!(sync_repo(&target, true).is_ok());
-    assert_release_check_scaffold_mirrors(&target);
+    assert_release_check_scaffold_assets(&target);
 
     let cargo_toml = fs::read_to_string(target.join("core-rs/Cargo.toml")).unwrap();
     let cargo_lock = fs::read_to_string(target.join("core-rs/Cargo.lock")).unwrap();
@@ -1043,20 +1043,20 @@ fn create_scaffold_from_embedded_template_root_preserves_create_contract() {
     assert!(target.join("wrapper-js/package.json").is_file());
     assert!(target.join("wrapper-py/pyproject.toml").is_file());
     ensure_scaffold_source_root(&target.join("core-rs").join("embedded-template-root")).unwrap();
-    assert_release_check_scaffold_mirrors(&target);
+    assert_release_check_scaffold_assets(&target);
 
     fs::remove_dir_all(&source_root).unwrap();
     fs::remove_dir_all(&target).unwrap();
 }
 
-fn assert_release_check_scaffold_mirrors(root: &Path) {
+fn assert_release_check_scaffold_assets(root: &Path) {
     let status = Command::new("node")
         .arg(root.join("scripts/release-check.mjs"))
-        .arg("scaffold-mirrors")
+        .arg("scaffold-assets")
         .current_dir(root)
         .status()
         .unwrap();
-    assert!(status.success(), "expected scaffold mirror check to pass");
+    assert!(status.success(), "expected scaffold asset check to pass");
 }
 
 fn make_fixture_root() -> PathBuf {

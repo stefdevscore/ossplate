@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { join, relative } from "node:path";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { getRuntimeTargets, runtimePackageFolder, runtimePackageName } from "./runtime-targets.mjs";
 
@@ -151,8 +152,32 @@ export function assertScaffoldSnapshots(
   }
 }
 
-export function assertScaffoldMirrorsState(scaffoldPayload = readScaffoldPayload(), options = {}) {
-  assertScaffoldSnapshots(scaffoldPayload, options);
+export function assertGeneratedScaffoldAssets(
+  scaffoldPayload = readScaffoldPayload(),
+  {
+    root = repoRoot,
+    pythonPackageSrcDir = readPythonPackageSrcDir(root),
+    stageScaffoldPackage = defaultStageScaffoldPackage
+  } = {}
+) {
+  const tempRoot = mkdtempSync(join(tmpdir(), "ossplate-scaffold-assets-"));
+  const scaffoldRoots = [
+    join(tempRoot, "wrapper-js", "scaffold"),
+    join(tempRoot, "wrapper-py", pythonPackageSrcDir, "scaffold")
+  ];
+
+  try {
+    for (const scaffoldRoot of scaffoldRoots) {
+      stageScaffoldPackage(root, scaffoldRoot);
+      const embeddedTemplateRoot = join(scaffoldRoot, "core-rs", "embedded-template-root");
+      if (!existsSync(join(embeddedTemplateRoot, "ossplate.toml"))) {
+        fail(`generated scaffold package is missing ${relative(scaffoldRoot, join(embeddedTemplateRoot, "ossplate.toml"))}`);
+      }
+    }
+    assertScaffoldSnapshots(scaffoldPayload, { root, scaffoldRoots });
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
 }
 
 export function assertTopLevelPackShape() {
@@ -221,7 +246,7 @@ export function assertReleaseState(rootPackage = readRootPackage()) {
   assertOptionalDependencies(rootPackage);
   assertRuntimePackages(rootPackage);
   assertNoTrackedGeneratedBinaries();
-  assertScaffoldSnapshots(readScaffoldPayload());
+  assertGeneratedScaffoldAssets(readScaffoldPayload());
   assertTopLevelPackShape();
 }
 
@@ -258,6 +283,13 @@ function listTrackedFiles() {
     }
     throw error;
   }
+}
+
+function defaultStageScaffoldPackage(root, destinationRoot) {
+  execFileSync("node", [join(root, "scripts", "stage-distribution-assets.mjs"), "scaffold-package", destinationRoot], {
+    cwd: root,
+    stdio: "ignore"
+  });
 }
 
 function npmCommand() {

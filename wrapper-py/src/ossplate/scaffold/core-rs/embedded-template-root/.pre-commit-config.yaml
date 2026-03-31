@@ -1,9 +1,0 @@
-repos:
-  - repo: local
-    hooks:
-      - id: ossplate-verify
-        name: ossplate verify
-        entry: ./scripts/verify.sh
-        language: system
-        pass_filenames: false
-        stages: [pre-push]

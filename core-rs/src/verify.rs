@@ -182,9 +182,9 @@ fn verify_steps(root: &Path, js_lockfile_mode: &str) -> Result<Vec<VerifyStep>> 
             vec!["node", "--test", "scripts/publish-local.test.mjs"],
         ),
         step(
-            "scaffold:mirrors-assert",
+            "scaffold:assets-assert",
             ".",
-            vec!["node", "scripts/release-check.mjs", "scaffold-mirrors"],
+            vec!["node", "scripts/release-check.mjs", "scaffold-assets"],
         ),
         step(
             "release:assert",

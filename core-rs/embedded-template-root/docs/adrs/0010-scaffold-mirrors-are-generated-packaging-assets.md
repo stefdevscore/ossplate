@@ -6,16 +6,16 @@ Accepted
 
 ## ADR-0010-02 Context
 
-`wrapper-js/scaffold/` and `wrapper-py/src/ossplate/scaffold/` are necessary packaging inputs for installed-wrapper scaffold support, but they are mirrored payloads derived from the root source checkout. Treating them like normal source trees creates parity churn and invites accidental direct edits.
+Checked-in wrapper scaffold mirrors created parity churn and invited accidental direct edits. The real product requirement is narrower: package builds must be able to generate wrapper scaffold payloads from the root source checkout, and installed distributions must still carry those generated payloads.
 
 ## ADR-0010-03 Decision
 
 - The root source checkout is authoritative.
-- The scaffold mirrors are generated packaging assets derived from `scaffold-payload.json`.
-- Verification and CI must fail clearly when those mirrors drift from source.
+- Wrapper scaffold payloads are generated at package/build time from `scaffold-payload.json`.
+- Verification and CI must fail clearly if tracked wrapper scaffold mirrors reappear or if scaffold generation from canon stops working.
 
 ## ADR-0010-04 Consequences
 
-- Maintainers should edit root sources, then regenerate mirrors.
-- Mirror integrity becomes an explicit verification concern.
-- A future move to untracked/generated-only mirrors stays possible without changing the authority model again.
+- Maintainers edit root sources only.
+- Wrapper package builds must stage scaffold payloads before packaging.
+- Verification shifts from tracked-mirror parity to generation-from-canon integrity.

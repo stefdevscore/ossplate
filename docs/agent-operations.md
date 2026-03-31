@@ -40,7 +40,7 @@ Prefer this order:
 Do not assume:
 
 - wrapper packages own product behavior
-- generated scaffold mirrors are editable source
+- generated wrapper scaffold payloads are editable source
 - package metadata can be hand-edited safely without validation
 - release state can be inferred from one manifest alone
 

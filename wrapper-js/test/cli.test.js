@@ -168,7 +168,15 @@ test("top-level npm package excludes bundled runtime binaries and scaffold runti
     cwd: path.join(repoRoot, "core-rs"),
     stdio: "ignore"
   });
-  execFileSync("node", [path.join(repoRoot, "scripts", "stage-distribution-assets.mjs")], {
+  execFileSync(
+    "node",
+    [path.join(repoRoot, "scripts", "stage-distribution-assets.mjs"), "runtime-artifact", currentRuntimePackage().target],
+    {
+      cwd: repoRoot,
+      stdio: "ignore"
+    }
+  );
+  execFileSync("node", [path.join(repoRoot, "scripts", "stage-distribution-assets.mjs"), "embedded-template"], {
     cwd: repoRoot,
     stdio: "ignore"
   });
@@ -241,7 +249,15 @@ test("staging creates a neutral runtime artifact for the current host", () => {
     cwd: path.join(repoRoot, "core-rs"),
     stdio: "ignore"
   });
-  execFileSync("node", [path.join(repoRoot, "scripts", "stage-distribution-assets.mjs")], {
+  execFileSync(
+    "node",
+    [path.join(repoRoot, "scripts", "stage-distribution-assets.mjs"), "runtime-artifact", currentRuntimePackage().target],
+    {
+      cwd: repoRoot,
+      stdio: "ignore"
+    }
+  );
+  execFileSync("node", [path.join(repoRoot, "scripts", "stage-distribution-assets.mjs"), "embedded-template"], {
     cwd: repoRoot,
     stdio: "ignore"
   });
@@ -256,7 +272,15 @@ test("installed js package and matching runtime package can create from scaffold
     cwd: path.join(repoRoot, "core-rs"),
     stdio: "ignore"
   });
-  execFileSync("node", [path.join(repoRoot, "scripts", "stage-distribution-assets.mjs")], {
+  execFileSync(
+    "node",
+    [path.join(repoRoot, "scripts", "stage-distribution-assets.mjs"), "runtime-artifact", currentRuntimePackage().target],
+    {
+      cwd: repoRoot,
+      stdio: "ignore"
+    }
+  );
+  execFileSync("node", [path.join(repoRoot, "scripts", "stage-distribution-assets.mjs"), "embedded-template"], {
     cwd: repoRoot,
     stdio: "ignore"
   });

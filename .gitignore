@@ -10,5 +10,6 @@ build/
 node_modules/
 target/
 wrapper-js/platform-packages/*/bin/
-wrapper-py/src/ossplate/bin/*/ossplate
-wrapper-py/src/ossplate/bin/*/ossplate.exe
+wrapper-js/scaffold/
+wrapper-py/src/*/scaffold/
+wrapper-py/src/*/bin/*/*

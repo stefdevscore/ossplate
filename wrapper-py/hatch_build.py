@@ -39,8 +39,18 @@ class CustomBuildHook(BuildHookInterface):
         repo_root = Path(self.root).resolve().parent
         runtime_targets = load_runtime_targets(repo_root)
         script = repo_root / "scripts" / "stage-distribution-assets.mjs"
+        package_src_dir = read_python_package_src_dir(Path(self.root).resolve())
         try:
-            subprocess.run(["node", str(script)], cwd=repo_root, check=True)
+            subprocess.run(
+                ["node", str(script), "scaffold-package", f"{package_src_dir}/scaffold"],
+                cwd=self.root,
+                check=True,
+            )
+            subprocess.run(
+                ["node", str(script), "runtime-artifact", resolve_build_target()],
+                cwd=repo_root,
+                check=True,
+            )
         except FileNotFoundError as error:
             raise RuntimeError("node is required to stage distribution assets for wrapper-py builds") from error
 
@@ -56,7 +66,6 @@ class CustomBuildHook(BuildHookInterface):
         build_data["pure_python"] = False
         build_data["tag"] = f"py3-none-{platform_tag_for_target(target)}"
         force_include = build_data.setdefault("force_include", {})
-        package_src_dir = read_python_package_src_dir(Path(self.root).resolve())
         force_include[str(binary_source)] = f"{package_src_dir[4:]}/bin/{target}/{binary_name}"
 
 

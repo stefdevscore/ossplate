@@ -44,7 +44,7 @@ run_step "release:check-test" node --test "$ROOT_DIR/scripts/release-check.test.
 run_step "release:state-test" node --test "$ROOT_DIR/scripts/release-state.test.mjs"
 run_step "bootstrap:pattern1-test" node --test "$ROOT_DIR/scripts/bootstrap-pattern1.test.mjs"
 run_step "publish:local-test" node --test "$ROOT_DIR/scripts/publish-local.test.mjs"
-run_step "scaffold:mirrors-assert" node "$ROOT_DIR/scripts/release-check.mjs" scaffold-mirrors
+run_step "scaffold:assets-assert" node "$ROOT_DIR/scripts/release-check.mjs" scaffold-assets
 run_step "release:assert" node "$ROOT_DIR/scripts/release-check.mjs" release-state
 run_step "js:lockfile-assert" node "$ROOT_DIR/scripts/assert-js-lockfile-state.mjs" "$JS_LOCKFILE_MODE"
 run_step "publish:assert" node "$ROOT_DIR/scripts/release-check.mjs" publish-readiness publish

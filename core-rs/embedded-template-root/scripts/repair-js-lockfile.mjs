@@ -11,7 +11,11 @@ exec(
   ["run", "--quiet", "--manifest-path", join(repoRoot, "core-rs", "Cargo.toml"), "--", "sync", "--path", repoRoot],
   repoRoot
 );
-exec("node", [join(repoRoot, "scripts", "stage-distribution-assets.mjs")], repoRoot);
+exec(
+  "node",
+  [join(repoRoot, "scripts", "stage-distribution-assets.mjs"), "embedded-template"],
+  repoRoot
+);
 
 function exec(command, args, cwd) {
   execFileSync(command, args, {

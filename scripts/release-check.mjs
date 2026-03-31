@@ -1,7 +1,7 @@
 import {
   assertPublishReadiness,
   assertReleaseState,
-  assertScaffoldMirrorsState,
+  assertGeneratedScaffoldAssets,
   readRootPackage,
   readScaffoldPayload
 } from "./release-state.mjs";
@@ -16,9 +16,9 @@ function main() {
       assertReleaseState(readRootPackage());
       console.log("release state ok");
       return;
-    case "scaffold-mirrors":
-      assertScaffoldMirrorsState(readScaffoldPayload());
-      console.log("scaffold mirrors ok");
+    case "scaffold-assets":
+      assertGeneratedScaffoldAssets(readScaffoldPayload());
+      console.log("scaffold assets ok");
       return;
     case "publish-readiness": {
       const mode = rest[0] ?? "publish";
@@ -30,7 +30,7 @@ function main() {
     }
     default:
       throw new Error(
-        "usage: node scripts/release-check.mjs <release-state|scaffold-mirrors|publish-readiness> [args]"
+        "usage: node scripts/release-check.mjs <release-state|scaffold-assets|publish-readiness> [args]"
       );
   }
 }

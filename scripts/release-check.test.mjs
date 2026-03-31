@@ -7,12 +7,12 @@ import { fileURLToPath } from "node:url";
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 const cli = join(repoRoot, "scripts", "release-check.mjs");
 
-test("release-check scaffold-mirrors preserves current output contract", () => {
-  const output = execFileSync("node", [cli, "scaffold-mirrors"], {
+test("release-check scaffold-assets preserves current output contract", () => {
+  const output = execFileSync("node", [cli, "scaffold-assets"], {
     cwd: repoRoot,
     encoding: "utf8"
   }).trim();
-  assert.equal(output, "scaffold mirrors ok");
+  assert.equal(output, "scaffold assets ok");
 });
 
 test("release-check rejects unknown subcommands", () => {

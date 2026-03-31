@@ -65,6 +65,16 @@ class CliTests(unittest.TestCase):
         "win32-x64": (12_000_000, 40_000_000),
     }
 
+    @classmethod
+    def setUpClass(cls) -> None:
+        subprocess.run(["cargo", "build"], cwd=REPO_ROOT / "core-rs", check=True)
+        subprocess.run(
+            ["node", str(REPO_ROOT / "scripts" / "stage-distribution-assets.mjs")],
+            cwd=REPO_ROOT,
+            check=True,
+            stdout=subprocess.DEVNULL,
+        )
+
     def setUp(self) -> None:
         self.fixture_dir = tempfile.TemporaryDirectory()
         self.fixture = self.create_stub_binary(pathlib.Path(self.fixture_dir.name))

@@ -89,7 +89,7 @@ The scaffold payload owns the generated-project baseline:
 - packaged binaries needed for installed-wrapper scaffold operations
 
 It is curated by `scaffold-payload.json` and shipped so installed wrappers can still run `create` and `init`.
-The mirrored scaffold trees under `wrapper-js/scaffold/` and `wrapper-py/src/ossplate/scaffold/` are generated packaging assets derived from that curated payload. Edit the root source checkout, then regenerate mirrors through `node scripts/stage-distribution-assets.mjs`.
+Wrapper package builds stage scaffold payloads from that curated payload on demand. The repository no longer treats wrapper `scaffold/` trees as checked-in source.
 
 ## ARCH-04 Ownership Boundaries
 

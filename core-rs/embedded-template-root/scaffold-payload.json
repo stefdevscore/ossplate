@@ -69,6 +69,8 @@
     "scripts/repair-js-lockfile.mjs",
     "scripts/release-plan.mjs",
     "scripts/runtime-targets.mjs",
+    "scripts/stage-distribution-assets.mjs",
+    "scripts/stage-embedded-template.mjs",
     "scripts/verify-release.sh",
     "scripts/verify.sh",
     "scripts/wait-for-npm-versions.mjs",

@@ -1,13 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 import {
   assertNpmVersionState,
   assertRuntimePackageNames,
-  assertScaffoldMirrorsState,
+  assertGeneratedScaffoldAssets,
   getExpectedOptionalDependencies,
   readTomlSectionValue
 } from "./release-state.mjs";
@@ -114,39 +116,77 @@ test("scoped root npm packages derive accepted scoped runtime package names", ()
   );
 });
 
-test("scaffold mirror assertion uses the payload contract and fails on drift", () => {
+test("generated scaffold assets are validated from canon", () => {
   const root = mkTempTree();
   const payload = { requiredPaths: ["README.md"] };
   const source = path.join(root, "README.md");
-  const jsMirror = path.join(root, "wrapper-js", "scaffold", "README.md");
-  const pyMirror = path.join(root, "wrapper-py", "src", "ossplate", "scaffold", "README.md");
 
   mkdirSync(path.dirname(source), { recursive: true });
-  mkdirSync(path.dirname(jsMirror), { recursive: true });
-  mkdirSync(path.dirname(pyMirror), { recursive: true });
-
   writeFileSync(source, "root\n");
-  writeFileSync(jsMirror, "root\n");
-  writeFileSync(pyMirror, "root\n");
 
   assert.doesNotThrow(() =>
-    assertScaffoldMirrorsState(payload, {
+    assertGeneratedScaffoldAssets(payload, {
       root,
-      scaffoldRoots: [path.join(root, "wrapper-js", "scaffold"), path.join(root, "wrapper-py", "src", "ossplate", "scaffold")]
+      pythonPackageSrcDir: "src/ossplate",
+      stageScaffoldPackage(_repoRoot, scaffoldRoot) {
+        const scaffoldFile = path.join(scaffoldRoot, "README.md");
+        const embeddedFile = path.join(scaffoldRoot, "core-rs", "embedded-template-root", "ossplate.toml");
+        mkdirSync(path.dirname(scaffoldFile), { recursive: true });
+        mkdirSync(path.dirname(embeddedFile), { recursive: true });
+        writeFileSync(scaffoldFile, "root\n");
+        writeFileSync(embeddedFile, "ok\n");
+      }
     })
   );
 
-  writeFileSync(pyMirror, "drift\n");
   assert.throws(
     () =>
-      assertScaffoldMirrorsState(payload, {
+      assertGeneratedScaffoldAssets(payload, {
         root,
-        scaffoldRoots: [path.join(root, "wrapper-js", "scaffold"), path.join(root, "wrapper-py", "src", "ossplate", "scaffold")]
+        pythonPackageSrcDir: "src/ossplate",
+        stageScaffoldPackage(_repoRoot, scaffoldRoot) {
+          const scaffoldFile = path.join(scaffoldRoot, "README.md");
+          const embeddedFile = path.join(scaffoldRoot, "core-rs", "embedded-template-root", "ossplate.toml");
+          mkdirSync(path.dirname(scaffoldFile), { recursive: true });
+          mkdirSync(path.dirname(embeddedFile), { recursive: true });
+          writeFileSync(scaffoldFile, "drift\n");
+          writeFileSync(embeddedFile, "ok\n");
+        }
       }),
     /scaffold snapshot drift detected for README\.md/
   );
 
   rmSync(root, { recursive: true, force: true });
+});
+
+test("scaffold-package stages embedded template from canon without rewriting the repo snapshot", () => {
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const embeddedRoot = path.join(repoRoot, "core-rs", "embedded-template-root");
+  const embeddedConfig = path.join(embeddedRoot, "ossplate.toml");
+  const originalEmbeddedConfig = readFileSync(embeddedConfig, "utf8");
+  const canonicalConfig = readFileSync(path.join(repoRoot, "ossplate.toml"), "utf8");
+  const destinationRoot = mkTempTree();
+
+  try {
+    writeFileSync(embeddedConfig, "poisoned = true\n");
+    execFileSync(
+      "node",
+      [path.join(repoRoot, "scripts", "stage-distribution-assets.mjs"), "scaffold-package", destinationRoot],
+      {
+        cwd: repoRoot,
+        stdio: "ignore"
+      }
+    );
+
+    assert.equal(readFileSync(embeddedConfig, "utf8"), "poisoned = true\n");
+    assert.equal(
+      readFileSync(path.join(destinationRoot, "core-rs", "embedded-template-root", "ossplate.toml"), "utf8"),
+      canonicalConfig
+    );
+  } finally {
+    writeFileSync(embeddedConfig, originalEmbeddedConfig);
+    rmSync(destinationRoot, { recursive: true, force: true });
+  }
 });
 
 test("Cargo version reading is scoped to the package section", () => {

@@ -56,6 +56,14 @@ test("renamed pattern1 bootstrap is buildable and wrapper-executable without man
       cwd: path.join(targetRoot, "core-rs"),
       stdio: "ignore"
     });
+    execFileSync(
+      "node",
+      ["scripts/stage-distribution-assets.mjs", "runtime-artifact", currentTarget(targetRoot)],
+      {
+        cwd: targetRoot,
+        stdio: "ignore"
+      }
+    );
     execFileSync("node", ["scripts/stage-distribution-assets.mjs"], {
       cwd: targetRoot,
       stdio: "ignore"
@@ -68,6 +76,14 @@ test("renamed pattern1 bootstrap is buildable and wrapper-executable without man
       cwd: path.join(targetRoot, "wrapper-js"),
       stdio: "ignore"
     });
+    execFileSync(
+      "node",
+      ["scripts/stage-distribution-assets.mjs", "runtime-artifact", currentTarget(targetRoot)],
+      {
+        cwd: targetRoot,
+        stdio: "ignore"
+      }
+    );
     execFileSync("node", ["scripts/stage-distribution-assets.mjs"], {
       cwd: targetRoot,
       stdio: "ignore"
@@ -160,6 +176,19 @@ function injectPingCommand(targetRoot) {
     )
     .replace('        eprintln!("ossplate: {error}");', '        eprintln!("agentcode: {error}");');
   writeFileSync(mainPath, updated);
+}
+
+function currentTarget(targetRoot) {
+  const targets = JSON.parse(
+    readFileSync(path.join(targetRoot, "runtime-targets.json"), "utf8")
+  ).targets;
+  const spec = targets.find(
+    (entry) => entry.node.platform === process.platform && entry.node.arch === process.arch
+  );
+  if (!spec) {
+    throw new Error(`unsupported host platform for bootstrap test: ${process.platform}/${process.arch}`);
+  }
+  return spec.target;
 }
 
 function findPython() {

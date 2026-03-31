@@ -36,7 +36,7 @@ These cover:
 Required assertions include:
 
 - scaffold files come from `scaffold-payload.json`
-- scaffold mirrors under `wrapper-js/scaffold/` and `wrapper-py/src/ossplate/scaffold/` are generated copies of the root payload and must be regenerated, not edited as source
+- wrapper scaffold payloads are generated from the root payload and must not be tracked as source trees
 - top-level npm packages exclude bundled runtime binaries
 - runtime npm packages contain exactly one target binary
 - Python wheels contain exactly one target binary
@@ -87,7 +87,7 @@ That gate currently runs, in order:
 7. `node --test scripts/release-check.test.mjs`
 8. `node --test scripts/release-state.test.mjs`
 9. `node --test scripts/publish-local.test.mjs`
-10. `node scripts/release-check.mjs scaffold-mirrors`
+10. `node scripts/release-check.mjs scaffold-assets`
 11. `node scripts/release-check.mjs release-state`
 12. `node scripts/assert-js-lockfile-state.mjs <resolved-or-placeholder>`
 13. `node scripts/release-check.mjs publish-readiness publish`
@@ -97,7 +97,7 @@ That gate currently runs, in order:
 
 The important JS release checks are:
 
-- `scripts/release-check.mjs scaffold-mirrors`
+- `scripts/release-check.mjs scaffold-assets`
 - `scripts/release-check.mjs release-state`
 - `scripts/assert-js-lockfile-state.mjs`
 - `scripts/release-check.mjs publish-readiness publish`
@@ -120,7 +120,7 @@ CI currently enforces:
 
 - template readiness via `validate` and `sync --check`
 - template-readiness tests through `scripts/release-plan.test.mjs`, `scripts/release-check.test.mjs`, and `scripts/validate-template-readiness.test.mjs`
-- scaffold-mirror integrity through `scripts/release-check.mjs scaffold-mirrors`
+- scaffold generation integrity and no tracked wrapper mirrors through `scripts/release-check.mjs scaffold-assets`
 - Rust formatting, clippy, and tests
 - JS lockfile assertions for resolved vs placeholder source state
 - JS build, tests, and package dry-runs

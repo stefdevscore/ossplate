@@ -52,14 +52,14 @@ Prefer this mutation order:
 5. run `ossplate validate --json`
 6. run `ossplate verify --json`
 
-Do not treat generated scaffold mirrors as editable source. Edit the root source checkout and regenerate packaging assets through the existing scripts.
+Do not treat generated wrapper scaffold payloads as editable source. Edit the root source checkout and regenerate packaging assets through the existing scripts.
 
 ## AGENT-05 What Not To Assume
 
 Agents should not assume:
 
 - JS or Python own product behavior
-- scaffold mirrors are source of truth
+- generated wrapper scaffolds are source of truth
 - release state can be inferred from one manifest alone
 - package metadata can be hand-edited safely without revalidation
 

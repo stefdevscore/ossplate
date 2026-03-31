@@ -222,10 +222,7 @@ fn build_inspect_derived(
             "pythonPackageDir": python_package_dir,
             "pythonEntrypoint": format!("{}.cli:main", python_module_name(&config.packages.python_package)),
             "pythonCliModulePath": source_root,
-            "scaffoldMirrors": [
-                "wrapper-js/scaffold",
-                format!("wrapper-py/src/{}/scaffold", python_module_name(&config.packages.python_package))
-            ]
+            "embeddedTemplateRoot": "core-rs/embedded-template-root"
         },
         "runtimePackages": runtime_packages
     }))
