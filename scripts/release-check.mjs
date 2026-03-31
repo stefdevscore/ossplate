@@ -17,6 +17,7 @@ function main() {
       assertReleaseState(readRootPackage());
       console.log("release state ok");
       return;
+    case "scaffold-mirrors":
     case "scaffold-assets":
       assertGeneratedScaffoldAssets(readScaffoldPayload());
       console.log("scaffold assets ok");
@@ -35,7 +36,7 @@ function main() {
     }
     default:
       throw new Error(
-        "usage: node scripts/release-check.mjs <release-state|scaffold-assets|package-cleanliness|publish-readiness> [args]"
+        "usage: node scripts/release-check.mjs <release-state|scaffold-mirrors|scaffold-assets|package-cleanliness|publish-readiness> [args]"
       );
   }
 }
