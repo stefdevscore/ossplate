@@ -102,6 +102,10 @@ fn apply_generated_identity_defaults(
     source_config: &ToolConfig,
     overrides: &IdentityOverrides,
 ) {
+    if !source_config.template.is_canonical {
+        return;
+    }
+
     if overrides.description.is_none()
         && config.project.description == source_config.project.description
     {

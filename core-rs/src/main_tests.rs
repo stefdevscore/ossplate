@@ -1277,6 +1277,69 @@ fn create_scaffold_from_embedded_template_root_preserves_create_contract() {
     fs::remove_dir_all(&target).unwrap();
 }
 
+#[test]
+fn create_from_generated_embedded_template_root_preserves_generated_identity_baseline() {
+    let source_root = make_source_checkout_root();
+    let generated_root = unique_temp_path("ossplate-generated-embedded-source");
+    if generated_root.exists() {
+        fs::remove_dir_all(&generated_root).unwrap();
+    }
+
+    create_scaffold_from(
+        &source_root,
+        &generated_root,
+        &IdentityOverrides {
+            name: Some("Dogfood Control Plane".to_string()),
+            description: Some(
+                "Ship the dogfood-control CLI across Cargo, npm, and PyPI.".to_string(),
+            ),
+            repository: Some("https://github.com/acme/dogfood-control".to_string()),
+            license: Some("Apache-2.0".to_string()),
+            author_name: Some("Acme OSS".to_string()),
+            author_email: Some("oss@acme.dev".to_string()),
+            rust_crate: Some("dogfood-control".to_string()),
+            npm_package: Some("@acme/dogfood-control".to_string()),
+            python_package: Some("dogfood_control".to_string()),
+            command: Some("dogfood-control".to_string()),
+        },
+    )
+    .unwrap();
+
+    let rebootstrap_root = unique_temp_path("ossplate-generated-embedded-rebootstrap");
+    if rebootstrap_root.exists() {
+        fs::remove_dir_all(&rebootstrap_root).unwrap();
+    }
+
+    create_scaffold_from(
+        &generated_root.join("core-rs/embedded-template-root"),
+        &rebootstrap_root,
+        &IdentityOverrides::default(),
+    )
+    .unwrap();
+
+    let config = load_config(&rebootstrap_root).unwrap();
+    assert_eq!(config.project.name, "Dogfood Control Plane");
+    assert_eq!(
+        config.project.description,
+        "Ship the dogfood-control CLI across Cargo, npm, and PyPI."
+    );
+    assert_eq!(
+        config.project.repository,
+        "https://github.com/acme/dogfood-control"
+    );
+    assert_eq!(config.author.name, "Acme OSS");
+    assert_eq!(config.author.email, "oss@acme.dev");
+    assert_eq!(config.packages.rust_crate, "dogfood-control");
+    assert_eq!(config.packages.npm_package, "@acme/dogfood-control");
+    assert_eq!(config.packages.python_package, "dogfood_control");
+    assert_eq!(config.packages.command, "dogfood-control");
+    assert!(!config.template.is_canonical);
+
+    fs::remove_dir_all(&source_root).unwrap();
+    fs::remove_dir_all(&generated_root).unwrap();
+    fs::remove_dir_all(&rebootstrap_root).unwrap();
+}
+
 fn assert_release_check_scaffold_assets(root: &Path) {
     let status = Command::new("node")
         .arg(root.join("scripts/release-check.mjs"))

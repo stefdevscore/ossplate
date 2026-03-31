@@ -293,7 +293,7 @@ function assertRebootstrap(root, primaryRoot, expected, tempRoot) {
   });
   const binaryPath = resolveGeneratedBinary(primaryRoot, expected);
   const rebootstrapRoot = join(tempRoot, "rebootstrap-project");
-  execFileSync(binaryPath, ["create", rebootstrapRoot, "--json", ...buildOverrideArgs(expected)], {
+  execFileSync(binaryPath, ["create", rebootstrapRoot, "--json"], {
     cwd: tempRoot,
     encoding: "utf8",
     stdio: "pipe"
