@@ -15,7 +15,12 @@ fn main() {
         "core-rs/embedded-template-root/",
         &mut entries,
     );
-    collect_core_entries(&manifest_dir, &mut entries);
+    collect_core_entries(&manifest_dir, "core-rs/", &mut entries);
+    collect_core_entries(
+        &manifest_dir,
+        "core-rs/embedded-template-root/core-rs/",
+        &mut entries,
+    );
     entries.sort_by(|a, b| a.0.cmp(&b.0));
 
     let mut generated =
@@ -71,7 +76,11 @@ fn collect_template_entries(
     }
 }
 
-fn collect_core_entries(manifest_dir: &Path, entries: &mut Vec<(String, PathBuf)>) {
+fn collect_core_entries(
+    manifest_dir: &Path,
+    target_prefix: &str,
+    entries: &mut Vec<(String, PathBuf)>,
+) {
     for relative_path in [
         "Cargo.toml",
         "Cargo.lock",
@@ -81,14 +90,19 @@ fn collect_core_entries(manifest_dir: &Path, entries: &mut Vec<(String, PathBuf)
     ] {
         let path = manifest_dir.join(relative_path);
         println!("cargo:rerun-if-changed={}", path.display());
-        entries.push((format!("core-rs/{relative_path}"), path));
+        entries.push((format!("{target_prefix}{relative_path}"), path));
     }
 
     let src_root = manifest_dir.join("src");
-    collect_core_src_entries(&src_root, &src_root, entries);
+    collect_core_src_entries(&src_root, &src_root, target_prefix, entries);
 }
 
-fn collect_core_src_entries(root: &Path, current: &Path, entries: &mut Vec<(String, PathBuf)>) {
+fn collect_core_src_entries(
+    root: &Path,
+    current: &Path,
+    target_prefix: &str,
+    entries: &mut Vec<(String, PathBuf)>,
+) {
     for entry in fs::read_dir(current)
         .unwrap_or_else(|err| panic!("failed to read {}: {err}", current.display()))
     {
@@ -98,7 +112,7 @@ fn collect_core_src_entries(root: &Path, current: &Path, entries: &mut Vec<(Stri
             .file_type()
             .unwrap_or_else(|err| panic!("failed to stat {}: {err}", path.display()));
         if file_type.is_dir() {
-            collect_core_src_entries(root, &path, entries);
+            collect_core_src_entries(root, &path, target_prefix, entries);
         } else if file_type.is_file() {
             println!("cargo:rerun-if-changed={}", path.display());
             let relative_path = path
@@ -112,7 +126,7 @@ fn collect_core_src_entries(root: &Path, current: &Path, entries: &mut Vec<(Stri
                 })
                 .to_string_lossy()
                 .replace('\\', "/");
-            entries.push((format!("core-rs/src/{relative_path}"), path));
+            entries.push((format!("{target_prefix}src/{relative_path}"), path));
         }
     }
 }

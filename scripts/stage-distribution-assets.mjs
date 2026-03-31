@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import {
   chmodSync,
   copyFileSync,
@@ -51,8 +52,10 @@ if (mode === "runtime-package") {
 }
 
 function stageDefault() {
+  stageEmbeddedTemplate();
   for (const destinationRoot of wrapperTargets) {
     stageScaffold(destinationRoot);
+    stageEmbeddedTemplateMirror(destinationRoot);
   }
 
   cleanAllRuntimePackageBins();
@@ -80,6 +83,18 @@ function stageScaffold(destinationRoot) {
     mkdirSync(dirname(destinationPath), { recursive: true });
     cpSync(sourcePath, destinationPath, { recursive: true });
   }
+}
+
+function stageEmbeddedTemplate() {
+  execNode(["scripts/stage-embedded-template.mjs"]);
+}
+
+function stageEmbeddedTemplateMirror(destinationRoot) {
+  const sourceRoot = join(repoRoot, "core-rs", "embedded-template-root");
+  const destinationPath = join(destinationRoot, "core-rs", "embedded-template-root");
+  removeTree(destinationPath);
+  mkdirSync(dirname(destinationPath), { recursive: true });
+  cpSync(sourceRoot, destinationPath, { recursive: true });
 }
 
 function stagePythonRuntime() {
@@ -173,4 +188,18 @@ function readPythonPackageSrcDir() {
     throw new Error("wrapper-py/pyproject.toml is missing a wheel packages entry");
   }
   return match[1];
+}
+
+function execNode(args) {
+  if (process.platform === "win32") {
+    execFileSync(process.env.ComSpec ?? "cmd.exe", ["/d", "/s", "/c", "node", ...args], {
+      cwd: repoRoot,
+      stdio: "inherit"
+    });
+    return;
+  }
+  execFileSync("node", args, {
+    cwd: repoRoot,
+    stdio: "inherit"
+  });
 }

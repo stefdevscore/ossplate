@@ -1011,7 +1011,15 @@ fn embedded_template_root_materializes_required_scaffold_files() {
     assert!(embedded_template_contains(&root, "ossplate.toml"));
     assert!(embedded_template_contains(&root, "scaffold-payload.json"));
     assert!(embedded_template_contains(&root, "source-checkout.json"));
+    assert!(embedded_template_contains(
+        &root,
+        "core-rs/embedded-template-root/ossplate.toml"
+    ));
     assert!(embedded_template_contains(&root, "core-rs/src/main.rs"));
+    assert!(embedded_template_contains(
+        &root,
+        "core-rs/embedded-template-root/core-rs/src/main.rs"
+    ));
     assert!(embedded_template_contains(&root, "wrapper-js/package.json"));
     assert!(embedded_template_contains(
         &root,
@@ -1034,6 +1042,7 @@ fn create_scaffold_from_embedded_template_root_preserves_create_contract() {
     assert!(target.join("README.md").is_file());
     assert!(target.join("wrapper-js/package.json").is_file());
     assert!(target.join("wrapper-py/pyproject.toml").is_file());
+    ensure_scaffold_source_root(&target.join("core-rs").join("embedded-template-root")).unwrap();
     assert_release_check_scaffold_mirrors(&target);
 
     fs::remove_dir_all(&source_root).unwrap();
