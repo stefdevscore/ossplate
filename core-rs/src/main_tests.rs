@@ -735,6 +735,8 @@ version = "0.1.22"
     .unwrap();
 
     init_scaffold_from(&source_root, &target, &IdentityOverrides::default()).unwrap();
+    let config = load_config(&target).unwrap();
+    assert!(!config.template.is_canonical);
     assert!(target.join("wrapper-js/package.json").exists());
     assert!(target.join("wrapper-py/pyproject.toml").exists());
     assert!(validate_repo(&target).unwrap().ok);

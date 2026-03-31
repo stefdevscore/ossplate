@@ -25,7 +25,7 @@ pub(crate) fn apply_config_overrides_to_target(
 
     apply_overrides(&mut config, overrides);
     apply_generated_identity_defaults(&mut config, &source_config, overrides);
-    apply_template_mode(&mut config, action);
+    apply_template_mode(&mut config, action, source_root, target_root)?;
     relocate_generated_identity_paths(target_root, &original, &config)?;
     remove_generated_python_runtime_dirs(target_root, &original, &config)?;
     normalize_cargo_lock_identity(target_root, &original, &config)?;
@@ -33,10 +33,26 @@ pub(crate) fn apply_config_overrides_to_target(
     write_config(target_root, &config)
 }
 
-fn apply_template_mode(config: &mut ToolConfig, action: &str) {
+fn apply_template_mode(
+    config: &mut ToolConfig,
+    action: &str,
+    source_root: &Path,
+    target_root: &Path,
+) -> Result<()> {
     if action == "create" {
         config.template.is_canonical = false;
+        return Ok(());
     }
+
+    if action == "init" {
+        let canonical_source = source_root.canonicalize()?;
+        let canonical_target = target_root.canonicalize()?;
+        if canonical_source != canonical_target {
+            config.template.is_canonical = false;
+        }
+    }
+
+    Ok(())
 }
 
 fn apply_overrides(config: &mut ToolConfig, overrides: &IdentityOverrides) {
