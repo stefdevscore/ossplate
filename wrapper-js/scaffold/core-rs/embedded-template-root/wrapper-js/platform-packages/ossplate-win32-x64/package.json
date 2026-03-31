@@ -1,0 +1,28 @@
+{
+  "author": "Stef <stefdevscore@github.com>",
+  "cpu": [
+    "x64"
+  ],
+  "description": "Platform runtime package for ossplate on win32-x64.",
+  "files": [
+    "bin",
+    "README.md"
+  ],
+  "license": "Unlicense",
+  "name": "ossplate-windows-x64",
+  "os": [
+    "win32"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "directory": "wrapper-js/platform-packages/ossplate-win32-x64",
+    "type": "git",
+    "url": "https://github.com/stefdevscore/ossplate"
+  },
+  "scripts": {
+    "prepack": "node ../../../scripts/stage-distribution-assets.mjs runtime-package win32-x64"
+  },
+  "version": "0.4.1"
+}

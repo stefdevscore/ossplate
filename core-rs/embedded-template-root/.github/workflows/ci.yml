@@ -1,0 +1,202 @@
+# ossplate:workflow-name:start
+name: Ossplate CI
+# ossplate:workflow-name:end
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+  pull_request:
+
+jobs:
+  template-readiness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - run: cargo run --quiet --manifest-path core-rs/Cargo.toml -- validate
+      - run: cargo run --quiet --manifest-path core-rs/Cargo.toml -- sync --check
+      - run: node --test ./scripts/release-plan.test.mjs
+      - run: node --test ./scripts/release-check.test.mjs
+      - run: node --test ./scripts/release-state.test.mjs
+      - run: node ./scripts/release-check.mjs scaffold-mirrors
+      - run: node --test ./scripts/validate-template-readiness.test.mjs
+
+  rust:
+    needs: template-readiness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo fmt --check
+        working-directory: ./core-rs
+      - run: cargo clippy -- -D warnings
+        working-directory: ./core-rs
+      - run: cargo test
+        working-directory: ./core-rs
+
+  js:
+    needs: template-readiness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: ./wrapper-js/package-lock.json
+      - name: Determine JS CI mode
+        id: js_mode
+        shell: bash
+        run: |
+          VERSION=$(node -p "require('./wrapper-js/package.json').version")
+          if npm view "ossplate@$VERSION" version >/dev/null 2>&1; then
+            echo "lockfile_mode=resolved" >> "$GITHUB_OUTPUT"
+            echo "installable=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "lockfile_mode=placeholder" >> "$GITHUB_OUTPUT"
+            echo "installable=false" >> "$GITHUB_OUTPUT"
+          fi
+      - run: node ./scripts/assert-js-lockfile-state.mjs ${{ steps.js_mode.outputs.lockfile_mode }}
+      - run: npm ci --omit=optional
+        if: steps.js_mode.outputs.installable == 'true'
+        working-directory: ./wrapper-js
+      - run: npm run build
+        if: steps.js_mode.outputs.installable == 'true'
+        working-directory: ./wrapper-js
+      - run: npm test
+        if: steps.js_mode.outputs.installable == 'true'
+        working-directory: ./wrapper-js
+      - run: npm pack --dry-run
+        if: steps.js_mode.outputs.installable == 'true'
+        working-directory: ./wrapper-js
+
+  js-runtime:
+    needs: template-readiness
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            package_dir: wrapper-js/platform-packages/ossplate-linux-x64
+          - runner: macos-14
+            package_dir: wrapper-js/platform-packages/ossplate-darwin-arm64
+          - runner: macos-15-intel
+            package_dir: wrapper-js/platform-packages/ossplate-darwin-x64
+          - runner: windows-latest
+            package_dir: wrapper-js/platform-packages/ossplate-win32-x64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - name: Build core binary
+        run: cargo build --manifest-path core-rs/Cargo.toml
+      - run: npm pack --dry-run
+        working-directory: ./${{ matrix.package_dir }}
+
+  python:
+    needs: template-readiness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Build core binary
+        run: cargo build --manifest-path core-rs/Cargo.toml
+      - name: Test and build
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install build
+          node ../scripts/release-check.mjs release-state
+          python -m unittest discover -s tests -p 'test_*.py'
+        working-directory: ./wrapper-py
+
+  python-wheel:
+    needs: template-readiness
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            target: linux-x64
+          - runner: macos-14
+            target: darwin-arm64
+          - runner: macos-15-intel
+            target: darwin-x64
+          - runner: windows-latest
+            target: win32-x64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Build core binary
+        run: cargo build --manifest-path core-rs/Cargo.toml
+      - name: Validate wheel artifact
+        env:
+          OSSPLATE_PY_TARGET: ${{ matrix.target }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install build
+          node ../scripts/release-check.mjs release-state
+          python -m unittest discover -s tests -p 'test_*.py'
+        working-directory: ./wrapper-py
+
+  live-e2e-npm:
+    needs:
+      - template-readiness
+      - js
+      - js-runtime
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - name: Build core binary
+        run: cargo build --manifest-path core-rs/Cargo.toml
+      - name: Pack linux runtime package
+        working-directory: ./wrapper-js/platform-packages/ossplate-linux-x64
+        run: npm pack
+      - name: Install JS build dependencies
+        working-directory: ./wrapper-js
+        run: npm install --no-package-lock
+      - name: Build top-level npm package
+        working-directory: ./wrapper-js
+        run: npm run build
+      - name: Pack top-level npm package
+        working-directory: ./wrapper-js
+        run: npm pack
+      - name: Resolve npm pack artifacts
+        id: npm_pack_artifacts
+        shell: bash
+        run: |
+          VERSION=$(node -p "require('./wrapper-js/package.json').version")
+          echo "runtime_tgz=${GITHUB_WORKSPACE}/wrapper-js/platform-packages/ossplate-linux-x64/ossplate-linux-x64-${VERSION}.tgz" >> "$GITHUB_OUTPUT"
+          echo "package_tgz=${GITHUB_WORKSPACE}/wrapper-js/ossplate-${VERSION}.tgz" >> "$GITHUB_OUTPUT"
+      - name: Verify installed npm flow from current checkout artifacts
+        env:
+          OSSPLATE_LIVE_E2E_NPM_RUNTIME_SPEC: ${{ steps.npm_pack_artifacts.outputs.runtime_tgz }}
+          OSSPLATE_LIVE_E2E_NPM_PACKAGE_SPEC: ${{ steps.npm_pack_artifacts.outputs.package_tgz }}
+        run: ./scripts/live-e2e.sh npm

@@ -3,6 +3,7 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 mod config;
+mod embedded_template;
 #[cfg(test)]
 mod main_tests;
 mod output;

@@ -11,6 +11,17 @@ homepage = "https://github.com/stefdevscore/ossplate"
 keywords = ["cli", "bootstrap", "distribution", "packaging", "multi-registry"]
 categories = ["command-line-utilities", "development-tools"]
 default-run = "ossplate"
+build = "build.rs"
+include = [
+  "Cargo.toml",
+  "Cargo.lock",
+  "README.md",
+  "build.rs",
+  "runtime-targets.json",
+  "source-checkout.json",
+  "src/**",
+  "embedded-template-root/**"
+]
 
 [dependencies]
 anyhow = "1.0"

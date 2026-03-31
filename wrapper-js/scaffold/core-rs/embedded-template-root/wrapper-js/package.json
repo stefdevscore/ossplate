@@ -1,0 +1,54 @@
+{
+  "author": "Stef <stefdevscore@github.com>",
+  "bin": {
+    "ossplate": "bin/ossplate.js"
+  },
+  "description": "Scaffold and maintain one Rust-core CLI that ships cleanly through Cargo, npm, and PyPI.",
+  "devDependencies": {
+    "@types/node": "^24.6.0",
+    "typescript": "^5.9.3"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "README.md",
+    "scaffold",
+    "scaffold/.gitignore"
+  ],
+  "keywords": [
+    "cli",
+    "bootstrap",
+    "distribution",
+    "packaging",
+    "multi-registry",
+    "rust",
+    "python",
+    "npm"
+  ],
+  "license": "Unlicense",
+  "main": "./dist/index.js",
+  "name": "ossplate",
+  "optionalDependencies": {
+    "ossplate-darwin-arm64": "0.4.1",
+    "ossplate-darwin-x64": "0.4.1",
+    "ossplate-linux-x64": "0.4.1",
+    "ossplate-windows-x64": "0.4.1"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "directory": "wrapper-js",
+    "type": "git",
+    "url": "https://github.com/stefdevscore/ossplate"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "pack:check": "npm pack --dry-run",
+    "prepack": "node ../scripts/stage-distribution-assets.mjs",
+    "stage:dist": "node ../scripts/stage-distribution-assets.mjs",
+    "test": "npm run build && node --test test/cli.test.js"
+  },
+  "type": "module",
+  "version": "0.4.1"
+}

@@ -1,4 +1,5 @@
 use crate::config::IdentityOverrides;
+use crate::embedded_template::{embedded_template_contains, materialize_embedded_template_root};
 use crate::output::VersionOutput;
 use crate::release::{render_publish_plan, PublishRegistry};
 use crate::scaffold::{
@@ -1004,13 +1005,44 @@ fn discover_template_root_honors_env_override() {
     assert_eq!(discovered, source_root);
 }
 
+#[test]
+fn embedded_template_root_materializes_required_scaffold_files() {
+    let root = materialize_embedded_template_root().unwrap();
+    assert!(embedded_template_contains(&root, "ossplate.toml"));
+    assert!(embedded_template_contains(&root, "scaffold-payload.json"));
+    assert!(embedded_template_contains(&root, "source-checkout.json"));
+    assert!(embedded_template_contains(&root, "core-rs/src/main.rs"));
+    assert!(embedded_template_contains(&root, "wrapper-js/package.json"));
+    assert!(embedded_template_contains(
+        &root,
+        "wrapper-py/pyproject.toml"
+    ));
+    ensure_scaffold_source_root(&root).unwrap();
+    fs::remove_dir_all(&root).unwrap();
+}
+
+#[test]
+fn create_scaffold_from_embedded_template_root_preserves_create_contract() {
+    let source_root = materialize_embedded_template_root().unwrap();
+    let target = unique_temp_path("ossplate-embedded-create");
+    if target.exists() {
+        fs::remove_dir_all(&target).unwrap();
+    }
+
+    create_scaffold_from(&source_root, &target, &IdentityOverrides::default()).unwrap();
+    assert!(target.join("ossplate.toml").is_file());
+    assert!(target.join("README.md").is_file());
+    assert!(target.join("wrapper-js/package.json").is_file());
+    assert!(target.join("wrapper-py/pyproject.toml").is_file());
+    assert_release_check_scaffold_mirrors(&target);
+
+    fs::remove_dir_all(&source_root).unwrap();
+    fs::remove_dir_all(&target).unwrap();
+}
+
 fn assert_release_check_scaffold_mirrors(root: &Path) {
-    let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .to_path_buf();
     let status = Command::new("node")
-        .arg(repo_root.join("scripts/release-check.mjs"))
+        .arg(root.join("scripts/release-check.mjs"))
         .arg("scaffold-mirrors")
         .current_dir(root)
         .status()

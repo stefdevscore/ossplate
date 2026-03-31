@@ -1,5 +1,6 @@
+use crate::embedded_template::materialize_embedded_template_root;
 use crate::source_checkout::ensure_source_checkout;
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{bail, Context, Result};
 use std::path::{Path, PathBuf};
 
 pub(crate) fn discover_template_root() -> Result<PathBuf> {
@@ -22,7 +23,7 @@ pub(crate) fn discover_template_root() -> Result<PathBuf> {
         .ancestors()
         .find(|ancestor| ancestor.join("ossplate.toml").is_file())
         .map(Path::to_path_buf)
-        .ok_or_else(|| anyhow!("failed to locate template root containing ossplate.toml"))
+        .map_or_else(materialize_embedded_template_root, Ok)
 }
 
 pub(crate) fn ensure_scaffold_source_root(root: &Path) -> Result<()> {
