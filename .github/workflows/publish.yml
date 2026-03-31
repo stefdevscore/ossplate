@@ -179,7 +179,7 @@ jobs:
             echo "::notice title=cargo::OIDC token unavailable; falling back to CARGO_TOKEN secret."
           fi
           set +e
-          cargo publish 2>&1 | tee "$logfile"
+          cargo publish --allow-dirty 2>&1 | tee "$logfile"
           status=${PIPESTATUS[0]}
           set -e
           if [ "$status" -eq 0 ]; then
