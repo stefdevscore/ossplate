@@ -170,10 +170,7 @@ test("top-level npm package excludes bundled runtime binaries and scaffold runti
       stdio: "ignore"
     }
   );
-  execFileSync("node", [path.join(repoRoot, "scripts", "stage-distribution-assets.mjs"), "embedded-template"], {
-    cwd: repoRoot,
-    stdio: "ignore"
-  });
+  ensureGeneratedEmbeddedTemplate();
   const tarball = packNpmPackage(wrapperRoot);
   const unpackDir = fs.mkdtempSync(path.join(os.tmpdir(), "ossplate-js-main-pack-"));
 
@@ -246,10 +243,7 @@ test("staging creates a neutral runtime artifact for the current host", () => {
       stdio: "ignore"
     }
   );
-  execFileSync("node", [path.join(repoRoot, "scripts", "stage-distribution-assets.mjs"), "embedded-template"], {
-    cwd: repoRoot,
-    stdio: "ignore"
-  });
+  ensureGeneratedEmbeddedTemplate();
 
   const runtime = currentRuntimePackage();
   const stagedBinary = path.join(repoRoot, ".dist-assets", "runtime", runtime.target, runtime.executable);
@@ -266,10 +260,7 @@ test("installed js package and matching runtime package can create from scaffold
       stdio: "ignore"
     }
   );
-  execFileSync("node", [path.join(repoRoot, "scripts", "stage-distribution-assets.mjs"), "embedded-template"], {
-    cwd: repoRoot,
-    stdio: "ignore"
-  });
+  ensureGeneratedEmbeddedTemplate();
 
   const runtime = currentRuntimePackage();
   const runtimePackageDir = path.join(wrapperRoot, "platform-packages", runtime.packageFolder);
@@ -356,10 +347,7 @@ function ensureGeneratedEmbeddedTemplate() {
   if (fs.existsSync(generatedRoot)) {
     return;
   }
-  execFileSync("node", [path.join(repoRoot, "scripts", "stage-distribution-assets.mjs"), "embedded-template"], {
-    cwd: repoRoot,
-    stdio: "ignore"
-  });
+  ensureGeneratedEmbeddedTemplate();
 }
 
 function packNpmPackage(packageDir) {

@@ -61,15 +61,26 @@ type WrapperPackage = {
   name: string;
 };
 
-function runtimeTargetsManifestPath(): string {
+function runtimeTargetsManifestPaths(): string[] {
   const packageRoot = join(__dirname, "..");
-  const scaffoldPath = join(packageRoot, "scaffold", "runtime-targets.json");
-  const sourcePath = join(packageRoot, "runtime-targets.json");
-  return existsSync(scaffoldPath) ? scaffoldPath : sourcePath;
+  return [
+    join(packageRoot, "scaffold", "runtime-targets.json"),
+    join(packageRoot, "runtime-targets.json"),
+    join(packageRoot, "..", "runtime-targets.json")
+  ];
 }
 
 function loadRuntimeTargets(): RuntimeTarget[] {
-  return JSON.parse(readFileSync(runtimeTargetsManifestPath(), "utf8")).targets as RuntimeTarget[];
+  for (const candidate of runtimeTargetsManifestPaths()) {
+    if (!existsSync(candidate)) {
+      continue;
+    }
+    return JSON.parse(readFileSync(candidate, "utf8")).targets as RuntimeTarget[];
+  }
+
+  throw new Error(
+    `runtime-targets.json not found in any expected wrapper location:\n- ${runtimeTargetsManifestPaths().join("\n- ")}`
+  );
 }
 
 function readWrapperPackage(baseDir: string): WrapperPackage {
