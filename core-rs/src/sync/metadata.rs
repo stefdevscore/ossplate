@@ -481,6 +481,13 @@ fn validate_runtime_package_json(
     check_json_string(
         &mut issues,
         runtime_package_manifest_path(&spec.target),
+        "author",
+        value.get("author"),
+        &format!("{} <{}>", config.author.name, config.author.email),
+    );
+    check_json_string(
+        &mut issues,
+        runtime_package_manifest_path(&spec.target),
         "repository.url",
         value.get("repository").and_then(|v| v.get("url")),
         &config.project.repository,
@@ -530,6 +537,8 @@ fn sync_runtime_package_json(
         "Platform runtime package for {} on {}.",
         config.packages.npm_package, spec.target
     ));
+    value["author"] =
+        serde_json::Value::String(format!("{} <{}>", config.author.name, config.author.email));
     value["license"] = serde_json::Value::String(config.project.license.clone());
     value["repository"]["url"] = serde_json::Value::String(config.project.repository.clone());
     value["repository"]["directory"] =

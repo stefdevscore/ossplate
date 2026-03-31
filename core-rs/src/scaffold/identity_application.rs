@@ -1,5 +1,11 @@
-use crate::config::{load_config, write_config, IdentityOverrides, ToolConfig};
-use anyhow::Result;
+use crate::config::{
+    generated_project_description, load_config, write_config, IdentityOverrides, ToolConfig,
+    GENERATED_AUTHOR_EMAIL_PLACEHOLDER, GENERATED_AUTHOR_NAME_PLACEHOLDER,
+    GENERATED_REPOSITORY_PLACEHOLDER,
+};
+use anyhow::{Context, Result};
+use serde::Deserialize;
+use serde_json::json;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -8,17 +14,20 @@ pub(crate) fn apply_config_overrides_to_target(
     source_root: &Path,
     overrides: &IdentityOverrides,
 ) -> Result<()> {
+    let source_config = load_config(source_root)?;
     let mut config = if target_root.join("ossplate.toml").is_file() {
         load_config(target_root)?
     } else {
-        load_config(source_root)?
+        source_config.clone()
     };
     let original = config.clone();
 
     apply_overrides(&mut config, overrides);
+    apply_generated_identity_defaults(&mut config, &source_config, overrides);
     relocate_generated_identity_paths(target_root, &original, &config)?;
     remove_generated_python_runtime_dirs(target_root, &original, &config)?;
     normalize_cargo_lock_identity(target_root, &original, &config)?;
+    normalize_package_lock_identity(target_root, &original, &config)?;
     write_config(target_root, &config)
 }
 
@@ -61,6 +70,29 @@ fn apply_overrides(config: &mut ToolConfig, overrides: &IdentityOverrides) {
     }
     if overrides.command.is_some() && overrides.python_package.is_none() {
         config.packages.python_package = config.packages.command.clone();
+    }
+}
+
+fn apply_generated_identity_defaults(
+    config: &mut ToolConfig,
+    source_config: &ToolConfig,
+    overrides: &IdentityOverrides,
+) {
+    if overrides.description.is_none()
+        && config.project.description == source_config.project.description
+    {
+        config.project.description = generated_project_description(&config.packages.command);
+    }
+    if overrides.repository.is_none()
+        && config.project.repository == source_config.project.repository
+    {
+        config.project.repository = GENERATED_REPOSITORY_PLACEHOLDER.to_string();
+    }
+    if overrides.author_name.is_none() && config.author.name == source_config.author.name {
+        config.author.name = GENERATED_AUTHOR_NAME_PLACEHOLDER.to_string();
+    }
+    if overrides.author_email.is_none() && config.author.email == source_config.author.email {
+        config.author.email = GENERATED_AUTHOR_EMAIL_PLACEHOLDER.to_string();
     }
 }
 
@@ -107,6 +139,112 @@ fn normalize_cargo_lock_identity(
     Ok(())
 }
 
+#[derive(Debug, Deserialize)]
+struct RuntimeTargetsFile {
+    targets: Vec<RuntimeTargetSpec>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct RuntimeTargetSpec {
+    #[serde(rename = "packageSuffix")]
+    package_suffix: String,
+    os: String,
+    cpu: String,
+}
+
+fn normalize_package_lock_identity(
+    target_root: &Path,
+    original: &ToolConfig,
+    updated: &ToolConfig,
+) -> Result<()> {
+    let lock_path = target_root.join("wrapper-js/package-lock.json");
+    if !lock_path.exists() {
+        return Ok(());
+    }
+
+    let runtime_targets: RuntimeTargetsFile = serde_json::from_str(
+        &fs::read_to_string(target_root.join("runtime-targets.json"))
+            .context("failed to read runtime-targets.json for package-lock normalization")?,
+    )
+    .context("failed to parse runtime-targets.json for package-lock normalization")?;
+
+    let mut value: serde_json::Value = serde_json::from_str(&fs::read_to_string(&lock_path)?)
+        .context("failed to parse wrapper-js/package-lock.json")?;
+
+    let version = value
+        .get("version")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    value["name"] = serde_json::Value::String(updated.packages.npm_package.clone());
+
+    let packages = value
+        .get_mut("packages")
+        .and_then(serde_json::Value::as_object_mut)
+        .context("wrapper-js/package-lock.json is missing packages")?;
+
+    let root_package = packages
+        .get_mut("")
+        .and_then(serde_json::Value::as_object_mut)
+        .context("wrapper-js/package-lock.json is missing packages[\"\"]")?;
+    root_package.insert(
+        "name".into(),
+        serde_json::Value::String(updated.packages.npm_package.clone()),
+    );
+    root_package.insert(
+        "license".into(),
+        serde_json::Value::String(updated.project.license.clone()),
+    );
+    root_package.insert(
+        "bin".into(),
+        json!({ updated.packages.command.clone(): format!("bin/{}.js", updated.packages.command) }),
+    );
+    root_package.insert(
+        "optionalDependencies".into(),
+        serde_json::Value::Object(serde_json::Map::from_iter(
+            runtime_targets.targets.iter().map(|spec| {
+                (
+                    runtime_package_name(&updated.packages.npm_package, spec),
+                    serde_json::Value::String(version.clone()),
+                )
+            }),
+        )),
+    );
+
+    for spec in &runtime_targets.targets {
+        let old_entry_path = format!(
+            "node_modules/{}",
+            runtime_package_name(&original.packages.npm_package, spec)
+        );
+        let new_entry_path = format!(
+            "node_modules/{}",
+            runtime_package_name(&updated.packages.npm_package, spec)
+        );
+        let mut entry = packages
+            .remove(&old_entry_path)
+            .unwrap_or_else(|| serde_json::Value::Object(serde_json::Map::new()));
+        let entry_object = entry
+            .as_object_mut()
+            .context("runtime package entry in package-lock must be a JSON object")?;
+        entry_object.insert("version".into(), serde_json::Value::String(version.clone()));
+        entry_object.insert(
+            "license".into(),
+            serde_json::Value::String(updated.project.license.clone()),
+        );
+        entry_object.insert("optional".into(), serde_json::Value::Bool(true));
+        entry_object.insert("os".into(), json!([spec.os.clone()]));
+        entry_object.insert("cpu".into(), json!([spec.cpu.clone()]));
+        entry_object.remove("resolved");
+        entry_object.remove("integrity");
+        packages.insert(new_entry_path, entry);
+    }
+
+    let mut rendered = serde_json::to_string_pretty(&value)?;
+    rendered.push('\n');
+    fs::write(lock_path, rendered)?;
+    Ok(())
+}
+
 fn remove_generated_python_runtime_dirs(
     target_root: &Path,
     original: &ToolConfig,
@@ -122,6 +260,10 @@ fn remove_generated_python_runtime_dirs(
         }
     }
     Ok(())
+}
+
+fn runtime_package_name(root_package_name: &str, spec: &RuntimeTargetSpec) -> String {
+    format!("{}-{}", root_package_name, spec.package_suffix)
 }
 
 fn relocate_path(target_root: &Path, original: PathBuf, updated: PathBuf) -> Result<()> {

@@ -143,11 +143,23 @@ pub(crate) fn print_validation_output(output: &ValidationOutput, as_json: bool) 
         println!("{}", serde_json::to_string(output)?);
     } else if output.ok {
         println!("validation ok");
+        if !output.warnings.is_empty() {
+            println!("warnings:");
+            for warning in &output.warnings {
+                println!("- {warning}");
+            }
+        }
     } else {
         println!(
             "{}",
             crate::sync::format_human_issues("validation failed:", &output.issues)
         );
+        if !output.warnings.is_empty() {
+            println!("warnings:");
+            for warning in &output.warnings {
+                println!("- {warning}");
+            }
+        }
     }
 
     if output.ok {

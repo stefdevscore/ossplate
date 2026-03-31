@@ -212,6 +212,9 @@ export function assertTopLevelPackShape() {
   if (!files.includes("scaffold/ossplate.toml")) {
     fail("top-level npm package is missing scaffold/ossplate.toml");
   }
+  if (!files.includes("scaffold/source-checkout.json")) {
+    fail("top-level npm package is missing scaffold/source-checkout.json");
+  }
   for (const file of files) {
     if (/^bin\/(darwin|linux|win32)-/.test(file)) {
       fail(`top-level npm package still contains bundled runtime binary path ${file}`);

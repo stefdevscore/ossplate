@@ -1,4 +1,7 @@
-use crate::config::IdentityOverrides;
+use crate::config::{
+    generated_project_description, IdentityOverrides, GENERATED_AUTHOR_EMAIL_PLACEHOLDER,
+    GENERATED_AUTHOR_NAME_PLACEHOLDER, GENERATED_REPOSITORY_PLACEHOLDER,
+};
 use crate::embedded_template::{embedded_template_contains, materialize_embedded_template_root};
 use crate::output::VersionOutput;
 use crate::release::{render_publish_plan, PublishRegistry};
@@ -585,6 +588,106 @@ fn create_scaffolds_a_target_directory() {
 }
 
 #[test]
+fn create_uses_generated_placeholders_instead_of_template_maintainer_identity() {
+    let source_root = make_source_checkout_root();
+    let target = unique_temp_path("ossplate-generated-identity");
+    if target.exists() {
+        fs::remove_dir_all(&target).unwrap();
+    }
+
+    create_scaffold_from(
+        &source_root,
+        &target,
+        &IdentityOverrides {
+            name: Some("Ossblade".to_string()),
+            description: None,
+            repository: None,
+            license: None,
+            author_name: None,
+            author_email: None,
+            rust_crate: Some("ossblade".to_string()),
+            npm_package: Some("ossblade".to_string()),
+            python_package: Some("ossblade".to_string()),
+            command: Some("ossblade".to_string()),
+        },
+    )
+    .unwrap();
+
+    let config = load_config(&target).unwrap();
+    assert_eq!(
+        config.project.description,
+        generated_project_description(&config.packages.command)
+    );
+    assert_eq!(config.project.repository, GENERATED_REPOSITORY_PLACEHOLDER);
+    assert_eq!(config.author.name, GENERATED_AUTHOR_NAME_PLACEHOLDER);
+    assert_eq!(config.author.email, GENERATED_AUTHOR_EMAIL_PLACEHOLDER);
+
+    let validation = validate_repo(&target).unwrap();
+    assert!(validation.ok);
+    assert!(validation.warnings.len() >= 4);
+
+    let readme = fs::read_to_string(target.join("README.md")).unwrap();
+    assert!(readme.contains("cargo run --manifest-path core-rs/Cargo.toml -- validate --json"));
+    assert!(!readme.contains("ossplate create"));
+    assert!(!readme.contains("stefdevscore/ossplate"));
+
+    let docs_index = fs::read_to_string(target.join("docs/README.md")).unwrap();
+    assert!(docs_index.contains("generated `ossblade` project"));
+    assert!(!docs_index.contains("Adoption Guide"));
+    assert!(!target.join("docs/customizing-the-template.md").exists());
+    assert!(!target.join("docs/live-e2e.md").exists());
+
+    let release_guide = fs::read_to_string(target.join("docs/releases.md")).unwrap();
+    assert!(release_guide.contains("crates.io publishes `ossblade`"));
+    assert!(release_guide.contains("npm publishes `ossblade`"));
+    assert!(!release_guide.contains("publish `ossplate`"));
+
+    let wrapper_package: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(target.join("wrapper-js/package.json")).unwrap())
+            .unwrap();
+    assert_eq!(wrapper_package["name"], "ossblade");
+    assert_eq!(
+        wrapper_package["repository"]["url"],
+        GENERATED_REPOSITORY_PLACEHOLDER
+    );
+    assert_eq!(
+        wrapper_package["author"],
+        "TODO: set author name <you@example.com>"
+    );
+
+    let package_lock: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(target.join("wrapper-js/package-lock.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(package_lock["name"], "ossblade");
+    assert_eq!(package_lock["packages"][""]["name"], "ossblade");
+    assert!(package_lock["packages"]
+        .get("node_modules/ossblade-darwin-arm64")
+        .is_some());
+    assert!(package_lock["packages"]
+        .get("node_modules/ossplate-darwin-arm64")
+        .is_none());
+    assert!(
+        package_lock["packages"]["node_modules/ossblade-darwin-arm64"]
+            .get("resolved")
+            .is_none()
+    );
+
+    let embedded_config =
+        fs::read_to_string(target.join("core-rs/embedded-template-root/ossplate.toml")).unwrap();
+    assert!(embedded_config.contains("name = \"Ossblade\""));
+    assert!(embedded_config
+        .contains("repository = \"https://example.com/replace-with-your-repository\""));
+    assert!(!embedded_config.contains("stefdevscore/ossplate"));
+    assert!(!target
+        .join("core-rs/generated-embedded-template-root")
+        .exists());
+
+    fs::remove_dir_all(&source_root).unwrap();
+    fs::remove_dir_all(&target).unwrap();
+}
+
+#[test]
 fn init_hydrates_an_existing_directory() {
     let source_root = make_source_checkout_root();
     let target = unique_temp_path("ossplate-init-target");
@@ -879,7 +982,7 @@ fn create_fails_when_target_is_inside_source_tree() {
 }
 
 #[test]
-fn sync_preserves_unowned_root_readme_content() {
+fn sync_restores_canonical_root_readme_content() {
     let root = make_fixture_root();
     let config = load_config(&root).unwrap();
     let original = fs::read_to_string(root.join("README.md")).unwrap();
@@ -891,7 +994,7 @@ fn sync_preserves_unowned_root_readme_content() {
 
     sync_repo(&root, false).unwrap();
     let synced = fs::read_to_string(root.join("README.md")).unwrap();
-    assert!(synced.contains("## What It Does"));
+    assert!(synced.contains("## Learn More"));
     assert!(synced.contains(&config.project.description));
 }
 

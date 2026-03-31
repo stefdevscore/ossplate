@@ -1,7 +1,7 @@
 mod metadata;
 mod text;
 
-use crate::config::{load_config, ToolConfig};
+use crate::config::{generated_metadata_warnings, load_config, ToolConfig};
 use anyhow::{anyhow, bail, Context, Result};
 use std::collections::BTreeMap;
 use std::fs;
@@ -17,6 +17,7 @@ pub(crate) use text::{github_blob_url, github_raw_url, render_wrapper_readme};
 pub(crate) struct ValidationOutput {
     pub(crate) ok: bool,
     pub(crate) issues: Vec<ValidationIssue>,
+    pub(crate) warnings: Vec<String>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
@@ -59,10 +60,12 @@ pub(crate) fn validate_repo(root: &Path) -> Result<ValidationOutput> {
             .ok_or_else(|| anyhow!("missing owned file {}", file.path))?;
         issues.extend((file.validate)(&config, actual)?);
     }
+    let warnings = generated_metadata_warnings(&config);
 
     Ok(ValidationOutput {
         ok: issues.is_empty(),
         issues,
+        warnings,
     })
 }
 
@@ -356,6 +359,16 @@ pub(crate) fn managed_files() -> Vec<ManagedFile> {
             path: "wrapper-py/README.md",
             validate: text::validate_py_readme,
             sync: text::sync_py_readme,
+        },
+        ManagedFile {
+            path: "docs/README.md",
+            validate: text::validate_docs_index,
+            sync: text::sync_docs_index,
+        },
+        ManagedFile {
+            path: "docs/releases.md",
+            validate: text::validate_releases_doc,
+            sync: text::sync_releases_doc,
         },
     ];
     files.extend(runtime_package_managed_files());

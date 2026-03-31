@@ -25,6 +25,7 @@ const manifest = JSON.parse(
   readFileSync(join(repoRoot, "scaffold-payload.json"), "utf8")
 );
 const requiredPaths = manifest.requiredPaths;
+const requiredManifestPaths = ["ossplate.toml", "scaffold-payload.json", "source-checkout.json"];
 const excludedPrefixes = manifest.excludedPrefixes;
 const runtimeTargets = getRuntimeTargets();
 const rootPackage = JSON.parse(readFileSync(join(repoRoot, "wrapper-js", "package.json"), "utf8"));
@@ -94,7 +95,7 @@ function stageScaffold(destinationRoot) {
   removeTree(destinationRoot);
   mkdirSync(destinationRoot, { recursive: true });
 
-  for (const relativePath of requiredPaths) {
+  for (const relativePath of [...new Set([...requiredManifestPaths, ...requiredPaths])]) {
     const sourcePath = join(repoRoot, relativePath);
     if (!existsSync(sourcePath)) {
       throw new Error(`Required scaffold path is missing: ${relativePath}`);

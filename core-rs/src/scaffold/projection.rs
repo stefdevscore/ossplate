@@ -124,6 +124,7 @@ fn should_skip_copy(file_name: &OsStr) -> bool {
             | Some("build")
             | Some("__pycache__")
             | Some(".tmp-inspect")
+            | Some("generated-embedded-template-root")
             | Some(".tmp-build-venv")
             | Some(".tmp-wheel-venv")
             | Some(".tmp-wheel-created")

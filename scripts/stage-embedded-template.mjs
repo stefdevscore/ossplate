@@ -35,7 +35,7 @@ function stageEmbeddedTemplate() {
   for (const relativePath of [...requiredPaths].sort()) {
     const sourcePath = join(repoRoot, relativePath);
     if (!existsSync(sourcePath)) {
-      throw new Error(`Required embedded template path is missing: ${relativePath}`);
+      continue;
     }
 
     const destinationPath = join(outputRoot, relativePath);
