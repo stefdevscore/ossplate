@@ -1,6 +1,7 @@
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 fn main() {
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
@@ -48,6 +49,28 @@ fn resolve_template_root(manifest_dir: &Path) -> PathBuf {
         return generated_root;
     }
 
+    if let Some(repo_root) = detect_template_repo_root(manifest_dir) {
+        println!(
+            "cargo:rerun-if-changed={}",
+            repo_root.join("scaffold-payload.json").display()
+        );
+        println!(
+            "cargo:rerun-if-changed={}",
+            repo_root.join("source-checkout.json").display()
+        );
+        println!(
+            "cargo:rerun-if-changed={}",
+            repo_root
+                .join("scripts/stage-embedded-template.mjs")
+                .display()
+        );
+
+        generate_template_root(&repo_root, &generated_root);
+        if generated_root.is_dir() {
+            return generated_root;
+        }
+    }
+
     let scaffold_root = manifest_dir.join("embedded-template-root");
     if scaffold_root.is_dir() {
         return scaffold_root;
@@ -55,6 +78,38 @@ fn resolve_template_root(manifest_dir: &Path) -> PathBuf {
 
     panic!(
         "missing embedded template payload. Run `node scripts/stage-distribution-assets.mjs embedded-template` from the repo root before building or packaging core-rs, or restore core-rs/embedded-template-root in a scaffolded repo."
+    );
+}
+
+fn detect_template_repo_root(manifest_dir: &Path) -> Option<PathBuf> {
+    let repo_root = manifest_dir.parent()?;
+    let scaffold_manifest = repo_root.join("scaffold-payload.json");
+    let stage_script = repo_root.join("scripts/stage-embedded-template.mjs");
+    if scaffold_manifest.is_file() && stage_script.is_file() {
+        Some(repo_root.to_path_buf())
+    } else {
+        None
+    }
+}
+
+fn generate_template_root(repo_root: &Path, generated_root: &Path) {
+    let status = Command::new("node")
+        .arg("scripts/stage-embedded-template.mjs")
+        .arg(generated_root)
+        .current_dir(repo_root)
+        .status()
+        .unwrap_or_else(|err| {
+            panic!(
+                "failed to run {} with node: {err}",
+                repo_root
+                    .join("scripts/stage-embedded-template.mjs")
+                    .display()
+            )
+        });
+    assert!(
+        status.success(),
+        "failed to generate embedded template payload at {}",
+        generated_root.display()
     );
 }
 
