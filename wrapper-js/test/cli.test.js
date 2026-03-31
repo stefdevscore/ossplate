@@ -347,7 +347,10 @@ function ensureGeneratedEmbeddedTemplate() {
   if (fs.existsSync(generatedRoot)) {
     return;
   }
-  ensureGeneratedEmbeddedTemplate();
+  execFileSync("node", [path.join(repoRoot, "scripts", "stage-distribution-assets.mjs"), "embedded-template"], {
+    cwd: repoRoot,
+    stdio: "inherit"
+  });
 }
 
 function packNpmPackage(packageDir) {
