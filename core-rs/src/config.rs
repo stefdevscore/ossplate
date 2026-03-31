@@ -38,6 +38,8 @@ pub(crate) struct ToolConfig {
     pub(crate) project: ProjectConfig,
     pub(crate) author: AuthorConfig,
     pub(crate) packages: PackageConfig,
+    #[serde(default)]
+    pub(crate) template: TemplateConfig,
     pub(crate) metadata: MetadataConfig,
 }
 
@@ -61,6 +63,12 @@ pub(crate) struct PackageConfig {
     pub(crate) npm_package: String,
     pub(crate) python_package: String,
     pub(crate) command: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+pub(crate) struct TemplateConfig {
+    #[serde(default)]
+    pub(crate) is_canonical: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -92,13 +100,7 @@ pub(crate) fn generated_project_description(command: &str) -> String {
 }
 
 pub(crate) fn is_template_project(config: &ToolConfig) -> bool {
-    config.packages.command == "ossplate"
-        && config.packages.rust_crate == "ossplate"
-        && config.packages.npm_package == "ossplate"
-        && config.packages.python_package == "ossplate"
-        && config.project.repository == "https://github.com/stefdevscore/ossplate"
-        && config.author.name == "Stef"
-        && config.author.email == "stefdevscore@github.com"
+    config.template.is_canonical
 }
 
 pub(crate) fn generated_metadata_warnings(config: &ToolConfig) -> Vec<String> {

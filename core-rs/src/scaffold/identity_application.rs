@@ -13,6 +13,7 @@ pub(crate) fn apply_config_overrides_to_target(
     target_root: &Path,
     source_root: &Path,
     overrides: &IdentityOverrides,
+    action: &str,
 ) -> Result<()> {
     let source_config = load_config(source_root)?;
     let mut config = if target_root.join("ossplate.toml").is_file() {
@@ -24,11 +25,18 @@ pub(crate) fn apply_config_overrides_to_target(
 
     apply_overrides(&mut config, overrides);
     apply_generated_identity_defaults(&mut config, &source_config, overrides);
+    apply_template_mode(&mut config, action);
     relocate_generated_identity_paths(target_root, &original, &config)?;
     remove_generated_python_runtime_dirs(target_root, &original, &config)?;
     normalize_cargo_lock_identity(target_root, &original, &config)?;
-    normalize_package_lock_identity(target_root, &original, &config)?;
+    normalize_package_lock_identity(target_root, &original, &config, action)?;
     write_config(target_root, &config)
+}
+
+fn apply_template_mode(config: &mut ToolConfig, action: &str) {
+    if action == "create" {
+        config.template.is_canonical = false;
+    }
 }
 
 fn apply_overrides(config: &mut ToolConfig, overrides: &IdentityOverrides) {
@@ -156,11 +164,15 @@ fn normalize_package_lock_identity(
     target_root: &Path,
     original: &ToolConfig,
     updated: &ToolConfig,
+    action: &str,
 ) -> Result<()> {
     let lock_path = target_root.join("wrapper-js/package-lock.json");
     if !lock_path.exists() {
         return Ok(());
     }
+
+    let reset_runtime_resolution =
+        action == "create" || original.packages.npm_package != updated.packages.npm_package;
 
     let runtime_targets: RuntimeTargetsFile = serde_json::from_str(
         &fs::read_to_string(target_root.join("runtime-targets.json"))
@@ -234,8 +246,10 @@ fn normalize_package_lock_identity(
         entry_object.insert("optional".into(), serde_json::Value::Bool(true));
         entry_object.insert("os".into(), json!([spec.os.clone()]));
         entry_object.insert("cpu".into(), json!([spec.cpu.clone()]));
-        entry_object.remove("resolved");
-        entry_object.remove("integrity");
+        if reset_runtime_resolution {
+            entry_object.remove("resolved");
+            entry_object.remove("integrity");
+        }
         packages.insert(new_entry_path, entry);
     }
 

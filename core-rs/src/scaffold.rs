@@ -7,6 +7,7 @@ use crate::config::{is_template_project, load_config};
 use crate::output::render_bootstrap_output;
 use crate::sync::sync_repo;
 use anyhow::{Context, Result};
+use serde_json::Value;
 use std::fs;
 use std::path::Path;
 
@@ -81,10 +82,10 @@ fn finalize_scaffold_from(
     } else {
         ensure_scaffold_layout(&source_root, &target_root)?;
     }
-    apply_config_overrides_to_target(&target_root, &source_root, overrides)?;
+    apply_config_overrides_to_target(&target_root, &source_root, overrides, action)?;
     sync_repo_with_output(&target_root, false, quiet)?;
     let config = load_config(&target_root)?;
-    remove_template_only_docs(&target_root, &config)?;
+    remove_template_only_paths(&target_root, &config)?;
     prune_template_only_manifest_paths(&target_root, &config)?;
     project_embedded_template_root(&target_root)?;
     if !quiet {
@@ -106,6 +107,7 @@ fn sync_repo_with_output(root: &Path, check: bool, quiet: bool) -> Result<()> {
 }
 
 fn project_embedded_template_root(root: &Path) -> Result<()> {
+    let config = load_config(root)?;
     let embedded_root = root.join("core-rs/embedded-template-root");
     if embedded_root.exists() {
         fs::remove_dir_all(&embedded_root)
@@ -119,8 +121,9 @@ fn project_embedded_template_root(root: &Path) -> Result<()> {
         "scaffold-payload.json".to_string(),
         "source-checkout.json".to_string(),
     ];
+    let template_only_paths = template_only_paths(root)?;
     for manifest_name in ["scaffold-payload.json", "source-checkout.json"] {
-        let manifest: serde_json::Value =
+        let manifest: Value =
             serde_json::from_str(&fs::read_to_string(root.join(manifest_name)).with_context(
                 || format!("failed to read {}", root.join(manifest_name).display()),
             )?)
@@ -138,6 +141,9 @@ fn project_embedded_template_root(root: &Path) -> Result<()> {
             }
         }
     }
+    if !is_template_project(&config) {
+        required_paths.retain(|path| !template_only_paths.contains(path));
+    }
     required_paths.sort();
     required_paths.dedup();
 
@@ -154,16 +160,21 @@ fn project_embedded_template_root(root: &Path) -> Result<()> {
     Ok(())
 }
 
-fn remove_template_only_docs(root: &Path, config: &crate::config::ToolConfig) -> Result<()> {
+fn remove_template_only_paths(root: &Path, config: &crate::config::ToolConfig) -> Result<()> {
     if is_template_project(config) {
         return Ok(());
     }
 
-    for relative_path in ["docs/customizing-the-template.md", "docs/live-e2e.md"] {
-        let target = root.join(relative_path);
+    for relative_path in template_only_paths(root)? {
+        let target = root.join(&relative_path);
         if target.exists() {
-            fs::remove_file(&target)
-                .with_context(|| format!("failed to remove {}", target.display()))?;
+            if target.is_dir() {
+                fs::remove_dir_all(&target)
+                    .with_context(|| format!("failed to remove {}", target.display()))?;
+            } else {
+                fs::remove_file(&target)
+                    .with_context(|| format!("failed to remove {}", target.display()))?;
+            }
         }
     }
     Ok(())
@@ -177,9 +188,11 @@ fn prune_template_only_manifest_paths(
         return Ok(());
     }
 
+    let template_only_paths = template_only_paths(root)?;
+
     for relative_path in ["scaffold-payload.json", "source-checkout.json"] {
         let manifest_path = root.join(relative_path);
-        let mut manifest: serde_json::Value = serde_json::from_str(
+        let mut manifest: Value = serde_json::from_str(
             &fs::read_to_string(&manifest_path)
                 .with_context(|| format!("failed to read {}", manifest_path.display()))?,
         )
@@ -190,10 +203,9 @@ fn prune_template_only_manifest_paths(
             .and_then(serde_json::Value::as_array_mut)
             .with_context(|| format!("missing requiredPaths in {}", manifest_path.display()))?;
         required_paths.retain(|entry| {
-            !matches!(
-                entry.as_str(),
-                Some("docs/customizing-the-template.md") | Some("docs/live-e2e.md")
-            )
+            entry
+                .as_str()
+                .is_none_or(|path| !template_only_paths.contains(path))
         });
 
         let mut rendered = serde_json::to_string_pretty(&manifest)?;
@@ -203,6 +215,42 @@ fn prune_template_only_manifest_paths(
     }
 
     Ok(())
+}
+
+fn template_only_paths(root: &Path) -> Result<std::collections::HashSet<String>> {
+    let scaffold_payload = manifest_template_only_paths(&root.join("scaffold-payload.json"))?;
+    let source_checkout = manifest_template_only_paths(&root.join("source-checkout.json"))?;
+    if scaffold_payload != source_checkout {
+        anyhow::bail!(
+            "templateOnlyPaths must match between scaffold-payload.json and source-checkout.json"
+        );
+    }
+    Ok(scaffold_payload)
+}
+
+fn manifest_template_only_paths(manifest_path: &Path) -> Result<std::collections::HashSet<String>> {
+    let manifest: Value = serde_json::from_str(
+        &fs::read_to_string(manifest_path)
+            .with_context(|| format!("failed to read {}", manifest_path.display()))?,
+    )
+    .with_context(|| format!("failed to parse {}", manifest_path.display()))?;
+
+    let paths = manifest
+        .get("templateOnlyPaths")
+        .and_then(Value::as_array)
+        .with_context(|| format!("missing templateOnlyPaths in {}", manifest_path.display()))?;
+
+    paths
+        .iter()
+        .map(|entry| {
+            entry.as_str().map(str::to_string).with_context(|| {
+                format!(
+                    "non-string templateOnlyPaths entry in {}",
+                    manifest_path.display()
+                )
+            })
+        })
+        .collect()
 }
 
 fn collect_core_embedded_paths(root: &Path) -> Result<Vec<String>> {

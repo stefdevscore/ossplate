@@ -1,6 +1,7 @@
 use crate::config::{
-    generated_project_description, IdentityOverrides, GENERATED_AUTHOR_EMAIL_PLACEHOLDER,
-    GENERATED_AUTHOR_NAME_PLACEHOLDER, GENERATED_REPOSITORY_PLACEHOLDER,
+    generated_project_description, is_template_project, IdentityOverrides,
+    GENERATED_AUTHOR_EMAIL_PLACEHOLDER, GENERATED_AUTHOR_NAME_PLACEHOLDER,
+    GENERATED_REPOSITORY_PLACEHOLDER,
 };
 use crate::embedded_template::{embedded_template_contains, materialize_embedded_template_root};
 use crate::output::VersionOutput;
@@ -621,6 +622,7 @@ fn create_uses_generated_placeholders_instead_of_template_maintainer_identity() 
     assert_eq!(config.project.repository, GENERATED_REPOSITORY_PLACEHOLDER);
     assert_eq!(config.author.name, GENERATED_AUTHOR_NAME_PLACEHOLDER);
     assert_eq!(config.author.email, GENERATED_AUTHOR_EMAIL_PLACEHOLDER);
+    assert!(!config.template.is_canonical);
 
     let validation = validate_repo(&target).unwrap();
     assert!(validation.ok);
@@ -636,6 +638,22 @@ fn create_uses_generated_placeholders_instead_of_template_maintainer_identity() 
     assert!(!docs_index.contains("Adoption Guide"));
     assert!(!target.join("docs/customizing-the-template.md").exists());
     assert!(!target.join("docs/live-e2e.md").exists());
+    let scaffold_payload: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(target.join("scaffold-payload.json")).unwrap())
+            .unwrap();
+    let source_checkout: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(target.join("source-checkout.json")).unwrap())
+            .unwrap();
+    assert!(!scaffold_payload["requiredPaths"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|entry| entry == "docs/customizing-the-template.md"));
+    assert!(!source_checkout["requiredPaths"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|entry| entry == "docs/live-e2e.md"));
 
     let release_guide = fs::read_to_string(target.join("docs/releases.md")).unwrap();
     assert!(release_guide.contains("crates.io publishes `ossblade`"));
@@ -676,9 +694,16 @@ fn create_uses_generated_placeholders_instead_of_template_maintainer_identity() 
     let embedded_config =
         fs::read_to_string(target.join("core-rs/embedded-template-root/ossplate.toml")).unwrap();
     assert!(embedded_config.contains("name = \"Ossblade\""));
+    assert!(embedded_config.contains("is_canonical = false"));
     assert!(embedded_config
         .contains("repository = \"https://example.com/replace-with-your-repository\""));
     assert!(!embedded_config.contains("stefdevscore/ossplate"));
+    assert!(!target
+        .join("core-rs/embedded-template-root/docs/customizing-the-template.md")
+        .exists());
+    assert!(!target
+        .join("core-rs/embedded-template-root/docs/live-e2e.md")
+        .exists());
     assert!(!target
         .join("core-rs/generated-embedded-template-root")
         .exists());
@@ -714,6 +739,60 @@ version = "0.1.22"
     assert!(target.join("wrapper-py/pyproject.toml").exists());
     assert!(validate_repo(&target).unwrap().ok);
 
+    fs::remove_dir_all(&target).unwrap();
+}
+
+#[test]
+fn init_preserves_resolved_runtime_entries_when_npm_identity_is_unchanged() {
+    let source_root = make_source_checkout_root();
+    let target = unique_temp_path("ossplate-init-lockfile-preserve");
+    if target.exists() {
+        fs::remove_dir_all(&target).unwrap();
+    }
+
+    create_scaffold_from(&source_root, &target, &IdentityOverrides::default()).unwrap();
+
+    let lock_path = target.join("wrapper-js/package-lock.json");
+    let mut lock: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&lock_path).unwrap()).unwrap();
+    let runtime_entry = lock["packages"]
+        .get_mut("node_modules/ossplate-darwin-arm64")
+        .unwrap()
+        .as_object_mut()
+        .unwrap();
+    runtime_entry.insert(
+        "resolved".into(),
+        serde_json::Value::String("https://registry.npmjs.org/ossplate-darwin-arm64".to_string()),
+    );
+    runtime_entry.insert(
+        "integrity".into(),
+        serde_json::Value::String("sha512-test".to_string()),
+    );
+    let mut rendered = serde_json::to_string_pretty(&lock).unwrap();
+    rendered.push('\n');
+    fs::write(&lock_path, rendered).unwrap();
+
+    init_scaffold_from(&source_root, &target, &IdentityOverrides::default()).unwrap();
+
+    let reloaded: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&lock_path).unwrap()).unwrap();
+    let runtime_entry = reloaded["packages"]
+        .get("node_modules/ossplate-darwin-arm64")
+        .unwrap();
+    assert_eq!(
+        runtime_entry
+            .get("resolved")
+            .and_then(serde_json::Value::as_str),
+        Some("https://registry.npmjs.org/ossplate-darwin-arm64")
+    );
+    assert_eq!(
+        runtime_entry
+            .get("integrity")
+            .and_then(serde_json::Value::as_str),
+        Some("sha512-test")
+    );
+
+    fs::remove_dir_all(&source_root).unwrap();
     fs::remove_dir_all(&target).unwrap();
 }
 
@@ -999,6 +1078,46 @@ fn sync_restores_canonical_root_readme_content() {
 }
 
 #[test]
+fn template_detection_does_not_depend_on_exact_maintainer_identity() {
+    let root = make_fixture_root();
+    let mut config = load_config(&root).unwrap();
+    config.project.repository = "https://github.com/acme/ossplate".to_string();
+    config.author.name = "Acme".to_string();
+    config.author.email = "oss@acme.dev".to_string();
+
+    assert!(is_template_project(&config));
+}
+
+#[test]
+fn template_detection_uses_explicit_canonical_marker() {
+    let root = make_fixture_root();
+    let mut config = load_config(&root).unwrap();
+    config.project.name = "Rebranded Template".to_string();
+    config.packages.command = "rebrand".to_string();
+    config.packages.rust_crate = "rebrand".to_string();
+    config.packages.npm_package = "rebrand".to_string();
+    config.packages.python_package = "rebrand".to_string();
+    config.template.is_canonical = true;
+
+    assert!(is_template_project(&config));
+
+    config.template.is_canonical = false;
+    assert!(!is_template_project(&config));
+}
+
+#[test]
+fn template_detection_trusts_explicit_canonical_marker_even_with_placeholders() {
+    let root = make_fixture_root();
+    let mut config = load_config(&root).unwrap();
+    config.template.is_canonical = true;
+    config.project.repository = GENERATED_REPOSITORY_PLACEHOLDER.to_string();
+    config.author.name = GENERATED_AUTHOR_NAME_PLACEHOLDER.to_string();
+    config.author.email = GENERATED_AUTHOR_EMAIL_PLACEHOLDER.to_string();
+
+    assert!(is_template_project(&config));
+}
+
+#[test]
 fn github_link_helpers_render_absolute_main_urls() {
     let repository = "https://github.com/stefdevscore/ossplate";
     assert_eq!(
@@ -1127,6 +1246,10 @@ fn embedded_template_root_materializes_required_scaffold_files() {
     assert!(embedded_template_contains(
         &root,
         "wrapper-py/pyproject.toml"
+    ));
+    assert!(!embedded_template_contains(
+        &root,
+        "docs/customizing-the-template.md"
     ));
     ensure_scaffold_source_root(&root).unwrap();
     fs::remove_dir_all(&root).unwrap();

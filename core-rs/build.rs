@@ -45,11 +45,11 @@ fn main() {
 
 fn resolve_template_root(manifest_dir: &Path) -> PathBuf {
     let generated_root = manifest_dir.join("generated-embedded-template-root");
-    if generated_root.is_dir() {
-        return generated_root;
-    }
-
     if let Some(repo_root) = detect_template_repo_root(manifest_dir) {
+        println!(
+            "cargo:rerun-if-changed={}",
+            repo_root.join("ossplate.toml").display()
+        );
         println!(
             "cargo:rerun-if-changed={}",
             repo_root.join("scaffold-payload.json").display()
@@ -69,6 +69,10 @@ fn resolve_template_root(manifest_dir: &Path) -> PathBuf {
         if generated_root.is_dir() {
             return generated_root;
         }
+    }
+
+    if generated_root.is_dir() {
+        return generated_root;
     }
 
     let scaffold_root = manifest_dir.join("embedded-template-root");

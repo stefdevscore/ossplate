@@ -6,6 +6,9 @@ import { fileURLToPath } from "node:url";
 import { getRuntimeTargets, runtimePackageFolder, runtimePackageName } from "./runtime-targets.mjs";
 
 export const repoRoot = fileURLToPath(new URL("..", import.meta.url));
+const GENERATED_REPOSITORY_PLACEHOLDER = "https://example.com/replace-with-your-repository";
+const GENERATED_AUTHOR_NAME_PLACEHOLDER = "TODO: set author name";
+const GENERATED_AUTHOR_EMAIL_PLACEHOLDER = "you@example.com";
 
 export function readText(relativePath) {
   return readFileSync(join(repoRoot, relativePath), "utf8");
@@ -25,6 +28,17 @@ export function readPyproject() {
 
 export function readScaffoldPayload() {
   return readJson("scaffold-payload.json");
+}
+
+export function readProjectConfig() {
+  const config = readText("ossplate.toml");
+  return {
+    projectDescription: readTomlSectionValue(config, "project", "description", "ossplate.toml"),
+    projectRepository: readTomlSectionValue(config, "project", "repository", "ossplate.toml"),
+    authorName: readTomlSectionValue(config, "author", "name", "ossplate.toml"),
+    authorEmail: readTomlSectionValue(config, "author", "email", "ossplate.toml"),
+    command: readTomlSectionValue(config, "packages", "command", "ossplate.toml")
+  };
 }
 
 export function readCargoVersion() {
@@ -173,6 +187,11 @@ export function assertGeneratedScaffoldAssets(
       if (!existsSync(join(embeddedTemplateRoot, "ossplate.toml"))) {
         fail(`generated scaffold package is missing ${relative(scaffoldRoot, join(embeddedTemplateRoot, "ossplate.toml"))}`);
       }
+      for (const relativePath of scaffoldPayload.templateOnlyPaths ?? []) {
+        if (existsSync(join(embeddedTemplateRoot, relativePath))) {
+          fail(`generated embedded template must not reintroduce template-only path ${relativePath}`);
+        }
+      }
     }
     assertScaffoldSnapshots(scaffoldPayload, { root, scaffoldRoots });
   } finally {
@@ -281,6 +300,31 @@ export function assertReleaseState(rootPackage = readRootPackage()) {
 export function assertPublishReadiness(mode, version, rootPackage = readRootPackage()) {
   assertRuntimePackageNames(rootPackage);
   assertNpmVersionState({ mode, version, rootPackage });
+  assertProjectMetadataReady(readProjectConfig(), rootPackage);
+}
+
+export function assertProjectMetadataReady(config, rootPackage = readRootPackage()) {
+  const issues = [];
+  if (
+    config.projectDescription ===
+    `Ship the \`${config.command}\` CLI through Cargo, npm, and PyPI. Replace this description before release.`
+  ) {
+    issues.push("project.description still uses the generated placeholder");
+  }
+  if (config.projectRepository === GENERATED_REPOSITORY_PLACEHOLDER) {
+    issues.push("project.repository still uses the generated placeholder");
+  }
+  if (config.authorName === GENERATED_AUTHOR_NAME_PLACEHOLDER) {
+    issues.push("author.name still uses the generated placeholder");
+  }
+  if (config.authorEmail === GENERATED_AUTHOR_EMAIL_PLACEHOLDER) {
+    issues.push("author.email still uses the generated placeholder");
+  }
+  if (issues.length > 0) {
+    fail(
+      `publish readiness requires real project metadata for ${rootPackage.name}:\n- ${issues.join("\n- ")}`
+    );
+  }
 }
 
 export function defaultNpmVersionExists(packageName, packageVersion) {

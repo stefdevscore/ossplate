@@ -99,5 +99,9 @@
     "wrapper-js/test/",
     "wrapper-py/tests/",
     "scripts/validate-template-readiness"
+  ],
+  "templateOnlyPaths": [
+    "docs/customizing-the-template.md",
+    "docs/live-e2e.md"
   ]
 }

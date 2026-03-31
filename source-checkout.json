@@ -27,5 +27,9 @@
     "scripts/package-js.mjs",
     "wrapper-js/package.json",
     "wrapper-py/pyproject.toml"
+  ],
+  "templateOnlyPaths": [
+    "docs/customizing-the-template.md",
+    "docs/live-e2e.md"
   ]
 }
