@@ -8,7 +8,7 @@ const outputRoot = outputArg
   ? isAbsolute(outputArg)
     ? outputArg
     : join(repoRoot, outputArg)
-  : join(repoRoot, "core-rs", "embedded-template-root");
+  : join(repoRoot, "core-rs", "generated-embedded-template-root");
 
 stageEmbeddedTemplate();
 

@@ -15,6 +15,14 @@ test("release-check scaffold-assets preserves current output contract", () => {
   assert.equal(output, "scaffold assets ok");
 });
 
+test("release-check package-cleanliness preserves the no-leak contract", () => {
+  const output = execFileSync("node", [cli, "package-cleanliness"], {
+    cwd: repoRoot,
+    encoding: "utf8"
+  }).trim();
+  assert.equal(output, "package cleanliness ok");
+});
+
 test("release-check rejects unknown subcommands", () => {
   assert.throws(
     () =>

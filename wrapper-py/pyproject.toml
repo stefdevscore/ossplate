@@ -35,9 +35,6 @@ ossplate = "ossplate.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/ossplate"]
-artifacts = [
-  "src/ossplate/scaffold/**",
-]
 exclude = [
   "src/ossplate/bin/**",
 ]

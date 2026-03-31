@@ -68,6 +68,7 @@
     "scripts/release-state.mjs",
     "scripts/repair-js-lockfile.mjs",
     "scripts/release-plan.mjs",
+    "scripts/package-js.mjs",
     "scripts/runtime-targets.mjs",
     "scripts/stage-distribution-assets.mjs",
     "scripts/stage-embedded-template.mjs",

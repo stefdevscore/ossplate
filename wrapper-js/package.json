@@ -44,8 +44,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "pack:check": "npm pack --dry-run",
-    "prepack": "node ../scripts/stage-distribution-assets.mjs scaffold-package scaffold",
+    "pack:check": "node ../scripts/package-js.mjs dry-run-json",
     "stage:dist": "node ../scripts/stage-distribution-assets.mjs",
     "test": "npm run build && node --test test/cli.test.js"
   },

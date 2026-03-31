@@ -9,7 +9,7 @@ import {
   rmSync
 } from "node:fs";
 import { arch, platform } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   getRuntimeTargets,
@@ -111,8 +111,9 @@ function stageScaffoldPackage(destinationRoot) {
   stageEmbeddedTemplate(join(destinationRoot, "core-rs", "embedded-template-root"));
 }
 
-function stageEmbeddedTemplate(relativeOutputRoot = "core-rs/embedded-template-root") {
-  execNode(["scripts/stage-embedded-template.mjs", relativeOutputRoot]);
+function stageEmbeddedTemplate(outputRoot = "core-rs/generated-embedded-template-root") {
+  const target = isAbsolute(outputRoot) ? outputRoot : join(repoRoot, outputRoot);
+  execNode(["scripts/stage-embedded-template.mjs", target]);
 }
 
 function stagePythonRuntime() {

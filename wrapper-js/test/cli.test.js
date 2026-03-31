@@ -137,10 +137,7 @@ test("resolveOssplateBinary names the missing runtime package clearly", async ()
 });
 
 test("js wrapper matches the rust contract via env override", () => {
-  execFileSync("cargo", ["build"], {
-    cwd: path.join(repoRoot, "core-rs"),
-    stdio: "ignore"
-  });
+  prepareRustBuild();
   const coreBinary = path.join(repoRoot, "core-rs", "target", "debug", currentRuntimePackage().executable);
   for (const args of [
     ["version"],
@@ -164,10 +161,7 @@ test("js wrapper matches the rust contract via env override", () => {
 });
 
 test("top-level npm package excludes bundled runtime binaries and scaffold runtime binaries", () => {
-  execFileSync("cargo", ["build"], {
-    cwd: path.join(repoRoot, "core-rs"),
-    stdio: "ignore"
-  });
+  prepareRustBuild();
   execFileSync(
     "node",
     [path.join(repoRoot, "scripts", "stage-distribution-assets.mjs"), "runtime-artifact", currentRuntimePackage().target],
@@ -223,10 +217,7 @@ test("top-level npm package excludes bundled runtime binaries and scaffold runti
 });
 
 test("runtime package tarball contains exactly one target binary", () => {
-  execFileSync("cargo", ["build"], {
-    cwd: path.join(repoRoot, "core-rs"),
-    stdio: "ignore"
-  });
+  prepareRustBuild();
 
   const runtime = currentRuntimePackage();
   const packageDir = path.join(wrapperRoot, "platform-packages", runtime.packageFolder);
@@ -245,10 +236,7 @@ test("runtime package tarball contains exactly one target binary", () => {
 });
 
 test("staging creates a neutral runtime artifact for the current host", () => {
-  execFileSync("cargo", ["build"], {
-    cwd: path.join(repoRoot, "core-rs"),
-    stdio: "ignore"
-  });
+  prepareRustBuild();
   execFileSync(
     "node",
     [path.join(repoRoot, "scripts", "stage-distribution-assets.mjs"), "runtime-artifact", currentRuntimePackage().target],
@@ -268,10 +256,7 @@ test("staging creates a neutral runtime artifact for the current host", () => {
 });
 
 test("installed js package and matching runtime package can create from scaffold payload", () => {
-  execFileSync("cargo", ["build"], {
-    cwd: path.join(repoRoot, "core-rs"),
-    stdio: "ignore"
-  });
+  prepareRustBuild();
   execFileSync(
     "node",
     [path.join(repoRoot, "scripts", "stage-distribution-assets.mjs"), "runtime-artifact", currentRuntimePackage().target],
@@ -317,17 +302,20 @@ test("installed js package and matching runtime package can create from scaffold
     ).trim();
     const packagedVersion = execFileSync(packagedTool, ["version"], {
       cwd: installDir,
-      encoding: "utf8"
+      encoding: "utf8",
+      env: sanitizedEnv()
     }).trim();
     assert.equal(packagedVersion, directVersion);
 
     execFileSync(packagedTool, ["create", targetDir], {
       cwd: installDir,
-      stdio: "ignore"
+      stdio: "ignore",
+      env: sanitizedEnv()
     });
     const output = execFileSync(packagedTool, ["validate", "--path", targetDir, "--json"], {
       cwd: installDir,
-      encoding: "utf8"
+      encoding: "utf8",
+      env: sanitizedEnv()
     }).trim();
     assert.equal(output, '{"ok":true,"issues":[]}');
   } finally {
@@ -348,7 +336,41 @@ function currentRuntimePackage() {
   return { target, executable, packageName, packageFolder };
 }
 
+function prepareRustBuild() {
+  ensureGeneratedEmbeddedTemplate();
+  execFileSync("cargo", ["build"], {
+    cwd: path.join(repoRoot, "core-rs"),
+    stdio: "ignore"
+  });
+}
+
+function sanitizedEnv() {
+  const env = { ...process.env };
+  delete env.OSSPLATE_TEMPLATE_ROOT;
+  return env;
+}
+
+function ensureGeneratedEmbeddedTemplate() {
+  const generatedRoot = path.join(repoRoot, "core-rs", "generated-embedded-template-root");
+  if (fs.existsSync(generatedRoot)) {
+    return;
+  }
+  execFileSync("node", [path.join(repoRoot, "scripts", "stage-distribution-assets.mjs"), "embedded-template"], {
+    cwd: repoRoot,
+    stdio: "ignore"
+  });
+}
+
 function packNpmPackage(packageDir) {
+  if (path.resolve(packageDir) === wrapperRoot) {
+    return execFileSync("node", [path.join(repoRoot, "scripts", "package-js.mjs"), "pack"], {
+      cwd: repoRoot,
+      encoding: "utf8"
+    })
+      .trim()
+      .split("\n")
+      .at(-1);
+  }
   const tarballName = execFileSync("npm", ["pack"], {
     cwd: packageDir,
     encoding: "utf8"

@@ -1,10 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
 
 import {
   assertNpmVersionState,
@@ -157,36 +155,6 @@ test("generated scaffold assets are validated from canon", () => {
   );
 
   rmSync(root, { recursive: true, force: true });
-});
-
-test("scaffold-package stages embedded template from canon without rewriting the repo snapshot", () => {
-  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-  const embeddedRoot = path.join(repoRoot, "core-rs", "embedded-template-root");
-  const embeddedConfig = path.join(embeddedRoot, "ossplate.toml");
-  const originalEmbeddedConfig = readFileSync(embeddedConfig, "utf8");
-  const canonicalConfig = readFileSync(path.join(repoRoot, "ossplate.toml"), "utf8");
-  const destinationRoot = mkTempTree();
-
-  try {
-    writeFileSync(embeddedConfig, "poisoned = true\n");
-    execFileSync(
-      "node",
-      [path.join(repoRoot, "scripts", "stage-distribution-assets.mjs"), "scaffold-package", destinationRoot],
-      {
-        cwd: repoRoot,
-        stdio: "ignore"
-      }
-    );
-
-    assert.equal(readFileSync(embeddedConfig, "utf8"), "poisoned = true\n");
-    assert.equal(
-      readFileSync(path.join(destinationRoot, "core-rs", "embedded-template-root", "ossplate.toml"), "utf8"),
-      canonicalConfig
-    );
-  } finally {
-    writeFileSync(embeddedConfig, originalEmbeddedConfig);
-    rmSync(destinationRoot, { recursive: true, force: true });
-  }
 });
 
 test("Cargo version reading is scoped to the package section", () => {

@@ -20,7 +20,7 @@ include = [
   "runtime-targets.json",
   "source-checkout.json",
   "src/**",
-  "embedded-template-root/**"
+  "generated-embedded-template-root/**"
 ]
 
 [dependencies]

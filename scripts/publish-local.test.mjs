@@ -59,6 +59,7 @@ test("runPublish executes dry-run registries in the expected order", () => {
       "npm:runtime:publish",
       "npm:install-build-deps",
       "npm:build",
+      "npm:top-level:pack",
       "npm:top-level:publish",
       "pypi:build-core",
       "pypi:install-build-tools",
@@ -520,6 +521,16 @@ function makeFakeContext({
       if (command.label === failOnLabel) {
         throw new Error(`forced failure for ${command.label}`);
       }
+    },
+    capture(command) {
+      executed.push(command);
+      if (onRun) {
+        onRun(command);
+      }
+      if (command.label === failOnLabel) {
+        throw new Error(`forced failure for ${command.label}`);
+      }
+      return "/tmp/ossplate-test-package/ossplate-0.0.0.tgz\n";
     },
     npmVersionExists(name, version) {
       return npmVersions.has(`${name}@${version}`);

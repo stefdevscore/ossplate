@@ -1,8 +1,7 @@
-use crate::config::ToolConfig;
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{bail, Context, Result};
 use std::ffi::OsStr;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 pub(crate) fn prepare_create_target(source_root: &Path, target: &Path) -> Result<()> {
     if target.exists() {
@@ -100,97 +99,6 @@ pub(crate) fn ensure_scaffold_layout(source_root: &Path, target_root: &Path) -> 
                 )
             })?;
         }
-    }
-    Ok(())
-}
-
-pub(crate) fn stage_scaffold_mirrors(target_root: &Path, config: &ToolConfig) -> Result<()> {
-    let payload =
-        fs::read_to_string(target_root.join("scaffold-payload.json")).with_context(|| {
-            format!(
-                "failed to read {}",
-                target_root.join("scaffold-payload.json").display()
-            )
-        })?;
-    let manifest: serde_json::Value =
-        serde_json::from_str(&payload).context("failed to parse scaffold-payload.json")?;
-    let required_paths = manifest["requiredPaths"]
-        .as_array()
-        .ok_or_else(|| anyhow!("scaffold-payload.json is missing requiredPaths"))?;
-
-    for destination_root in scaffold_mirror_roots(target_root, config) {
-        remove_tree_if_exists(&destination_root)?;
-        fs::create_dir_all(&destination_root)
-            .with_context(|| format!("failed to create {}", destination_root.display()))?;
-
-        for relative_path in required_paths {
-            let relative_path = relative_path.as_str().ok_or_else(|| {
-                anyhow!("scaffold-payload.json contains a non-string required path")
-            })?;
-            let source_path = target_root.join(relative_path);
-            if !source_path.exists() {
-                bail!("required scaffold path is missing: {relative_path}");
-            }
-
-            let destination_path = destination_root.join(relative_path);
-            if let Some(parent) = destination_path.parent() {
-                fs::create_dir_all(parent)
-                    .with_context(|| format!("failed to create {}", parent.display()))?;
-            }
-            copy_path(&source_path, &destination_path)?;
-        }
-    }
-
-    Ok(())
-}
-
-fn scaffold_mirror_roots(target_root: &Path, config: &ToolConfig) -> [PathBuf; 2] {
-    [
-        target_root.join("wrapper-js").join("scaffold"),
-        target_root
-            .join("wrapper-py")
-            .join("src")
-            .join(python_module_name(&config.packages.python_package))
-            .join("scaffold"),
-    ]
-}
-
-fn python_module_name(package_name: &str) -> String {
-    package_name
-        .chars()
-        .map(|ch| match ch {
-            'a'..='z' | 'A'..='Z' | '0'..='9' | '_' => ch,
-            '-' | '.' => '_',
-            _ => '_',
-        })
-        .collect()
-}
-
-fn copy_path(source_path: &Path, destination_path: &Path) -> Result<()> {
-    if source_path.is_dir() {
-        fs::create_dir_all(destination_path)
-            .with_context(|| format!("failed to create {}", destination_path.display()))?;
-        for entry in fs::read_dir(source_path)
-            .with_context(|| format!("failed to read {}", source_path.display()))?
-        {
-            let entry = entry?;
-            copy_path(&entry.path(), &destination_path.join(entry.file_name()))?;
-        }
-    } else {
-        fs::copy(source_path, destination_path).with_context(|| {
-            format!(
-                "failed to copy {} to {}",
-                source_path.display(),
-                destination_path.display()
-            )
-        })?;
-    }
-    Ok(())
-}
-
-fn remove_tree_if_exists(path: &Path) -> Result<()> {
-    if path.exists() {
-        fs::remove_dir_all(path).with_context(|| format!("failed to remove {}", path.display()))?;
     }
     Ok(())
 }

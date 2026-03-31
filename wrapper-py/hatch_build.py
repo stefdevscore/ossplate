@@ -5,6 +5,7 @@ import os
 import platform
 import subprocess
 import sysconfig
+import tempfile
 from pathlib import Path
 
 try:
@@ -40,10 +41,12 @@ class CustomBuildHook(BuildHookInterface):
         runtime_targets = load_runtime_targets(repo_root)
         script = repo_root / "scripts" / "stage-distribution-assets.mjs"
         package_src_dir = read_python_package_src_dir(Path(self.root).resolve())
+        scaffold_stage_root = Path(tempfile.mkdtemp(prefix="ossplate-py-scaffold-"))
+        staged_scaffold_root = scaffold_stage_root / package_src_dir / "scaffold"
         try:
             subprocess.run(
-                ["node", str(script), "scaffold-package", f"{package_src_dir}/scaffold"],
-                cwd=self.root,
+                ["node", str(script), "scaffold-package", str(staged_scaffold_root)],
+                cwd=repo_root,
                 check=True,
             )
             subprocess.run(
@@ -66,6 +69,9 @@ class CustomBuildHook(BuildHookInterface):
         build_data["pure_python"] = False
         build_data["tag"] = f"py3-none-{platform_tag_for_target(target)}"
         force_include = build_data.setdefault("force_include", {})
+        for staged_file in staged_scaffold_root.rglob("*"):
+            if staged_file.is_file():
+                force_include[str(staged_file)] = staged_file.relative_to(scaffold_stage_root).as_posix()[4:]
         force_include[str(binary_source)] = f"{package_src_dir[4:]}/bin/{target}/{binary_name}"
 
 

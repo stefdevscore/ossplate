@@ -9,7 +9,6 @@ dist/
 build/
 node_modules/
 target/
+core-rs/generated-embedded-template-root/
 wrapper-js/platform-packages/*/bin/
-wrapper-js/scaffold/
-wrapper-py/src/*/scaffold/
 wrapper-py/src/*/bin/*/*

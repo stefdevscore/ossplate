@@ -35,6 +35,7 @@ run_step() {
 }
 
 run_step "rust:fmt" cargo fmt --check --manifest-path "$ROOT_DIR/core-rs/Cargo.toml"
+run_step "rust:prepare-embedded-template" node "$ROOT_DIR/scripts/stage-distribution-assets.mjs" embedded-template
 run_step "rust:clippy" cargo clippy --manifest-path "$ROOT_DIR/core-rs/Cargo.toml" -- -D warnings
 run_step "rust:test" cargo test --manifest-path "$ROOT_DIR/core-rs/Cargo.toml"
 run_step "tool:validate" cargo run --quiet --manifest-path "$ROOT_DIR/core-rs/Cargo.toml" -- validate --path "$ROOT_DIR" --json
@@ -50,9 +51,10 @@ run_step "js:lockfile-assert" node "$ROOT_DIR/scripts/assert-js-lockfile-state.m
 run_step "publish:assert" node "$ROOT_DIR/scripts/release-check.mjs" publish-readiness publish
 if [ "$JS_INSTALLABLE" = true ]; then
   run_step "js:test" bash -lc "cd \"$ROOT_DIR/wrapper-js\" && npm test"
-  run_step "js:pack" bash -lc "cd \"$ROOT_DIR/wrapper-js\" && npm pack --dry-run"
+  run_step "js:pack" node "$ROOT_DIR/scripts/package-js.mjs" dry-run-json
 else
   printf '\n[js:test]\n'
   printf 'skipped: current npm version %s is not published yet; placeholder lockfile state is expected\n' "$JS_VERSION"
 fi
 run_step "py:test" bash -lc "cd \"$ROOT_DIR/wrapper-py\" && PYTHONPATH=src \"$PYTHON_BIN\" -m unittest discover -s tests -p 'test_*.py'"
+run_step "package:cleanliness" node "$ROOT_DIR/scripts/release-check.mjs" package-cleanliness

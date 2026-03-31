@@ -860,23 +860,6 @@ pub(crate) fn validate_pyproject(
             Some(render_toml_string_array(&actual_packages)),
         ));
     }
-    let actual_artifacts = wheel
-        .get("artifacts")
-        .and_then(TomlValue::as_array)
-        .cloned()
-        .unwrap_or_default();
-    let expected_artifacts = vec![TomlValue::String(format!(
-        "{expected_package_dir}/scaffold/**"
-    ))];
-    if actual_artifacts != expected_artifacts {
-        issues.push(issue(
-            "wrapper-py/pyproject.toml",
-            "tool.hatch.build.targets.wheel.artifacts",
-            "owned metadata differs from the canonical project identity",
-            Some(render_toml_string_array(&expected_artifacts)),
-            Some(render_toml_string_array(&actual_artifacts)),
-        ));
-    }
     let actual_exclude = wheel
         .get("exclude")
         .and_then(TomlValue::as_array)
@@ -975,12 +958,7 @@ pub(crate) fn sync_pyproject(config: &ToolConfig, content: &str) -> Result<Strin
         "packages".into(),
         TomlValue::Array(vec![TomlValue::String(package_dir.clone())]),
     );
-    wheel.insert(
-        "artifacts".into(),
-        TomlValue::Array(vec![TomlValue::String(format!(
-            "{package_dir}/scaffold/**"
-        ))]),
-    );
+    wheel.remove("artifacts");
     wheel.insert(
         "exclude".into(),
         TomlValue::Array(vec![TomlValue::String(format!("{package_dir}/bin/**"))]),

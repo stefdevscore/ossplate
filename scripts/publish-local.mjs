@@ -290,13 +290,40 @@ function publishNpm(root, metadata, host, options, context) {
         args: ["run", "build"]
       });
     }
-    publishNpmPackage(wrapperJsDir, topLevelName, metadata.version, options, context, "npm:top-level");
+    publishTopLevelNpmPackage(root, topLevelName, metadata.version, options, context, "npm:top-level");
   } catch (error) {
     if (runtimePublishCompleted) {
       error.message = `${error.message}\npartial publish completed before failure: npm`;
     }
     throw error;
   }
+}
+
+function publishTopLevelNpmPackage(root, name, version, options, context, labelPrefix) {
+  if (!options.dryRun && options.skipExisting && context.npmVersionExists(name, version)) {
+    context.log(`${labelPrefix}: skip ${name}@${version} (already published)`);
+    return;
+  }
+
+  const tarballDir = join(root, ".dist-assets", "npm-top-level");
+  rmSync(tarballDir, { recursive: true, force: true });
+  mkdirSync(tarballDir, { recursive: true });
+  const tarball = context.capture({
+    label: `${labelPrefix}:pack`,
+    cwd: root,
+    program: "node",
+    args: [join(root, "scripts", "package-js.mjs"), "pack", tarballDir]
+  }).trim();
+  const args = ["publish", tarball, "--access", "public"];
+  if (options.dryRun) {
+    args.push("--dry-run");
+  }
+  context.run({
+    label: `${labelPrefix}:publish`,
+    cwd: root,
+    program: "npm",
+    args
+  });
 }
 
 function publishNpmPackage(directory, name, version, options, context, labelPrefix) {
@@ -467,6 +494,14 @@ function createSystemContext() {
         cwd: command.cwd,
         env,
         stdio: "inherit"
+      });
+    },
+    capture(command) {
+      const env = buildCommandEnv(process.env, command);
+      return execFileSync(command.program, command.args, {
+        cwd: command.cwd,
+        env,
+        encoding: "utf8"
       });
     },
     npmVersionExists(packageName, version) {

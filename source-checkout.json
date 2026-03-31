@@ -24,6 +24,7 @@
     "core-rs/src/sync/text.rs",
     "scripts/stage-distribution-assets.mjs",
     "scripts/stage-embedded-template.mjs",
+    "scripts/package-js.mjs",
     "wrapper-js/package.json",
     "wrapper-py/pyproject.toml"
   ]

@@ -67,6 +67,12 @@ class CliTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
+        subprocess.run(
+            ["node", str(REPO_ROOT / "scripts" / "stage-distribution-assets.mjs"), "embedded-template"],
+            cwd=REPO_ROOT,
+            check=True,
+            stdout=subprocess.DEVNULL,
+        )
         subprocess.run(["cargo", "build"], cwd=REPO_ROOT / "core-rs", check=True)
         subprocess.run(
             ["node", str(REPO_ROOT / "scripts" / "stage-distribution-assets.mjs")],
@@ -135,6 +141,12 @@ class CliTests(unittest.TestCase):
             self.repo_root / "core-rs" / "target" / "debug" / host_executable
         )
         repo_root = self.repo_root
+        subprocess.run(
+            ["node", str(REPO_ROOT / "scripts" / "stage-distribution-assets.mjs"), "embedded-template"],
+            cwd=REPO_ROOT,
+            check=True,
+            stdout=subprocess.DEVNULL,
+        )
         subprocess.run(["cargo", "build"], cwd=core_binary.parents[2], check=True)
         for args in (
             ("version",),
@@ -163,6 +175,12 @@ class CliTests(unittest.TestCase):
         dist_dir = repo_root / "wrapper-py" / "dist"
         shutil.rmtree(build_venv_dir, ignore_errors=True)
         shutil.rmtree(dist_dir, ignore_errors=True)
+        subprocess.run(
+            [ "node", str(repo_root / "scripts" / "stage-distribution-assets.mjs"), "embedded-template"],
+            cwd=repo_root,
+            check=True,
+            stdout=subprocess.DEVNULL,
+        )
         subprocess.run(["cargo", "build"], cwd=repo_root / "core-rs", check=True)
         subprocess.run([TEST_PYTHON, "-m", "venv", str(build_venv_dir)], check=True)
         build_python = self.venv_executable(build_venv_dir, "python")
@@ -194,6 +212,9 @@ class CliTests(unittest.TestCase):
         pip = self.venv_executable(venv_dir, "pip")
         tool = self.venv_executable(venv_dir, WRAPPER_COMMAND)
         subprocess.run([str(pip), "install", str(wheel)], check=True, stdout=subprocess.DEVNULL)
+        packaged_env = os.environ.copy()
+        packaged_env.pop("OSSPLATE_TEMPLATE_ROOT", None)
+        packaged_env.pop("PYTHONPATH", None)
         _, host_executable = self.current_target()
         direct_version = subprocess.run(
             [str(repo_root / "core-rs" / "target" / "debug" / host_executable), "version"],
@@ -206,14 +227,16 @@ class CliTests(unittest.TestCase):
             check=True,
             capture_output=True,
             text=True,
+            env=packaged_env,
         )
         self.assertEqual(packaged_version.stdout.strip(), direct_version.stdout.strip())
-        subprocess.run([str(tool), "create", str(target_dir)], check=True)
+        subprocess.run([str(tool), "create", str(target_dir)], check=True, env=packaged_env)
         output = subprocess.run(
             [str(tool), "validate", "--path", str(target_dir), "--json"],
             check=True,
             capture_output=True,
             text=True,
+            env=packaged_env,
         )
         self.assertEqual(output.stdout.strip(), '{"ok":true,"issues":[]}')
         shutil.rmtree(build_venv_dir, ignore_errors=True)

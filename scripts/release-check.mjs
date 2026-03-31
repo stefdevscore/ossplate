@@ -2,6 +2,7 @@ import {
   assertPublishReadiness,
   assertReleaseState,
   assertGeneratedScaffoldAssets,
+  assertNoRepoPackagingLeakage,
   readRootPackage,
   readScaffoldPayload
 } from "./release-state.mjs";
@@ -20,6 +21,10 @@ function main() {
       assertGeneratedScaffoldAssets(readScaffoldPayload());
       console.log("scaffold assets ok");
       return;
+    case "package-cleanliness":
+      assertNoRepoPackagingLeakage();
+      console.log("package cleanliness ok");
+      return;
     case "publish-readiness": {
       const mode = rest[0] ?? "publish";
       const rootPackage = readRootPackage();
@@ -30,7 +35,7 @@ function main() {
     }
     default:
       throw new Error(
-        "usage: node scripts/release-check.mjs <release-state|scaffold-assets|publish-readiness> [args]"
+        "usage: node scripts/release-check.mjs <release-state|scaffold-assets|package-cleanliness|publish-readiness> [args]"
       );
   }
 }

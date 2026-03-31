@@ -106,6 +106,15 @@ fn verify_steps(root: &Path, js_lockfile_mode: &str) -> Result<Vec<VerifyStep>> 
             ],
         ),
         step(
+            "rust:prepare-embedded-template",
+            ".",
+            vec![
+                "node",
+                "scripts/stage-distribution-assets.mjs",
+                "embedded-template",
+            ],
+        ),
+        step(
             "rust:clippy",
             ".",
             vec![
@@ -211,7 +220,11 @@ fn verify_steps(root: &Path, js_lockfile_mode: &str) -> Result<Vec<VerifyStep>> 
             ],
         ),
         step("js:test", "wrapper-js", vec!["npm", "test"]),
-        step("js:pack", "wrapper-js", vec!["npm", "pack", "--dry-run"]),
+        step(
+            "js:pack",
+            ".",
+            vec!["node", "scripts/package-js.mjs", "dry-run-json"],
+        ),
     ];
 
     let mut py_env = BTreeMap::new();
@@ -453,13 +466,30 @@ mod tests {
     fn verify_steps_always_include_local_js_checks() {
         let root = std::env::temp_dir();
         let steps = verify_steps(&root, "placeholder").unwrap();
+        let rust_prepare = steps
+            .iter()
+            .find(|step| step.name == "rust:prepare-embedded-template")
+            .unwrap();
         let js_test = steps.iter().find(|step| step.name == "js:test").unwrap();
         let js_pack = steps.iter().find(|step| step.name == "js:pack").unwrap();
+        assert!(rust_prepare.skip.is_none());
         assert!(js_test.skip.is_none());
         assert!(js_pack.skip.is_none());
+        assert_eq!(rust_prepare.cwd, ".");
         assert_eq!(js_test.cwd, "wrapper-js");
-        assert_eq!(js_pack.cwd, "wrapper-js");
+        assert_eq!(js_pack.cwd, ".");
+        assert_eq!(
+            rust_prepare.cmd,
+            vec![
+                "node",
+                "scripts/stage-distribution-assets.mjs",
+                "embedded-template"
+            ]
+        );
         assert_eq!(js_test.cmd, vec!["npm", "test"]);
-        assert_eq!(js_pack.cmd, vec!["npm", "pack", "--dry-run"]);
+        assert_eq!(
+            js_pack.cmd,
+            vec!["node", "scripts/package-js.mjs", "dry-run-json"]
+        );
     }
 }

@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 fn main() {
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
-    let template_root = manifest_dir.join("embedded-template-root");
+    let template_root = resolve_template_root(&manifest_dir);
     let out_dir = PathBuf::from(env::var("OUT_DIR").expect("OUT_DIR"));
 
     let mut entries = Vec::new();
@@ -40,6 +40,22 @@ fn main() {
 
     fs::write(out_dir.join("embedded_template.rs"), generated)
         .expect("failed to write embedded template manifest");
+}
+
+fn resolve_template_root(manifest_dir: &Path) -> PathBuf {
+    let generated_root = manifest_dir.join("generated-embedded-template-root");
+    if generated_root.is_dir() {
+        return generated_root;
+    }
+
+    let scaffold_root = manifest_dir.join("embedded-template-root");
+    if scaffold_root.is_dir() {
+        return scaffold_root;
+    }
+
+    panic!(
+        "missing embedded template payload. Run `node scripts/stage-distribution-assets.mjs embedded-template` from the repo root before building or packaging core-rs, or restore core-rs/embedded-template-root in a scaffolded repo."
+    );
 }
 
 fn collect_template_entries(

@@ -180,10 +180,28 @@ export function assertGeneratedScaffoldAssets(
   }
 }
 
+export function assertNoRepoPackagingLeakage(root = repoRoot) {
+  const pythonPackageSrcDir = readPythonPackageSrcDir(root);
+  const leakedRoots = [
+    join(root, "scaffold"),
+    join(root, "src"),
+    join(root, "wrapper-js", "scaffold"),
+    join(root, "wrapper-py", pythonPackageSrcDir, "scaffold")
+  ].filter((entry) => existsSync(entry));
+
+  if (leakedRoots.length > 0) {
+    fail(
+      `package assembly must not leave repo-local scaffold roots behind:\n${leakedRoots
+        .map((entry) => `- ${relative(root, entry)}`)
+        .join("\n")}`
+    );
+  }
+}
+
 export function assertTopLevelPackShape() {
   const pythonBinaryPrefix = `scaffold/wrapper-py/${readPythonPackageSrcDir()}/bin/`;
-  const output = execNpm(["pack", "--dry-run", "--json"], {
-    cwd: join(repoRoot, "wrapper-js"),
+  const output = execFileSync("node", [join(repoRoot, "scripts", "package-js.mjs"), "dry-run-json"], {
+    cwd: repoRoot,
     encoding: "utf8"
   });
   const parsed = JSON.parse(output);
@@ -248,6 +266,7 @@ export function assertReleaseState(rootPackage = readRootPackage()) {
   assertNoTrackedGeneratedBinaries();
   assertGeneratedScaffoldAssets(readScaffoldPayload());
   assertTopLevelPackShape();
+  assertNoRepoPackagingLeakage();
 }
 
 export function assertPublishReadiness(mode, version, rootPackage = readRootPackage()) {

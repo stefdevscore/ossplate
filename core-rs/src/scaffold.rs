@@ -10,10 +10,7 @@ use anyhow::Result;
 use std::path::Path;
 
 use identity_application::apply_config_overrides_to_target;
-use projection::{
-    copy_tree, ensure_scaffold_layout, prepare_create_target, prepare_init_target,
-    stage_scaffold_mirrors,
-};
+use projection::{copy_tree, ensure_scaffold_layout, prepare_create_target, prepare_init_target};
 pub(crate) use template_root::{discover_template_root, ensure_scaffold_source_root};
 
 pub(crate) fn create_scaffold(target: &Path, overrides: &IdentityOverrides) -> Result<()> {
@@ -86,7 +83,6 @@ fn finalize_scaffold_from(
     apply_config_overrides_to_target(&target_root, &source_root, overrides)?;
     sync_repo_with_output(&target_root, false, quiet)?;
     let config = load_config(&target_root)?;
-    stage_scaffold_mirrors(&target_root, &config)?;
     if !quiet {
         match action {
             "create" => println!("created scaffold at {}", target_root.display()),
