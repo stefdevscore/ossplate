@@ -60,7 +60,22 @@ assert_version_output() {
 
 assert_validate_ok() {
   local output="$1"
-  if [[ "$output" != '{"ok":true,"issues":[]}' ]]; then
+  local status
+  status="$("$PYTHON_BIN" -c '
+import json
+import sys
+
+try:
+    payload = json.loads(sys.argv[1])
+except Exception:
+    print("invalid")
+    raise SystemExit(0)
+
+ok = payload.get("ok") is True
+issues = payload.get("issues")
+print("ok" if ok and issues == [] else "invalid")
+' "$output")"
+  if [[ "$status" != "ok" ]]; then
     printf '%s: unexpected validate output: %s\n' "$SCRIPT_NAME" "$output" >&2
     return 1
   fi
