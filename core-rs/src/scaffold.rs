@@ -163,8 +163,10 @@ fn project_embedded_template_root(root: &Path) -> Result<()> {
 
 fn hydrate_current_manifests(root: &Path) -> Result<()> {
     let config = load_config(root)?;
-    let mut scaffold_payload =
-        normalize_scaffold_payload_manifest_for_config(&config, &current_scaffold_payload_manifest());
+    let mut scaffold_payload = normalize_scaffold_payload_manifest_for_config(
+        &config,
+        &current_scaffold_payload_manifest(),
+    );
     let mut source_checkout = current_repo_source_checkout_manifest();
     if !is_template_project(&config) {
         let template_only_paths = scaffold_payload
@@ -182,7 +184,10 @@ fn hydrate_current_manifests(root: &Path) -> Result<()> {
 
     write_path_manifest(&root.join("scaffold-payload.json"), &scaffold_payload)?;
     write_path_manifest(&root.join("source-checkout.json"), &source_checkout)?;
-    write_path_manifest(&root.join("core-rs/scaffold-payload.json"), &scaffold_payload)?;
+    write_path_manifest(
+        &root.join("core-rs/scaffold-payload.json"),
+        &scaffold_payload,
+    )?;
     write_path_manifest(&root.join("core-rs/source-checkout.json"), &source_checkout)?;
     fs::copy(
         root.join("runtime-targets.json"),
