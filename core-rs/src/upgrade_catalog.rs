@@ -159,6 +159,15 @@ pub(crate) fn authored_versions() -> Vec<VersionSpec> {
     ]
 }
 
+#[cfg(test)]
+pub(crate) fn latest_authored_version() -> u64 {
+    authored_versions()
+        .into_iter()
+        .map(|spec| spec.version)
+        .max()
+        .expect("at least one authored scaffold version must exist")
+}
+
 fn apply_scaffold_upgrade(source_root: &Path, target_root: &Path) -> Result<()> {
     upgrade_scaffold_from(source_root, target_root)
 }

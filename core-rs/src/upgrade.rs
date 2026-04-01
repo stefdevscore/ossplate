@@ -10,12 +10,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-#[allow(dead_code)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum Compatibility {
     Current,
     UpgradeSupported,
-    UpgradeRequiresManualSteps,
     RecreateRecommended,
     Unsupported,
 }
@@ -78,17 +76,11 @@ fn render_upgrade(root: &Path, apply: bool) -> Result<String> {
                 upgrade_path: report.upgrade_path,
                 blocking_reason: report.blocking_reason,
                 changed_files: Vec::new(),
-                manual_follow_ups: Vec::new(),
                 can_apply: true,
                 step_plans: Vec::new(),
             });
         }
         Compatibility::UpgradeSupported => {}
-        Compatibility::UpgradeRequiresManualSteps => {
-            bail!(
-                "upgrade requires manual steps before apply; run `ossplate upgrade --plan --json`"
-            )
-        }
         Compatibility::RecreateRecommended => {
             let reason = report
                 .blocking_reason
@@ -127,7 +119,6 @@ fn render_upgrade(root: &Path, apply: bool) -> Result<String> {
         upgrade_path: steps.iter().map(MigrationDefinition::label).collect(),
         blocking_reason: None,
         changed_files,
-        manual_follow_ups: Vec::new(),
         can_apply: true,
         step_plans,
     })
@@ -211,9 +202,7 @@ fn detect_compatibility(root: &Path, config: &crate::config::ToolConfig) -> Comp
 
     let recommended_action = match compatibility {
         Compatibility::Current => None,
-        Compatibility::UpgradeSupported | Compatibility::UpgradeRequiresManualSteps => {
-            Some("upgrade".to_string())
-        }
+        Compatibility::UpgradeSupported => Some("upgrade".to_string()),
         Compatibility::RecreateRecommended => Some("recreate".to_string()),
         Compatibility::Unsupported => Some("stop".to_string()),
     };
