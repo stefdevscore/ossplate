@@ -23,6 +23,7 @@ The goal is to keep automation inside the repo's supported ownership boundary in
 - `inspect --json` reports scaffold version, compatibility, upgrade path availability, and derived repo contracts.
 - `upgrade --plan --json` reports the resolved scaffold upgrade path and per-step managed-file changes.
 - `upgrade --json` applies each supported scaffold upgrade step in order and returns the aggregated changed-file surface.
+- upgradeability now means an exact authored descendant contract match, not just a matching file layout.
 - `sync --check --json` reports drift without mutating files.
 - `sync --plan --json` reports the exact owned files and synced content that would be written.
 - `sync --json` applies that bounded repair and returns the same changed-file surface.
@@ -52,5 +53,6 @@ Do not assume:
 - release state can be inferred from one manifest alone
 - `init` can bridge arbitrary scaffold generations safely
 - unversioned descendants can be upgraded heuristically without matching a known scaffold fingerprint
+- direct `cargo build` or `cargo test` will stage the embedded template for you inside the source checkout
 
 Use the repo's own machine-readable contract instead.

@@ -35,6 +35,10 @@ ossplate create ../my-new-project \
 
 ## Source Checkout Usage
 
+Prepare the embedded-template artifact before direct Rust build or test commands:
+
+- `node scripts/stage-distribution-assets.mjs embedded-template`
+
 - `cargo run --manifest-path core-rs/Cargo.toml -- create <target>`
 - `cargo run --manifest-path core-rs/Cargo.toml -- validate --json`
 - `cargo run --manifest-path core-rs/Cargo.toml -- inspect --json`

@@ -2,7 +2,7 @@
 
 `ossplate` uses layered verification so the source checkout and installed wrapper artifacts stay aligned.
 
-For generated or adopted repos, pair this guide with [Agent Operations](./agent-operations.md). The key agent-safe commands are `validate --json`, `inspect --json`, `sync --check --json`, `sync --plan --json`, `sync --json`, `publish --plan --json`, `verify --json`, and `verify.sh`.
+For generated or adopted repos, pair this guide with [Agent Operations](./agent-operations.md). The key agent-safe commands are `validate --json`, `inspect --json`, `upgrade --plan --json`, `sync --check --json`, `sync --plan --json`, `sync --json`, `publish --plan --json`, `verify --json`, and `verify.sh`.
 
 ## TEST-01 Verification Layers
 
@@ -15,6 +15,7 @@ For generated or adopted repos, pair this guide with [Agent Operations](./agent-
 
 ### TEST-01B Unit And Integration
 
+- `node scripts/stage-distribution-assets.mjs embedded-template`
 - `cargo test`
 - `npm test`
 - `PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py'`
@@ -22,6 +23,7 @@ For generated or adopted repos, pair this guide with [Agent Operations](./agent-
 These cover:
 
 - Rust command parsing and slice behavior
+- authored scaffold-version classification and upgrade planning/apply behavior
 - wrapper parity against the Rust core
 - packaged artifact smoke checks for `version`, `create`, and `validate`
 - create/init guardrails such as non-empty targets and source-tree rejection
@@ -42,6 +44,8 @@ Required assertions include:
 - Python wheels contain exactly one target binary
 - wheels exclude binaries for other targets
 - wrapper test files and repo-only validation scripts stay out of shipped artifacts
+
+The embedded-template preparation step matters because `core-rs/build.rs` now consumes a prepared artifact. It no longer shells out to Node during `cargo build` or `cargo test`.
 
 ### TEST-01D Live Installed E2E
 
@@ -110,6 +114,7 @@ The important JS release checks are:
 Two parts of the gate are easy to miss if you only skim the shell script:
 
 - `stage-distribution-assets.mjs embedded-template` refreshes the generated embedded template before Rust linting and tests run, so verification checks the packaged scaffold shape instead of stale generated artifacts.
+- direct Rust builds in the canonical repo rely on that prepared artifact; they do not generate it implicitly anymore.
 - `generated-project-dogfood` and `bootstrap-pattern1.test.mjs` validate that a freshly generated project is immediately buildable and wrapper-executable without manual repair.
 
 If the current npm version is not yet published, `verify.sh` still keeps the lockfile in placeholder mode, but it continues to run the local JS wrapper checks. Registry visibility only affects the expected lockfile state, not whether local JS validation runs.

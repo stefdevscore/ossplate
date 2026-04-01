@@ -50,6 +50,12 @@ Use cases:
 
 `publish` is intentionally source-checkout only. It orchestrates release helpers from the checked-out repo and does not mutate git state for you.
 
+If you run direct Rust build or test commands in the canonical repo outside `verify.sh`, prepare the embedded-template artifact first:
+
+```bash
+node scripts/stage-distribution-assets.mjs embedded-template
+```
+
 ## Verification Before Publish
 
 Run the full gate before releasing:

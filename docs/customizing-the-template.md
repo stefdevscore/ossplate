@@ -130,9 +130,15 @@ cargo run --manifest-path core-rs/Cargo.toml -- upgrade --json
 
 - detects scaffold compatibility and current scaffold version
 - resolves a chained `x -> x+1 -> ... -> latest` path only across explicitly supported versioned transitions
-- upgrades unversioned descendants only when they exactly match a known historical scaffold fingerprint
+- upgrades unversioned descendants only when they exactly match an authored historical scaffold contract
 - updates managed scaffold surfaces to the current scaffold version
 - returns structured step plans and changed-file output in `--json` mode
+
+`upgrade` is intentionally conservative:
+
+- a declared scaffold version must still match its owned contract
+- unversioned repos must match one authored historical contract exactly
+- if the repo shape is ambiguous or drifted, prefer recreate over heuristic mutation
 
 If a repo is older than the supported upgrade window or does not match a recognized descendant shape, prefer recreate over heuristic mutation.
 
