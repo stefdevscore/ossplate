@@ -6,7 +6,9 @@ use crate::config::IdentityOverrides;
 use crate::config::{is_template_project, load_config};
 use crate::output::render_bootstrap_output;
 use crate::scaffold_manifest::{
-    read_path_manifest, template_only_paths_from_root, write_path_manifest,
+    current_repo_source_checkout_manifest, current_scaffold_payload_manifest,
+    normalize_scaffold_payload_manifest_for_config, read_path_manifest,
+    template_only_paths_from_root, write_path_manifest,
 };
 use crate::sync::sync_repo;
 use anyhow::{Context, Result};
@@ -90,10 +92,12 @@ fn finalize_scaffold_from(
         ensure_scaffold_layout(&source_root, &target_root)?;
     }
     apply_config_overrides_to_target(&target_root, &source_root, overrides, action)?;
+    hydrate_current_manifests(&target_root)?;
     sync_repo_with_output(&target_root, false, quiet)?;
     let config = load_config(&target_root)?;
     remove_template_only_paths(&target_root, &config)?;
     prune_template_only_manifest_paths(&target_root, &config)?;
+    hydrate_current_manifests(&target_root)?;
     sync_repo_with_output(&target_root, false, true)?;
     refresh_embedded_template_root(&target_root)?;
     if !quiet {
@@ -154,6 +158,43 @@ fn project_embedded_template_root(root: &Path) -> Result<()> {
         copy_path(root, &embedded_root, &relative_path)?;
     }
 
+    Ok(())
+}
+
+fn hydrate_current_manifests(root: &Path) -> Result<()> {
+    let config = load_config(root)?;
+    let mut scaffold_payload =
+        normalize_scaffold_payload_manifest_for_config(&config, &current_scaffold_payload_manifest());
+    let mut source_checkout = current_repo_source_checkout_manifest();
+    if !is_template_project(&config) {
+        let template_only_paths = scaffold_payload
+            .template_only_paths
+            .iter()
+            .cloned()
+            .collect::<std::collections::HashSet<_>>();
+        scaffold_payload
+            .required_paths
+            .retain(|path| !template_only_paths.contains(path));
+        source_checkout
+            .required_paths
+            .retain(|path| !template_only_paths.contains(path));
+    }
+
+    write_path_manifest(&root.join("scaffold-payload.json"), &scaffold_payload)?;
+    write_path_manifest(&root.join("source-checkout.json"), &source_checkout)?;
+    write_path_manifest(&root.join("core-rs/scaffold-payload.json"), &scaffold_payload)?;
+    write_path_manifest(&root.join("core-rs/source-checkout.json"), &source_checkout)?;
+    fs::copy(
+        root.join("runtime-targets.json"),
+        root.join("core-rs/runtime-targets.json"),
+    )
+    .with_context(|| {
+        format!(
+            "failed to mirror {} to {}",
+            root.join("runtime-targets.json").display(),
+            root.join("core-rs/runtime-targets.json").display()
+        )
+    })?;
     Ok(())
 }
 
