@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ossplate"
-version = "0.5.1"
+version = "0.5.2"
 description = "Scaffold and maintain one Rust-core CLI that ships cleanly through Cargo, npm, and PyPI."
 readme = "README.md"
 requires-python = ">=3.10"
