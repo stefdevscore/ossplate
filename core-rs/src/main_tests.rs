@@ -1,6 +1,6 @@
 use crate::config::{
-    generated_project_description, is_template_project, write_config, IdentityOverrides,
-    GENERATED_AUTHOR_EMAIL_PLACEHOLDER, GENERATED_AUTHOR_NAME_PLACEHOLDER,
+    generated_project_description, is_template_project, latest_scaffold_version, write_config,
+    IdentityOverrides, GENERATED_AUTHOR_EMAIL_PLACEHOLDER, GENERATED_AUTHOR_NAME_PLACEHOLDER,
     GENERATED_REPOSITORY_PLACEHOLDER,
 };
 use crate::embedded_template::{embedded_template_contains, materialize_embedded_template_root};
@@ -17,6 +17,7 @@ use crate::sync::{
 };
 use crate::test_support::{fs, load_config, Path};
 use crate::upgrade::{upgrade_apply_json, upgrade_plan_json};
+use crate::upgrade_catalog::{authored_versions, latest_authored_version};
 use crate::verify::VerifyStepResult;
 use crate::{Cli, Commands};
 use clap::Parser;
@@ -388,6 +389,49 @@ fn generated_descendants_include_current_scaffold_version() {
     let config = load_config(&target).unwrap();
     assert_eq!(config.template.scaffold_version, Some(3));
     fs::remove_dir_all(target).unwrap();
+}
+
+#[test]
+fn authored_versions_stay_aligned_with_current_scaffold_contract() {
+    let authored = authored_versions();
+    assert!(!authored.is_empty());
+    assert_eq!(latest_authored_version(), latest_scaffold_version());
+
+    let latest = authored
+        .iter()
+        .find(|spec| spec.version == latest_scaffold_version())
+        .expect("current scaffold version must have an authored spec");
+    assert_eq!(
+        latest.fingerprint.required_paths,
+        crate::scaffold_manifest::required_source_paths()
+    );
+    assert!(
+        latest.fingerprint.forbidden_paths.is_empty(),
+        "current scaffold fingerprint should not rely on forbidden-path exceptions"
+    );
+}
+
+#[test]
+fn authored_versions_form_a_contiguous_upgrade_chain() {
+    let authored = authored_versions();
+    let versions = authored.iter().map(|spec| spec.version).collect::<Vec<_>>();
+    assert_eq!(versions, vec![1, 2, 3]);
+
+    for window in authored.windows(2) {
+        let previous = &window[0];
+        let current = &window[1];
+        let migration = current
+            .migration_from_previous
+            .as_ref()
+            .expect("every non-initial scaffold version must define a migration");
+        assert_eq!(migration.from_version, previous.version);
+        assert_eq!(migration.to_version, current.version);
+    }
+
+    assert!(
+        authored[0].migration_from_previous.is_none(),
+        "initial scaffold version must not define a previous migration"
+    );
 }
 
 #[test]

@@ -9,8 +9,7 @@ pub(crate) fn ensure_source_checkout(root: &Path, requirement_prefix: &str) -> R
 
     if let Ok(report) = crate::upgrade::inspect_compatibility(root) {
         match report.compatibility {
-            crate::upgrade::Compatibility::UpgradeSupported
-            | crate::upgrade::Compatibility::UpgradeRequiresManualSteps => {
+            crate::upgrade::Compatibility::UpgradeSupported => {
                 let path = if report.upgrade_path.is_empty() {
                     "unknown upgrade path".to_string()
                 } else {

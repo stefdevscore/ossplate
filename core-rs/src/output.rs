@@ -122,8 +122,6 @@ pub(crate) struct UpgradeOutput {
     pub(crate) blocking_reason: Option<String>,
     #[serde(rename = "changedFiles")]
     pub(crate) changed_files: Vec<String>,
-    #[serde(rename = "manualFollowUps")]
-    pub(crate) manual_follow_ups: Vec<String>,
     #[serde(rename = "canApply")]
     pub(crate) can_apply: bool,
     #[serde(rename = "stepPlans")]
