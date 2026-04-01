@@ -35,6 +35,8 @@ jobs:
         with:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
+      - name: Prepare embedded template artifact
+        run: node ./scripts/stage-distribution-assets.mjs embedded-template
       - name: Build core binary
         run: cargo build --manifest-path core-rs/Cargo.toml
       - name: Assert release state
