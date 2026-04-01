@@ -5,8 +5,7 @@ use crate::scaffold_manifest::required_source_paths;
 use crate::upgrade_catalog::{authored_versions, MigrationDefinition, VersionSpec};
 use anyhow::{bail, Context, Result};
 use serde::Serialize;
-use std::collections::{BTreeMap, BTreeSet};
-use std::fs;
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -100,14 +99,11 @@ fn render_upgrade(root: &Path, apply: bool) -> Result<String> {
         .context("upgradeable descendant must resolve a starting scaffold version")?;
     let steps = resolve_upgrade_path(from_version, report.latest_scaffold_version)
         .context("upgrade path should exist for upgrade-supported descendant")?;
-
-    let source_root = discover_upgrade_source_root(root)?;
-    let working_root = if apply {
-        root.to_path_buf()
-    } else {
-        clone_tree_to_temp(root)?
-    };
-    let (step_plans, changed_files) = execute_upgrade_steps(&source_root, &working_root, &steps)?;
+    let (step_plans, changed_files) = plan_upgrade_steps(&steps);
+    if apply {
+        let source_root = discover_upgrade_source_root(root)?;
+        execute_upgrade_steps(&source_root, root, &steps)?;
+    }
 
     render_upgrade_output(UpgradeOutput {
         ok: true,
@@ -167,13 +163,7 @@ fn detect_compatibility(root: &Path, config: &crate::config::ToolConfig) -> Comp
                 Compatibility::RecreateRecommended
             }
         }
-        None => {
-            if current_missing.is_empty() {
-                Compatibility::Current
-            } else {
-                Compatibility::RecreateRecommended
-            }
-        }
+        None => Compatibility::RecreateRecommended,
     };
 
     let resolved_upgrade_path = if detected.exact_match {
@@ -299,17 +289,20 @@ fn detect_descendant_version(
 
 fn execute_upgrade_steps(
     source_root: &Path,
-    working_root: &Path,
+    target_root: &Path,
     steps: &[MigrationDefinition],
-) -> Result<(Vec<StepPlan>, Vec<String>)> {
+) -> Result<()> {
+    for step in steps {
+        (step.apply)(source_root, target_root)?;
+    }
+    Ok(())
+}
+
+fn plan_upgrade_steps(steps: &[MigrationDefinition]) -> (Vec<StepPlan>, Vec<String>) {
     let mut step_plans = Vec::new();
     let mut all_changed = BTreeSet::new();
-
     for step in steps {
-        let before = snapshot_tree(working_root)?;
-        (step.apply)(source_root, working_root)?;
-        let after = snapshot_tree(working_root)?;
-        let changed_files = diff_snapshots(&before, &after);
+        let changed_files = (step.planned_changes)();
         all_changed.extend(changed_files.iter().cloned());
         step_plans.push(StepPlan {
             step: step.label(),
@@ -318,8 +311,7 @@ fn execute_upgrade_steps(
             changed_files,
         });
     }
-
-    Ok((step_plans, all_changed.into_iter().collect()))
+    (step_plans, all_changed.into_iter().collect())
 }
 
 fn resolve_upgrade_path(
@@ -344,10 +336,12 @@ fn resolve_upgrade_path(
 }
 
 fn migration_registry() -> Vec<MigrationDefinition> {
-    authored_versions()
+    let mut registry = authored_versions()
         .into_iter()
         .filter_map(|spec| spec.migration_from_previous)
-        .collect()
+        .collect::<Vec<_>>();
+    registry.sort_by_key(|step| step.from_version);
+    registry
 }
 
 fn spec_for_version(version: u64) -> Option<VersionSpec> {
@@ -362,6 +356,7 @@ fn fingerprint_for_version(version: u64) -> crate::upgrade_catalog::VersionFinge
         .unwrap_or(crate::upgrade_catalog::VersionFingerprint {
             required_paths: Vec::new(),
             forbidden_paths: Vec::new(),
+            exact_json_files: Vec::new(),
         })
 }
 
@@ -400,113 +395,4 @@ fn discover_upgrade_source_root(target_root: &Path) -> Result<PathBuf> {
     }
 
     materialize_embedded_template_root()
-}
-
-fn clone_tree_to_temp(source_root: &Path) -> Result<PathBuf> {
-    let temp_root = std::env::temp_dir().join(format!("ossplate-upgrade-plan-{}", unique_suffix()));
-    copy_tree(source_root, &temp_root)?;
-    Ok(temp_root)
-}
-
-fn unique_suffix() -> u128 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .expect("time must advance")
-        .as_nanos()
-}
-
-fn snapshot_tree(root: &Path) -> Result<BTreeMap<String, Vec<u8>>> {
-    let mut entries = BTreeMap::new();
-    collect_snapshot(root, root, &mut entries)?;
-    Ok(entries)
-}
-
-fn collect_snapshot(
-    root: &Path,
-    current: &Path,
-    entries: &mut BTreeMap<String, Vec<u8>>,
-) -> Result<()> {
-    for entry in
-        fs::read_dir(current).with_context(|| format!("failed to read {}", current.display()))?
-    {
-        let entry = entry?;
-        let path = entry.path();
-        let relative = path
-            .strip_prefix(root)
-            .unwrap()
-            .to_string_lossy()
-            .to_string();
-        if should_skip_snapshot(&relative) {
-            continue;
-        }
-        if entry.file_type()?.is_dir() {
-            collect_snapshot(root, &path, entries)?;
-        } else if entry.file_type()?.is_file() {
-            entries.insert(relative, fs::read(&path)?);
-        }
-    }
-    Ok(())
-}
-
-fn should_skip_snapshot(relative_path: &str) -> bool {
-    matches!(
-        relative_path.split('/').next(),
-        Some(".git" | "target" | "node_modules" | ".venv" | "venv" | "__pycache__")
-    )
-}
-
-fn diff_snapshots(
-    before: &BTreeMap<String, Vec<u8>>,
-    after: &BTreeMap<String, Vec<u8>>,
-) -> Vec<String> {
-    let keys = before
-        .keys()
-        .chain(after.keys())
-        .cloned()
-        .collect::<BTreeSet<_>>();
-    keys.into_iter()
-        .filter(|path| before.get(path) != after.get(path))
-        .collect()
-}
-
-fn copy_tree(source_root: &Path, target_root: &Path) -> Result<()> {
-    if target_root.exists() {
-        fs::remove_dir_all(target_root)
-            .with_context(|| format!("failed to remove {}", target_root.display()))?;
-    }
-    fs::create_dir_all(target_root)
-        .with_context(|| format!("failed to create {}", target_root.display()))?;
-    copy_tree_recursive(source_root, source_root, target_root)
-}
-
-fn copy_tree_recursive(source_root: &Path, current: &Path, target_root: &Path) -> Result<()> {
-    for entry in
-        fs::read_dir(current).with_context(|| format!("failed to read {}", current.display()))?
-    {
-        let entry = entry?;
-        let path = entry.path();
-        let relative = path.strip_prefix(source_root).unwrap();
-        if should_skip_snapshot(&relative.to_string_lossy()) {
-            continue;
-        }
-        let target_path = target_root.join(relative);
-        if entry.file_type()?.is_dir() {
-            fs::create_dir_all(&target_path)
-                .with_context(|| format!("failed to create {}", target_path.display()))?;
-            copy_tree_recursive(source_root, &path, target_root)?;
-        } else if entry.file_type()?.is_file() {
-            if let Some(parent) = target_path.parent() {
-                fs::create_dir_all(parent)
-                    .with_context(|| format!("failed to create {}", parent.display()))?;
-            }
-            fs::copy(&path, &target_path).with_context(|| {
-                format!(
-                    "failed to copy {} -> {}",
-                    path.display(),
-                    target_path.display()
-                )
-            })?;
-        }
-    }
-    Ok(())
 }
