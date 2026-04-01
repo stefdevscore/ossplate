@@ -238,7 +238,10 @@ class CliTests(unittest.TestCase):
             text=True,
             env=packaged_env,
         )
-        self.assertEqual(output.stdout.strip(), '{"ok":true,"issues":[]}')
+        validation = json.loads(output.stdout)
+        self.assertTrue(validation["ok"])
+        self.assertEqual(validation["issues"], [])
+        self.assertGreaterEqual(len(validation["warnings"]), 4)
         shutil.rmtree(build_venv_dir, ignore_errors=True)
         shutil.rmtree(venv_dir, ignore_errors=True)
         shutil.rmtree(target_dir, ignore_errors=True)

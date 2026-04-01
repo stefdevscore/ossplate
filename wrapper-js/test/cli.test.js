@@ -309,7 +309,10 @@ test("installed js package and matching runtime package can create from scaffold
       encoding: "utf8",
       env: sanitizedEnv()
     }).trim();
-    assert.equal(output, '{"ok":true,"issues":[]}');
+    const validation = JSON.parse(output);
+    assert.equal(validation.ok, true);
+    assert.deepEqual(validation.issues, []);
+    assert.ok(validation.warnings.length >= 4);
   } finally {
     fs.rmSync(installDir, { recursive: true, force: true });
     fs.rmSync(mainTarball, { force: true });
