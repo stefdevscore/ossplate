@@ -151,17 +151,18 @@ JSON
 run_python_flow() {
   local py_root="$WORK_DIR/python"
   local venv_dir="$py_root/venv"
-  local pip_path="$venv_dir/bin/pip"
+  local python_path="$venv_dir/bin/python"
   local tool_path="$venv_dir/bin/ossplate"
   mkdir -p "$py_root"
 
   if [[ "$OSTYPE" == msys* || "$OSTYPE" == cygwin* || "$(uname -s)" == MINGW* ]]; then
-    pip_path="$venv_dir/Scripts/pip.exe"
+    python_path="$venv_dir/Scripts/python.exe"
     tool_path="$venv_dir/Scripts/ossplate.exe"
   fi
 
   run_step "python:venv" "$PYTHON_BIN" -m venv "$venv_dir"
-  run_step "python:install" "$pip_path" install --upgrade pip ossplate
+  run_step "python:install" "$python_path" -m pip install --upgrade pip
+  run_step "python:install-package" "$python_path" -m pip install ossplate
   run_step "python:e2e" run_common_cli_flow "$tool_path" "$py_root"
 }
 
