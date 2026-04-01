@@ -66,6 +66,10 @@ The live installed flow now asserts more than installability. Each published-sur
 - the default shipped scaffold still reports the expected placeholder warnings
 - a fully specified custom identity validates without warnings
 - a non-default identity override still projects the expected Rust, npm, Python, command, and runtime package names from the shipped scaffold
+- a scoped npm-package identity still projects the expected runtime package names from the shipped scaffold
+- a generated repo from the installed artifact can run its own `./scripts/verify.sh`
+- authored `v2 -> v3` and chained `v1 -> v3` upgrades succeed through the installed artifact
+- a drifted historical descendant is classified as `unsupported` and `upgrade` refuses to mutate it
 
 Published release confidence now also includes a native-runner post-publish matrix in `.github/workflows/live-e2e-published.yml` across:
 
@@ -73,6 +77,8 @@ Published release confidence now also includes a native-runner post-publish matr
 - `macos-14`
 - `macos-15-intel`
 - `windows-latest`
+
+That published matrix now installs Rust, Node, and Python on every runner so each released surface can prove generated-repo verification and upgrade behavior end to end, not just installability.
 
 ## TEST-02 Default Local Gate
 

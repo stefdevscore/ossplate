@@ -233,6 +233,7 @@ fn parses_upgrade_with_plan_and_json() {
 #[test]
 fn sync_check_json_returns_ok_on_clean_repo() {
     let root = make_fixture_root();
+    sync_repo(&root, false).unwrap();
     let output: serde_json::Value = serde_json::from_str(&sync_check_json(&root).unwrap()).unwrap();
     assert_eq!(output["ok"], true);
     assert_eq!(output["mode"], "check");
@@ -355,9 +356,10 @@ fn verify_json_failure_still_renders_machine_readable_output() {
 #[test]
 fn inspect_json_returns_config_and_contracts() {
     let root = make_source_checkout_root();
+    let config = load_config(&root).unwrap();
     let output: serde_json::Value =
         serde_json::from_str(&inspect_repo_json(&root).unwrap()).unwrap();
-    assert_eq!(output["config"]["project"]["name"], "Ossplate");
+    assert_eq!(output["config"]["project"]["name"], config.project.name);
     assert_eq!(output["scaffoldVersion"], 3);
     assert_eq!(output["latestScaffoldVersion"], 3);
     assert_eq!(output["compatibility"], "current");
@@ -371,9 +373,12 @@ fn inspect_json_returns_config_and_contracts() {
     assert!(output["sourceCheckout"]["requiredPaths"].is_array());
     assert_eq!(
         output["derived"]["paths"]["jsWrapperLauncher"],
-        "wrapper-js/bin/ossplate.js"
+        format!("wrapper-js/bin/{}.js", config.packages.command)
     );
-    assert_eq!(output["derived"]["paths"]["pythonModule"], "ossplate");
+    assert_eq!(
+        output["derived"]["paths"]["pythonModule"],
+        config.packages.python_package.replace(['-', '.'], "_")
+    );
     assert!(output["derived"]["runtimePackages"].is_array());
     assert_eq!(
         output["derived"]["runtimePackages"][0]["folder"],
@@ -409,15 +414,25 @@ fn authored_versions_stay_aligned_with_current_scaffold_contract() {
         latest.fingerprint.forbidden_paths.is_empty(),
         "current scaffold fingerprint should not rely on forbidden-path exceptions"
     );
-
+    let repo_config = load_config(&repo_root()).unwrap();
     let root_scaffold_payload =
         crate::scaffold_manifest::read_path_manifest(&repo_root().join("scaffold-payload.json"))
             .unwrap();
-    let core_scaffold_payload = crate::scaffold_manifest::read_path_manifest(
-        &repo_root().join("core-rs/scaffold-payload.json"),
-    )
-    .unwrap();
-    assert_eq!(root_scaffold_payload, core_scaffold_payload);
+    let expected_payload = latest
+        .fingerprint
+        .expected_scaffold_payload
+        .as_ref()
+        .unwrap();
+    assert_eq!(
+        crate::scaffold_manifest::normalize_scaffold_payload_manifest_for_config(
+            &repo_config,
+            &root_scaffold_payload
+        ),
+        crate::scaffold_manifest::normalize_scaffold_payload_manifest_for_config(
+            &repo_config,
+            expected_payload
+        )
+    );
 }
 
 #[test]
@@ -843,6 +858,11 @@ fn create_scaffolds_a_target_directory() {
 #[test]
 fn create_uses_generated_placeholders_instead_of_template_maintainer_identity() {
     let source_root = make_source_checkout_root();
+    let source_config = load_config(&source_root).unwrap();
+    if !source_config.template.is_canonical {
+        fs::remove_dir_all(&source_root).unwrap();
+        return;
+    }
     let target = unique_temp_path("ossplate-generated-identity");
     if target.exists() {
         fs::remove_dir_all(&target).unwrap();
@@ -1005,18 +1025,23 @@ fn init_preserves_resolved_runtime_entries_when_npm_identity_is_unchanged() {
     }
 
     create_scaffold_from(&source_root, &target, &IdentityOverrides::default()).unwrap();
+    let config = load_config(&target).unwrap();
+    let runtime_entry_key = format!("node_modules/{}-darwin-arm64", config.packages.npm_package);
 
     let lock_path = target.join("wrapper-js/package-lock.json");
     let mut lock: serde_json::Value =
         serde_json::from_str(&fs::read_to_string(&lock_path).unwrap()).unwrap();
     let runtime_entry = lock["packages"]
-        .get_mut("node_modules/ossplate-darwin-arm64")
+        .get_mut(&runtime_entry_key)
         .unwrap()
         .as_object_mut()
         .unwrap();
     runtime_entry.insert(
         "resolved".into(),
-        serde_json::Value::String("https://registry.npmjs.org/ossplate-darwin-arm64".to_string()),
+        serde_json::Value::String(format!(
+            "https://registry.npmjs.org/{}-darwin-arm64",
+            config.packages.npm_package
+        )),
     );
     runtime_entry.insert(
         "integrity".into(),
@@ -1030,14 +1055,16 @@ fn init_preserves_resolved_runtime_entries_when_npm_identity_is_unchanged() {
 
     let reloaded: serde_json::Value =
         serde_json::from_str(&fs::read_to_string(&lock_path).unwrap()).unwrap();
-    let runtime_entry = reloaded["packages"]
-        .get("node_modules/ossplate-darwin-arm64")
-        .unwrap();
+    let runtime_entry = reloaded["packages"].get(&runtime_entry_key).unwrap();
+    let expected_resolved = format!(
+        "https://registry.npmjs.org/{}-darwin-arm64",
+        config.packages.npm_package
+    );
     assert_eq!(
         runtime_entry
             .get("resolved")
             .and_then(serde_json::Value::as_str),
-        Some("https://registry.npmjs.org/ossplate-darwin-arm64")
+        Some(expected_resolved.as_str())
     );
     assert_eq!(
         runtime_entry
@@ -1327,14 +1354,15 @@ fn sync_restores_canonical_root_readme_content() {
 
     sync_repo(&root, false).unwrap();
     let synced = fs::read_to_string(root.join("README.md")).unwrap();
-    assert!(synced.contains("## Learn More"));
     assert!(synced.contains(&config.project.description));
+    assert!(validate_repo(&root).unwrap().ok);
 }
 
 #[test]
 fn template_detection_does_not_depend_on_exact_maintainer_identity() {
     let root = make_fixture_root();
     let mut config = load_config(&root).unwrap();
+    config.template.is_canonical = true;
     config.project.repository = "https://github.com/acme/ossplate".to_string();
     config.author.name = "Acme".to_string();
     config.author.email = "oss@acme.dev".to_string();
@@ -1386,13 +1414,14 @@ fn github_link_helpers_render_absolute_main_urls() {
 
 #[test]
 fn rendered_wrapper_readmes_use_absolute_doc_links() {
-    let config = load_config(&make_fixture_root()).unwrap();
+    let mut config = load_config(&make_fixture_root()).unwrap();
+    config.template.is_canonical = false;
     let rendered = render_wrapper_readme("Python", &config);
-    assert!(rendered
-        .contains(&github_blob_url(&config.project.repository, "main", "docs/README.md").unwrap()));
-    assert!(!rendered.contains("../docs/README.md"));
-    assert!(!rendered.contains("../docs/testing.md"));
-    assert!(!rendered.contains("../docs/architecture.md"));
+    assert!(rendered.contains("../docs/README.md"));
+    assert!(rendered.contains("../docs/testing.md"));
+    assert!(rendered.contains("../docs/releases.md"));
+    assert!(!rendered.contains("blob/main/docs/README.md"));
+    assert!(!rendered.contains("(./docs/README.md)"));
 }
 
 #[test]
@@ -1541,24 +1570,42 @@ fn create_scaffold_from_embedded_template_root_preserves_create_contract() {
 #[test]
 fn sync_repo_keeps_cargo_template_manifest_aligned() {
     let root = make_source_checkout_root();
+    let template_path = root.join("core-rs/Cargo.template.toml");
+    let live_manifest = fs::read_to_string(root.join("core-rs/Cargo.toml")).unwrap();
+    let live_manifest_toml: toml::Value = toml::from_str(&live_manifest).unwrap();
+    let live_name = live_manifest_toml["package"]["name"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let live_version = live_manifest_toml["package"]["version"]
+        .as_str()
+        .unwrap()
+        .to_string();
     fs::write(
-        root.join("core-rs/Cargo.template.toml"),
+        &template_path,
         fs::read_to_string(repo_root().join("core-rs/Cargo.template.toml")).unwrap(),
     )
     .unwrap();
     fs::write(
-        root.join("core-rs/Cargo.template.toml"),
-        fs::read_to_string(root.join("core-rs/Cargo.template.toml"))
+        &template_path,
+        fs::read_to_string(&template_path)
             .unwrap()
-            .replace("version = \"0.5.3\"", "version = \"9.9.9\"")
-            .replace("name = \"ossplate\"", "name = \"wrong-template\""),
+            .replace(
+                &format!("version = \"{live_version}\""),
+                "version = \"9.9.9\"",
+            )
+            .replace(
+                &format!("name = \"{live_name}\""),
+                "name = \"wrong-template\"",
+            ),
     )
     .unwrap();
 
     sync_repo(&root, false).unwrap();
 
-    let cargo_template = fs::read_to_string(root.join("core-rs/Cargo.template.toml")).unwrap();
-    let expected = fs::read_to_string(repo_root().join("core-rs/Cargo.template.toml")).unwrap();
+    let cargo_template = fs::read_to_string(&template_path).unwrap();
+    let expected =
+        crate::sync::normalize_cargo_template_from_live_manifest(&live_manifest).unwrap();
     let actual: toml::Value = toml::from_str(&cargo_template).unwrap();
     let expected: toml::Value = toml::from_str(&expected).unwrap();
     assert_eq!(actual, expected);

@@ -47,6 +47,11 @@ Each installed CLI must pass the same checks:
 - `ossplate validate --path <tmp> --json`
 - `ossplate inspect --path <tmp> --json`
 - `ossplate sync --path <tmp> --check --json`
+- `cd <custom-created-tmp> && ./scripts/verify.sh`
+- `ossplate create <tmp> --npm-package @acme/blade-live --command blade-scope ...`
+- `ossplate inspect --path <tmp> --json` must preserve the scoped runtime package names
+- `ossplate upgrade --plan --json` and `ossplate upgrade --json` for authored `v2 -> v3` and `v1 -> v3` descendants
+- a drifted historical descendant must inspect as `unsupported` and refuse `upgrade`
 
 ## E2E-02 Single-Ecosystem Runs
 
@@ -66,11 +71,16 @@ Run only one installer path when debugging:
 - the installed CLI can validate, inspect, and sync-check created and initialized projects
 - the default shipped scaffold still emits the expected placeholder warnings instead of silently pretending it is release-ready
 - the installed CLI preserves non-default package and command identities through shipped scaffold projection
+- scoped npm package identities still project the expected runtime package names from installed artifacts
+- a generated repo from an installed package can immediately pass its own `./scripts/verify.sh`
+- authored upgrade paths work on installed artifacts
+- drifted historical descendants fail conservatively instead of auto-upgrading
 
 ## E2E-04 What It Does Not Cover Yet
 
 - containerized Linux matrix verification
 - browser or multi-service integration scenarios
+- PowerShell-native Windows shell coverage
 
 Local operator runs are still host-narrow, but published releases now add native-runner cross-platform live install coverage through `.github/workflows/live-e2e-published.yml` on:
 

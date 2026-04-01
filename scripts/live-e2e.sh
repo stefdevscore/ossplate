@@ -9,6 +9,7 @@ TIMESTAMP="$(date +"%Y%m%d-%H%M%S")"
 CAPTURE_FILE="$CAPTURE_DIR/live-e2e-$MODE-$TIMESTAMP.log"
 NPM_PACKAGE_SPEC="${OSSPLATE_LIVE_E2E_NPM_PACKAGE_SPEC:-ossplate}"
 NPM_RUNTIME_SPEC="${OSSPLATE_LIVE_E2E_NPM_RUNTIME_SPEC:-}"
+SCOPED_NPM_PACKAGE="${OSSPLATE_LIVE_E2E_SCOPED_NPM_PACKAGE:-@acme/blade-live}"
 
 find_python() {
   local candidate
@@ -300,6 +301,46 @@ print("ok" if all(checks) else "invalid")
   fi
 }
 
+assert_inspect_unsupported() {
+  local output="$1"
+  local reason_substring="$2"
+  local status
+  status="$("$PYTHON_BIN" -c '
+import json
+import sys
+
+try:
+    payload = json.loads(sys.argv[1])
+except Exception:
+    print("invalid")
+    raise SystemExit(0)
+
+reason_substring = sys.argv[2]
+blocking_reason = payload.get("blockingReason") or ""
+
+checks = [
+    payload.get("compatibility") == "unsupported",
+    payload.get("recommendedAction") == "stop",
+    payload.get("upgradePath") == [],
+    reason_substring in blocking_reason,
+]
+print("ok" if all(checks) else "invalid")
+' "$output" "$reason_substring")"
+  if [[ "$status" != "ok" ]]; then
+    printf '%s: unexpected unsupported inspect output: %s\n' "$SCRIPT_NAME" "$output" >&2
+    return 1
+  fi
+}
+
+assert_command_failure_contains() {
+  local output="$1"
+  local expected="$2"
+  if [[ "$output" != *"$expected"* ]]; then
+    printf '%s: expected failure output to contain %s, got: %s\n' "$SCRIPT_NAME" "$expected" "$output" >&2
+    return 1
+  fi
+}
+
 downgrade_descendant_to_version() {
   local root="$1"
   local version="$2"
@@ -370,16 +411,37 @@ PY
   esac
 }
 
+drift_historical_descendant_contract() {
+  local root="$1"
+  "$PYTHON_BIN" - <<'PY' "$root"
+import json
+import pathlib
+
+root = pathlib.Path(__import__("sys").argv[1])
+path = root / "core-rs/source-checkout.json"
+data = json.loads(path.read_text())
+data["requiredPaths"] = [p for p in data["requiredPaths"] if p != "core-rs/src/output.rs"]
+path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+PY
+}
+
+run_generated_repo_verify() {
+  local repo_root="$1"
+  run_step "generated:verify" bash -lc "cd \"$repo_root\" && ./scripts/verify.sh"
+}
+
 run_upgrade_flow() {
   local tool="$1"
   local target_root="$2"
   local v2_dir="$target_root/upgrade-v2"
   local v1_dir="$target_root/upgrade-v1"
+  local drifted_dir="$target_root/upgrade-drifted"
   local inspect_output
   local plan_output
   local apply_output
   local validate_output
   local sync_output
+  local failure_output
 
   "$tool" create "$v2_dir" \
     --name "upgrade-v2" \
@@ -440,6 +502,59 @@ run_upgrade_flow() {
   printf '%s\n' "$inspect_output"
   assert_inspect_current "$inspect_output" "upgrade-v1" "upgrade_v1" "upgrade-v1" "upgrade_v1" "upgrade-v1"
   sync_output="$("$tool" sync --path "$v1_dir" --check --json)"
+  printf '%s\n' "$sync_output"
+  assert_sync_ok "$sync_output"
+
+  "$tool" create "$drifted_dir" \
+    --name "upgrade-drifted" \
+    --description "Live drift refusal fixture." \
+    --repository "https://example.com/upgrade-drifted" \
+    --license "Apache-2.0" \
+    --author-name "Upgrade Fixture" \
+    --author-email "upgrade@example.com" \
+    --rust-crate "upgrade_drifted" \
+    --npm-package "upgrade-drifted" \
+    --python-package "upgrade_drifted" \
+    --command "upgrade-drifted"
+  downgrade_descendant_to_version "$drifted_dir" 2
+  drift_historical_descendant_contract "$drifted_dir"
+  inspect_output="$("$tool" inspect --path "$drifted_dir" --json)"
+  printf '%s\n' "$inspect_output"
+  assert_inspect_unsupported "$inspect_output" "does not exactly match"
+  if failure_output="$("$tool" upgrade --path "$drifted_dir" --json 2>&1)"; then
+    printf '%s: expected upgrade refusal for drifted historical descendant\n' "$SCRIPT_NAME" >&2
+    return 1
+  fi
+  printf '%s\n' "$failure_output"
+  assert_command_failure_contains "$failure_output" "does not exactly match"
+}
+
+run_scoped_identity_flow() {
+  local tool="$1"
+  local target_root="$2"
+  local scoped_dir="$target_root/scoped"
+  local validate_output
+  local inspect_output
+  local sync_output
+
+  "$tool" create "$scoped_dir" \
+    --name "Scoped Blade" \
+    --description "Live E2E scoped identity fixture." \
+    --repository "https://example.com/scoped-blade" \
+    --license "Apache-2.0" \
+    --author-name "Live E2E" \
+    --author-email "live-e2e@example.com" \
+    --rust-crate "blade_scope" \
+    --npm-package "$SCOPED_NPM_PACKAGE" \
+    --python-package "blade_scope" \
+    --command "blade-scope"
+  validate_output="$("$tool" validate --path "$scoped_dir" --json)"
+  printf '%s\n' "$validate_output"
+  assert_validate_with_mode "$validate_output" "clean"
+  inspect_output="$("$tool" inspect --path "$scoped_dir" --json)"
+  printf '%s\n' "$inspect_output"
+  assert_inspect_current "$inspect_output" "Scoped Blade" "blade_scope" "$SCOPED_NPM_PACKAGE" "blade_scope" "blade-scope"
+  sync_output="$("$tool" sync --path "$scoped_dir" --check --json)"
   printf '%s\n' "$sync_output"
   assert_sync_ok "$sync_output"
 }
@@ -505,6 +620,8 @@ run_common_cli_flow() {
   printf '%s\n' "$sync_output"
   assert_sync_ok "$sync_output"
 
+  run_generated_repo_verify "$custom_dir"
+  run_scoped_identity_flow "$tool" "$target_root"
   run_upgrade_flow "$tool" "$target_root"
 }
 

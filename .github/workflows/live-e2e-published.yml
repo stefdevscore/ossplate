@@ -45,13 +45,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
-        if: matrix.mode == 'cargo'
       - uses: actions/setup-node@v5
-        if: matrix.mode == 'npm'
         with:
           node-version: '24'
       - uses: actions/setup-python@v6
-        if: matrix.mode == 'python'
         with:
           python-version: '3.11'
       - name: Run published live E2E

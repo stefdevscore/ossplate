@@ -94,6 +94,7 @@ fn finalize_scaffold_from(
     let config = load_config(&target_root)?;
     remove_template_only_paths(&target_root, &config)?;
     prune_template_only_manifest_paths(&target_root, &config)?;
+    sync_repo_with_output(&target_root, false, true)?;
     refresh_embedded_template_root(&target_root)?;
     if !quiet {
         match action {

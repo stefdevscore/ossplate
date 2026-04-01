@@ -270,8 +270,15 @@ fn build_sync_changes(root: &Path) -> Result<Vec<SyncChange>> {
         }
     }
 
-    if config.template.is_canonical {
-        if let Some(change) = build_cargo_template_sync_change(root, &current)? {
+    if let Some(change) = build_cargo_template_sync_change(root, &current)? {
+        drifted.push(change);
+    }
+    for (path, source) in [
+        ("core-rs/scaffold-payload.json", "scaffold-payload.json"),
+        ("core-rs/source-checkout.json", "source-checkout.json"),
+        ("core-rs/runtime-targets.json", "runtime-targets.json"),
+    ] {
+        if let Some(change) = build_json_mirror_sync_change(root, path, source)? {
             drifted.push(change);
         }
     }
@@ -336,7 +343,50 @@ fn build_cargo_template_sync_change(
     }))
 }
 
-fn normalize_cargo_template_from_live_manifest(content: &str) -> Result<String> {
+fn build_json_mirror_sync_change(
+    root: &Path,
+    target_relative_path: &'static str,
+    source_relative_path: &'static str,
+) -> Result<Option<SyncChange>> {
+    let target_path = root.join(target_relative_path);
+    if !target_path.is_file() {
+        return Ok(None);
+    }
+
+    let actual = fs::read_to_string(&target_path)
+        .with_context(|| format!("failed to read {}", target_path.display()))?;
+    let expected = fs::read_to_string(root.join(source_relative_path)).with_context(|| {
+        format!(
+            "failed to read {}",
+            root.join(source_relative_path).display()
+        )
+    })?;
+    let actual_json: serde_json::Value = serde_json::from_str(&actual)
+        .with_context(|| format!("failed to parse {}", target_path.display()))?;
+    let expected_json: serde_json::Value = serde_json::from_str(&expected).with_context(|| {
+        format!(
+            "failed to parse {}",
+            root.join(source_relative_path).display()
+        )
+    })?;
+    if actual_json == expected_json {
+        return Ok(None);
+    }
+
+    Ok(Some(SyncChange {
+        path: target_relative_path,
+        synced: expected.clone(),
+        issues: vec![issue(
+            target_relative_path,
+            "json",
+            "owned metadata differs from the mirrored root contract",
+            Some(expected),
+            Some(actual),
+        )],
+    }))
+}
+
+pub(crate) fn normalize_cargo_template_from_live_manifest(content: &str) -> Result<String> {
     let mut value: toml::Value =
         toml::from_str(content).context("failed to parse core-rs/Cargo.toml for template sync")?;
     let include = value
