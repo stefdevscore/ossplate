@@ -522,13 +522,13 @@ run_upgrade_flow() {
   drift_historical_descendant_contract "$drifted_dir"
   inspect_output="$("$tool" inspect --path "$drifted_dir" --json)"
   printf '%s\n' "$inspect_output"
-  assert_inspect_unsupported "$inspect_output" "does not exactly match"
+  assert_inspect_unsupported "$inspect_output" "does not match"
   if failure_output="$("$tool" upgrade --path "$drifted_dir" --json 2>&1)"; then
     printf '%s: expected upgrade refusal for drifted historical descendant\n' "$SCRIPT_NAME" >&2
     return 1
   fi
   printf '%s\n' "$failure_output"
-  assert_command_failure_contains "$failure_output" "does not exactly match"
+  assert_command_failure_contains "$failure_output" "does not match"
 }
 
 run_scoped_identity_flow() {
