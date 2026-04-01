@@ -25,6 +25,7 @@ The product commands are:
 - `validate`
 - `sync`
 - `inspect`
+- `upgrade`
 - `create`
 - `init`
 - `publish`
@@ -37,6 +38,8 @@ The agent-facing JSON/plan surfaces are part of that contract:
 - `sync --plan --json`
 - `sync --json`
 - `inspect --json`
+- `upgrade --plan --json`
+- `upgrade --json`
 - `publish --plan --json`
 - `verify --json`
 
@@ -46,6 +49,7 @@ The Rust core is now split into a few explicit slices:
 
 - core execution in `main.rs`: CLI parsing and top-level dispatch
 - `sync`: bounded identity-bearing metadata validation and rewrite logic
+- `upgrade`: scaffold-version compatibility detection, planning, and authored migration steps
 - `release`: publish command semantics and adapter invocation boundaries
 - `scaffold`: template discovery, projection, hydration, and identity override flow
 - verification: tests and release checks that enforce the intended boundaries
@@ -62,6 +66,7 @@ Rust owns:
 - project identity loading from `ossplate.toml`
 - metadata ownership rules
 - scaffold creation and initialization
+- scaffold-version upgrade policy and authored migrations
 - operator-facing publish orchestration
 
 Rust is the only layer that should know what the product means.
@@ -90,6 +95,7 @@ The scaffold payload owns the generated-project baseline:
 
 It is curated by `scaffold-payload.json` and shipped so installed wrappers can still run `create` and `init`.
 Wrapper package builds stage scaffold payloads from that curated payload on demand. The repository no longer treats wrapper `scaffold/` trees as checked-in source.
+The canonical Rust build also treats the embedded-template root as a prepared artifact boundary. The source checkout prepares it before Rust build/test/package flows rather than generating it from `build.rs`.
 
 ## ARCH-04 Ownership Boundaries
 

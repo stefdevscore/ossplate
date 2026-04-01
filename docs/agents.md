@@ -42,7 +42,7 @@ These commands are the most useful for agents:
 - `node ./scripts/release-check.mjs release-state`
 - `node ./scripts/release-check.mjs publish-readiness publish`
 
-Use `validate --json` for structured issue detection. Use `upgrade --plan --json` before attempting structural scaffold migration, and rely on its `upgradePath` or `blockingReason` fields instead of guessing historical compatibility. Use `sync --check --json` or `sync --plan --json` before bounded metadata mutation. Use `sync --json` when the bounded repair is intended. Use `verify --json` for a structured full-gate result, or `verify.sh` when a human shell-oriented gate is sufficient.
+Use `validate --json` for structured issue detection. Use `upgrade --plan --json` before attempting structural scaffold migration, and rely on its `upgradePath` or `blockingReason` fields instead of guessing historical compatibility. Treat upgradeability as an exact authored contract match, not just a similar repo shape. Use `sync --check --json` or `sync --plan --json` before bounded metadata mutation. Use `sync --json` when the bounded repair is intended. Use `verify --json` for a structured full-gate result, or `verify.sh` when a human shell-oriented gate is sufficient.
 
 ## AGENT-04 Safe Mutation Model
 
@@ -68,5 +68,6 @@ Agents should not assume:
 - package metadata can be hand-edited safely without revalidation
 - `init` is a broad migration tool across scaffold generations
 - unversioned descendants are safe to upgrade without an exact fingerprint match
+- direct Rust builds in the canonical repo will generate embedded scaffold assets for you
 
 The supported contract is already narrower and more reliable than that.
