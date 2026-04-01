@@ -3,6 +3,8 @@ use crate::config::{
     IdentityOverrides, ToolConfig, GENERATED_AUTHOR_EMAIL_PLACEHOLDER,
     GENERATED_AUTHOR_NAME_PLACEHOLDER, GENERATED_REPOSITORY_PLACEHOLDER,
 };
+use crate::scaffold::hydrate_current_manifests;
+use crate::sync::normalize_cargo_template_from_live_manifest;
 use anyhow::{Context, Result};
 use serde::Deserialize;
 use serde_json::json;
@@ -38,8 +40,10 @@ pub(crate) fn reapply_config_to_target(target_root: &Path, config: &ToolConfig) 
     relocate_generated_identity_paths(target_root, &original, config)?;
     remove_generated_python_runtime_dirs(target_root, &original, config)?;
     normalize_cargo_lock_identity(target_root, &original, config)?;
+    normalize_cargo_template_identity(target_root)?;
     normalize_package_lock_identity(target_root, &original, config, "upgrade")?;
-    write_config(target_root, config)
+    write_config(target_root, config)?;
+    hydrate_current_manifests(target_root)
 }
 
 fn apply_template_mode(
@@ -176,6 +180,18 @@ fn normalize_cargo_lock_identity(
     }
 
     fs::write(lock_path, content.replacen(&old_name, &new_name, 1))?;
+    Ok(())
+}
+
+fn normalize_cargo_template_identity(target_root: &Path) -> Result<()> {
+    let template_path = target_root.join("core-rs/Cargo.template.toml");
+    if !template_path.exists() {
+        return Ok(());
+    }
+
+    let live_manifest = fs::read_to_string(target_root.join("core-rs/Cargo.toml"))?;
+    let normalized = normalize_cargo_template_from_live_manifest(&live_manifest)?;
+    fs::write(template_path, normalized)?;
     Ok(())
 }
 

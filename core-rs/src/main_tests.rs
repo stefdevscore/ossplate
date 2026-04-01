@@ -587,6 +587,58 @@ fn upgrade_apply_updates_previous_descendant_and_reports_changes() {
 }
 
 #[test]
+fn upgrade_apply_rehydrates_mirrored_contracts_for_customized_descendant() {
+    let source_root = repo_root();
+    let target = unique_temp_path("ossplate-upgrade-customized-descendant");
+    create_scaffold_from(
+        &source_root,
+        &target,
+        &IdentityOverrides {
+            name: Some("Upgrade V2".to_string()),
+            description: None,
+            repository: Some("https://github.com/acme/upgrade-v2".to_string()),
+            license: None,
+            author_name: None,
+            author_email: None,
+            rust_crate: Some("upgrade-v2".to_string()),
+            npm_package: Some("upgrade-v2".to_string()),
+            python_package: Some("upgrade-v2".to_string()),
+            command: Some("upgrade-v2".to_string()),
+        },
+    )
+    .unwrap();
+
+    let mut config = load_config(&target).unwrap();
+    config.template.scaffold_version = Some(2);
+    write_config(&target, &config).unwrap();
+    remove_paths_for_version(&target, &["core-rs/src/upgrade_catalog.rs"]);
+
+    let output: serde_json::Value =
+        serde_json::from_str(&upgrade_apply_json(&target).unwrap()).unwrap();
+    assert_eq!(output["ok"], true);
+    assert_eq!(output["apply"], true);
+    assert_eq!(output["fromVersion"], 2);
+    assert_eq!(output["toVersion"], 3);
+    assert!(sync_repo(&target, true).is_ok());
+
+    let mirrored: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(target.join("core-rs/scaffold-payload.json")).unwrap(),
+    )
+    .unwrap();
+    assert!(mirrored["requiredPaths"]
+        .as_array()
+        .unwrap()
+        .contains(&serde_json::json!("wrapper-js/bin/upgrade-v2.js")));
+    assert!(mirrored["requiredPaths"]
+        .as_array()
+        .unwrap()
+        .contains(&serde_json::json!("wrapper-py/src/upgrade_v2/cli.py")));
+    assert!(validate_repo(&target).unwrap().ok);
+
+    fs::remove_dir_all(target).unwrap();
+}
+
+#[test]
 fn upgrade_apply_chains_version_1_to_3() {
     let root = make_version_1_descendant();
     let output: serde_json::Value =

@@ -161,7 +161,7 @@ fn project_embedded_template_root(root: &Path) -> Result<()> {
     Ok(())
 }
 
-fn hydrate_current_manifests(root: &Path) -> Result<()> {
+pub(crate) fn hydrate_current_manifests(root: &Path) -> Result<()> {
     let config = load_config(root)?;
     let mut scaffold_payload = normalize_scaffold_payload_manifest_for_config(
         &config,

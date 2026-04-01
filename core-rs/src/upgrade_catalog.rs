@@ -5,7 +5,9 @@ use std::fs;
 use std::path::Path;
 
 use crate::config::{load_config, write_config};
-use crate::scaffold::{reapply_config_to_target, refresh_embedded_template_root};
+use crate::scaffold::{
+    hydrate_current_manifests, reapply_config_to_target, refresh_embedded_template_root,
+};
 use crate::scaffold_manifest::{
     current_core_source_checkout_manifest, current_repo_source_checkout_manifest,
     current_scaffold_payload_manifest, normalize_scaffold_payload_manifest_for_config,
@@ -223,6 +225,8 @@ fn apply_version_owned_changes(source_root: &Path, target_root: &Path, version: 
     preserved_config.template.scaffold_version = Some(version);
     preserved_config.template.is_canonical = false;
     reapply_config_to_target(target_root, &preserved_config)?;
+    sync_repo_quiet(target_root, false)?;
+    hydrate_current_manifests(target_root)?;
     sync_repo_quiet(target_root, false)?;
     write_config(target_root, &preserved_config)?;
     refresh_embedded_template_root(target_root)
