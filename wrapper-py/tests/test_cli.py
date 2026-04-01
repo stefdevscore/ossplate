@@ -59,7 +59,7 @@ class CliTests(unittest.TestCase):
         for target in json.loads((REPO_ROOT / "runtime-targets.json").read_text())["targets"]
     )
     wheel_size_budgets = {
-        "darwin-arm64": (4_000_000, 10_000_000),
+        "darwin-arm64": (4_000_000, 10_250_000),
         "darwin-x64": (8_000_000, 18_000_000),
         "linux-x64": (12_000_000, 40_000_000),
         "win32-x64": (12_000_000, 40_000_000),

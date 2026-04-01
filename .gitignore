@@ -9,6 +9,7 @@ dist/
 build/
 node_modules/
 target/
+docs/temp/
 core-rs/generated-embedded-template-root/
 wrapper-js/platform-packages/*/bin/
 wrapper-py/src/*/bin/*/*

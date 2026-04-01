@@ -161,6 +161,7 @@ pub(crate) fn sync_apply_json(root: &Path) -> Result<String> {
 
 pub(crate) fn inspect_repo_json(root: &Path) -> Result<String> {
     let config = load_config(root)?;
+    let compatibility = crate::upgrade::inspect_compatibility(root)?;
     let managed_files = managed_files()
         .into_iter()
         .map(|file| file.path.to_string())
@@ -171,6 +172,12 @@ pub(crate) fn inspect_repo_json(root: &Path) -> Result<String> {
     let derived = build_inspect_derived(&config, &runtime_targets)?;
     crate::output::render_inspect_output(crate::output::InspectOutput {
         config,
+        scaffold_version: compatibility.scaffold_version,
+        latest_scaffold_version: compatibility.latest_scaffold_version,
+        compatibility: compatibility.compatibility,
+        recommended_action: compatibility.recommended_action,
+        upgrade_path: compatibility.upgrade_path,
+        blocking_reason: compatibility.blocking_reason,
         managed_files,
         runtime_targets,
         scaffold_payload,

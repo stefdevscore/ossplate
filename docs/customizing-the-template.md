@@ -7,6 +7,7 @@ The adoption rule is simple:
 - `ossplate.toml` is the shared identity source of truth
 - `sync` rewrites owned surfaces back into alignment
 - `validate` checks that the owned surfaces still match
+- `upgrade` is the structural path for supported scaffold-version transitions
 
 ## ADOPT-01 Canonical Source Of Truth
 
@@ -64,10 +65,11 @@ Implementation note:
 
 1. Update `ossplate.toml` directly or use `create` / `init` with identity flags.
 2. Run `cargo run --manifest-path core-rs/Cargo.toml -- inspect --json` to confirm the effective identity and owned contract.
-3. Run `cargo run --manifest-path core-rs/Cargo.toml -- sync --plan --json` or `-- sync --json`.
-4. Run `cargo run --manifest-path core-rs/Cargo.toml -- validate --json`.
-5. Run the verification flow from [Testing](./testing.md).
-6. Only then expand product code or publish configuration.
+3. If the repo is an older supported descendant, run `cargo run --manifest-path core-rs/Cargo.toml -- upgrade --plan --json`.
+4. Run `cargo run --manifest-path core-rs/Cargo.toml -- sync --plan --json` or `-- sync --json`.
+5. Run `cargo run --manifest-path core-rs/Cargo.toml -- validate --json`.
+6. Run the verification flow from [Testing](./testing.md).
+7. Only then expand product code or publish configuration.
 
 ## ADOPT-05 Create A New Project
 
@@ -113,7 +115,28 @@ cargo run --manifest-path core-rs/Cargo.toml -- init \
 - runs `sync` so owned metadata matches `ossplate.toml`
 - can return the effective initialized identity through `--json`
 
-## ADOPT-07 Identity Flags
+`init` is intentionally narrow. It hydrates repos that already match the expected scaffold shape. It is not the general-purpose path for cross-generation scaffold migration.
+
+## ADOPT-07 Upgrade Supported Descendants
+
+Use:
+
+```bash
+cargo run --manifest-path core-rs/Cargo.toml -- upgrade --plan --json
+cargo run --manifest-path core-rs/Cargo.toml -- upgrade --json
+```
+
+`upgrade`:
+
+- detects scaffold compatibility and current scaffold version
+- resolves a chained `x -> x+1 -> ... -> latest` path only across explicitly supported versioned transitions
+- upgrades unversioned descendants only when they exactly match a known historical scaffold fingerprint
+- updates managed scaffold surfaces to the current scaffold version
+- returns structured step plans and changed-file output in `--json` mode
+
+If a repo is older than the supported upgrade window or does not match a recognized descendant shape, prefer recreate over heuristic mutation.
+
+## ADOPT-08 Identity Flags
 
 - `--name`
 - `--description`
@@ -126,7 +149,7 @@ cargo run --manifest-path core-rs/Cargo.toml -- init \
 - `--python-package`
 - `--command`
 
-## ADOPT-08 Related Decisions
+## ADOPT-09 Related Decisions
 
 - [ADR 0002: Sync Owns Bounded Identity Surfaces](./adrs/0002-sync-owns-bounded-identity.md)
 - [ADR 0003: Ship A Curated Scaffold Payload](./adrs/0003-curated-scaffold-payload.md)

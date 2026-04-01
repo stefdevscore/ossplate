@@ -428,83 +428,42 @@ mod tests {
 
     fn fixture_root() -> PathBuf {
         let root = unique_temp_path("ossplate-release-fixture");
-        fs::create_dir_all(root.join("core-rs/src/scaffold")).unwrap();
-        fs::create_dir_all(root.join("core-rs/src/sync")).unwrap();
-        fs::create_dir_all(root.join("wrapper-js")).unwrap();
-        fs::create_dir_all(root.join("wrapper-py")).unwrap();
-        fs::create_dir_all(root.join("scripts")).unwrap();
-        fs::write(
-            root.join("ossplate.toml"),
-            "[project]\nname = \"Ossplate\"\n",
-        )
-        .unwrap();
-        fs::write(
-            root.join("scaffold-payload.json"),
-            "{\n  \"requiredPaths\": []\n}\n",
-        )
-        .unwrap();
-        fs::write(root.join("README.md"), "# Ossplate\n").unwrap();
-        fs::write(
-            root.join("core-rs/Cargo.toml"),
-            "[package]\nname = \"ossplate\"\n",
-        )
-        .unwrap();
-        fs::write(root.join("core-rs/src/main.rs"), "fn main() {}\n").unwrap();
-        fs::write(root.join("core-rs/src/main_tests.rs"), "// main tests\n").unwrap();
-        fs::write(
-            root.join("core-rs/src/test_support.rs"),
-            "// test support\n",
-        )
-        .unwrap();
-        fs::write(root.join("core-rs/src/config.rs"), "// config\n").unwrap();
-        fs::write(root.join("core-rs/src/output.rs"), "// output\n").unwrap();
-        fs::write(root.join("core-rs/src/release.rs"), "// release\n").unwrap();
-        fs::write(root.join("core-rs/src/scaffold.rs"), "// scaffold\n").unwrap();
-        fs::write(root.join("core-rs/src/verify.rs"), "// verify\n").unwrap();
-        fs::write(
-            root.join("core-rs/src/scaffold_manifest.rs"),
-            "// scaffold manifest\n",
-        )
-        .unwrap();
-        fs::write(
-            root.join("core-rs/src/scaffold/identity_application.rs"),
-            "// identity\n",
-        )
-        .unwrap();
-        fs::write(
-            root.join("core-rs/src/scaffold/projection.rs"),
-            "// projection\n",
-        )
-        .unwrap();
-        fs::write(
-            root.join("core-rs/src/scaffold/template_root.rs"),
-            "// template root\n",
-        )
-        .unwrap();
-        fs::write(
-            root.join("core-rs/src/source_checkout.rs"),
-            "// source checkout\n",
-        )
-        .unwrap();
-        fs::write(root.join("core-rs/src/sync.rs"), "// sync\n").unwrap();
-        fs::write(root.join("core-rs/src/sync/metadata.rs"), "// metadata\n").unwrap();
-        fs::write(root.join("core-rs/src/sync/text.rs"), "// text\n").unwrap();
-        fs::write(
-            root.join("wrapper-js/package.json"),
-            "{\n  \"name\": \"ossplate\"\n}\n",
-        )
-        .unwrap();
-        fs::write(
-            root.join("wrapper-py/pyproject.toml"),
-            "[project]\nname = \"ossplate\"\n",
-        )
-        .unwrap();
-        fs::write(
-            root.join("scripts/publish-local.mjs"),
-            "console.log('ok')\n",
-        )
-        .unwrap();
+        copy_required_paths_from_manifest(&repo_root(), &root);
         root
+    }
+
+    fn repo_root() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .to_path_buf()
+    }
+
+    fn copy_required_paths_from_manifest(source_root: &Path, target_root: &Path) {
+        fs::create_dir_all(target_root).unwrap();
+        fs::copy(
+            source_root.join("scaffold-payload.json"),
+            target_root.join("scaffold-payload.json"),
+        )
+        .unwrap();
+        fs::copy(
+            source_root.join("source-checkout.json"),
+            target_root.join("source-checkout.json"),
+        )
+        .unwrap();
+        let manifest: serde_json::Value = serde_json::from_str(
+            &fs::read_to_string(source_root.join("scaffold-payload.json")).unwrap(),
+        )
+        .unwrap();
+        for relative_path in manifest["requiredPaths"].as_array().unwrap() {
+            let relative_path = relative_path.as_str().unwrap();
+            let source_path = source_root.join(relative_path);
+            let target_path = target_root.join(relative_path);
+            if let Some(parent) = target_path.parent() {
+                fs::create_dir_all(parent).unwrap();
+            }
+            fs::copy(&source_path, &target_path).unwrap();
+        }
     }
 
     struct FakePublishHelperRunner {

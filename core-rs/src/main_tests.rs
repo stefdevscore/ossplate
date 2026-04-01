@@ -1,4 +1,8 @@
-use crate::config::IdentityOverrides;
+use crate::config::{
+    generated_project_description, is_template_project, latest_scaffold_version, write_config,
+    IdentityOverrides, GENERATED_AUTHOR_EMAIL_PLACEHOLDER, GENERATED_AUTHOR_NAME_PLACEHOLDER,
+    GENERATED_REPOSITORY_PLACEHOLDER,
+};
 use crate::embedded_template::{embedded_template_contains, materialize_embedded_template_root};
 use crate::output::VersionOutput;
 use crate::release::{render_publish_plan, PublishRegistry};
@@ -12,6 +16,8 @@ use crate::sync::{
     sync_apply_json, sync_check_json, sync_plan_json, sync_repo, validate_repo,
 };
 use crate::test_support::{fs, load_config, Path};
+use crate::upgrade::{upgrade_apply_json, upgrade_plan_json};
+use crate::upgrade_catalog::{authored_versions, latest_authored_version};
 use crate::verify::VerifyStepResult;
 use crate::{Cli, Commands};
 use clap::Parser;
@@ -211,6 +217,20 @@ fn parses_verify_with_json() {
 }
 
 #[test]
+fn parses_upgrade_with_plan_and_json() {
+    let cli =
+        Cli::try_parse_from(["ossplate", "upgrade", "--path", "demo", "--plan", "--json"]).unwrap();
+    match cli.command {
+        Commands::Upgrade { path, plan, json } => {
+            assert_eq!(path, PathBuf::from("demo"));
+            assert!(plan);
+            assert!(json);
+        }
+        _ => panic!("expected upgrade"),
+    }
+}
+
+#[test]
 fn sync_check_json_returns_ok_on_clean_repo() {
     let root = make_fixture_root();
     let output: serde_json::Value = serde_json::from_str(&sync_check_json(&root).unwrap()).unwrap();
@@ -338,6 +358,9 @@ fn inspect_json_returns_config_and_contracts() {
     let output: serde_json::Value =
         serde_json::from_str(&inspect_repo_json(&root).unwrap()).unwrap();
     assert_eq!(output["config"]["project"]["name"], "Ossplate");
+    assert_eq!(output["scaffoldVersion"], 3);
+    assert_eq!(output["latestScaffoldVersion"], 3);
+    assert_eq!(output["compatibility"], "current");
     assert!(output["managedFiles"]
         .as_array()
         .unwrap()
@@ -356,6 +379,230 @@ fn inspect_json_returns_config_and_contracts() {
         output["derived"]["runtimePackages"][0]["folder"],
         "wrapper-js/platform-packages/ossplate-darwin-arm64"
     );
+}
+
+#[test]
+fn generated_descendants_include_current_scaffold_version() {
+    let source_root = repo_root();
+    let target = unique_temp_path("ossplate-generated-version");
+    create_scaffold_from(&source_root, &target, &IdentityOverrides::default()).unwrap();
+    let config = load_config(&target).unwrap();
+    assert_eq!(config.template.scaffold_version, Some(3));
+    fs::remove_dir_all(target).unwrap();
+}
+
+#[test]
+fn authored_versions_stay_aligned_with_current_scaffold_contract() {
+    let authored = authored_versions();
+    assert!(!authored.is_empty());
+    assert_eq!(latest_authored_version(), latest_scaffold_version());
+
+    let latest = authored
+        .iter()
+        .find(|spec| spec.version == latest_scaffold_version())
+        .expect("current scaffold version must have an authored spec");
+    assert_eq!(
+        latest.fingerprint.required_paths,
+        crate::scaffold_manifest::required_source_paths()
+    );
+    assert!(
+        latest.fingerprint.forbidden_paths.is_empty(),
+        "current scaffold fingerprint should not rely on forbidden-path exceptions"
+    );
+}
+
+#[test]
+fn authored_versions_form_a_contiguous_upgrade_chain() {
+    let authored = authored_versions();
+    let versions = authored.iter().map(|spec| spec.version).collect::<Vec<_>>();
+    assert_eq!(versions, vec![1, 2, 3]);
+
+    for window in authored.windows(2) {
+        let previous = &window[0];
+        let current = &window[1];
+        let migration = current
+            .migration_from_previous
+            .as_ref()
+            .expect("every non-initial scaffold version must define a migration");
+        assert_eq!(migration.from_version, previous.version);
+        assert_eq!(migration.to_version, current.version);
+    }
+
+    assert!(
+        authored[0].migration_from_previous.is_none(),
+        "initial scaffold version must not define a previous migration"
+    );
+}
+
+#[test]
+fn inspect_json_reports_upgrade_supported_for_previous_descendant() {
+    let root = make_previous_version_descendant();
+    let output: serde_json::Value =
+        serde_json::from_str(&inspect_repo_json(&root).unwrap()).unwrap();
+    assert_eq!(output["scaffoldVersion"], 2);
+    assert_eq!(output["latestScaffoldVersion"], 3);
+    assert_eq!(output["compatibility"], "upgrade_supported");
+    assert_eq!(output["recommendedAction"], "upgrade");
+    assert_eq!(output["upgradePath"], serde_json::json!(["2->3"]));
+    assert!(output.get("blockingReason").is_none());
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn inspect_json_reports_recreate_for_older_descendant() {
+    let root = make_previous_version_descendant();
+    let mut config = load_config(&root).unwrap();
+    config.template.scaffold_version = Some(0);
+    write_config(&root, &config).unwrap();
+    let output: serde_json::Value =
+        serde_json::from_str(&inspect_repo_json(&root).unwrap()).unwrap();
+    assert_eq!(output["compatibility"], "recreate_recommended");
+    assert_eq!(output["recommendedAction"], "recreate");
+    assert_eq!(output["upgradePath"], serde_json::json!([]));
+    assert_eq!(
+        output["blockingReason"],
+        "upgrade path is unavailable from scaffold version 0 to 3"
+    );
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn inspect_json_reports_unsupported_for_damaged_descendant() {
+    let root = make_previous_version_descendant();
+    fs::remove_file(root.join("core-rs/src/main.rs")).unwrap();
+    let output: serde_json::Value =
+        serde_json::from_str(&inspect_repo_json(&root).unwrap()).unwrap();
+    assert_eq!(output["compatibility"], "unsupported");
+    assert_eq!(output["recommendedAction"], "stop");
+    assert_eq!(output["upgradePath"], serde_json::json!([]));
+    assert!(output["blockingReason"]
+        .as_str()
+        .unwrap()
+        .contains("does not match"));
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn inspect_json_maps_unversioned_exact_match_descendant_to_known_upgrade_path() {
+    let root = make_previous_version_descendant();
+    let mut config = load_config(&root).unwrap();
+    config.template.scaffold_version = None;
+    write_config(&root, &config).unwrap();
+    let output: serde_json::Value =
+        serde_json::from_str(&inspect_repo_json(&root).unwrap()).unwrap();
+    assert_eq!(output["scaffoldVersion"], 2);
+    assert_eq!(output["compatibility"], "upgrade_supported");
+    assert_eq!(output["upgradePath"], serde_json::json!(["2->3"]));
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn inspect_json_rejects_unversioned_descendant_with_drifted_manifest_contract() {
+    let root = make_previous_version_descendant();
+    let mut config = load_config(&root).unwrap();
+    config.template.scaffold_version = None;
+    write_config(&root, &config).unwrap();
+    remove_required_path_from_json(&root.join("source-checkout.json"), "scripts/package-js.mjs");
+    let output: serde_json::Value =
+        serde_json::from_str(&inspect_repo_json(&root).unwrap()).unwrap();
+    assert_eq!(output["compatibility"], "recreate_recommended");
+    assert_eq!(output["recommendedAction"], "recreate");
+    assert_eq!(output["upgradePath"], serde_json::json!([]));
+    assert!(output["blockingReason"]
+        .as_str()
+        .unwrap()
+        .contains("does not exactly match"));
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn upgrade_plan_json_is_stable_and_non_mutating() {
+    let root = make_version_1_descendant();
+    let before = fs::read_to_string(root.join("ossplate.toml")).unwrap();
+    let output: serde_json::Value =
+        serde_json::from_str(&upgrade_plan_json(&root).unwrap()).unwrap();
+    assert_eq!(output["ok"], true);
+    assert_eq!(output["apply"], false);
+    assert_eq!(output["fromVersion"], 1);
+    assert_eq!(output["toVersion"], 3);
+    assert_eq!(output["compatibility"], "upgrade_supported");
+    assert_eq!(output["canApply"], true);
+    assert_eq!(output["upgradePath"], serde_json::json!(["1->2", "2->3"]));
+    assert!(output["changedFiles"].as_array().unwrap().len() > 0);
+    assert_eq!(output["stepPlans"].as_array().unwrap().len(), 2);
+    assert_eq!(output["stepPlans"][0]["step"], "1->2");
+    assert_eq!(output["stepPlans"][1]["step"], "2->3");
+    assert!(output["stepPlans"][0]["changedFiles"]
+        .as_array()
+        .unwrap()
+        .contains(&serde_json::json!("core-rs/src/upgrade.rs")));
+    assert!(output["stepPlans"][1]["changedFiles"]
+        .as_array()
+        .unwrap()
+        .contains(&serde_json::json!("core-rs/src/upgrade_catalog.rs")));
+    let after = fs::read_to_string(root.join("ossplate.toml")).unwrap();
+    assert_eq!(before, after);
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn upgrade_apply_updates_previous_descendant_and_reports_changes() {
+    let root = make_previous_version_descendant();
+    let output: serde_json::Value =
+        serde_json::from_str(&upgrade_apply_json(&root).unwrap()).unwrap();
+    assert_eq!(output["ok"], true);
+    assert_eq!(output["apply"], true);
+    assert_eq!(output["fromVersion"], 2);
+    assert_eq!(output["toVersion"], 3);
+    assert_eq!(output["upgradePath"], serde_json::json!(["2->3"]));
+    assert!(root.join("core-rs/src/upgrade_catalog.rs").exists());
+    let config = load_config(&root).unwrap();
+    assert_eq!(config.template.scaffold_version, Some(3));
+    assert!(validate_repo(&root).unwrap().ok);
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn upgrade_apply_chains_version_1_to_3() {
+    let root = make_version_1_descendant();
+    let output: serde_json::Value =
+        serde_json::from_str(&upgrade_apply_json(&root).unwrap()).unwrap();
+    assert_eq!(output["ok"], true);
+    assert_eq!(output["apply"], true);
+    assert_eq!(output["fromVersion"], 1);
+    assert_eq!(output["toVersion"], 3);
+    assert_eq!(output["upgradePath"], serde_json::json!(["1->2", "2->3"]));
+    assert!(root.join("core-rs/src/verify.rs").exists());
+    assert!(root.join("core-rs/src/embedded_template.rs").exists());
+    assert!(root.join("scripts/stage-embedded-template.mjs").exists());
+    assert!(root.join("core-rs/src/upgrade_catalog.rs").exists());
+    let config = load_config(&root).unwrap();
+    assert_eq!(config.template.scaffold_version, Some(3));
+    assert!(validate_repo(&root).unwrap().ok);
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn upgrade_apply_is_no_op_for_current_descendant() {
+    let root = make_fixture_root();
+    let output: serde_json::Value =
+        serde_json::from_str(&upgrade_apply_json(&root).unwrap()).unwrap();
+    assert_eq!(output["ok"], true);
+    assert_eq!(output["compatibility"], "current");
+    assert_eq!(output["upgradePath"], serde_json::json!([]));
+    assert_eq!(output["changedFiles"], serde_json::json!([]));
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn upgrade_refuses_older_than_supported_descendants() {
+    let root = make_previous_version_descendant();
+    let mut config = load_config(&root).unwrap();
+    config.template.scaffold_version = Some(0);
+    write_config(&root, &config).unwrap();
+    let error = upgrade_apply_json(&root).unwrap_err().to_string();
+    assert!(error.contains("recreate is recommended"));
+    fs::remove_dir_all(root).unwrap();
 }
 
 #[test]
@@ -585,6 +832,130 @@ fn create_scaffolds_a_target_directory() {
 }
 
 #[test]
+fn create_uses_generated_placeholders_instead_of_template_maintainer_identity() {
+    let source_root = make_source_checkout_root();
+    let target = unique_temp_path("ossplate-generated-identity");
+    if target.exists() {
+        fs::remove_dir_all(&target).unwrap();
+    }
+
+    create_scaffold_from(
+        &source_root,
+        &target,
+        &IdentityOverrides {
+            name: Some("Ossblade".to_string()),
+            description: None,
+            repository: None,
+            license: None,
+            author_name: None,
+            author_email: None,
+            rust_crate: Some("ossblade".to_string()),
+            npm_package: Some("ossblade".to_string()),
+            python_package: Some("ossblade".to_string()),
+            command: Some("ossblade".to_string()),
+        },
+    )
+    .unwrap();
+
+    let config = load_config(&target).unwrap();
+    assert_eq!(
+        config.project.description,
+        generated_project_description(&config.packages.command)
+    );
+    assert_eq!(config.project.repository, GENERATED_REPOSITORY_PLACEHOLDER);
+    assert_eq!(config.author.name, GENERATED_AUTHOR_NAME_PLACEHOLDER);
+    assert_eq!(config.author.email, GENERATED_AUTHOR_EMAIL_PLACEHOLDER);
+    assert!(!config.template.is_canonical);
+
+    let validation = validate_repo(&target).unwrap();
+    assert!(validation.ok);
+    assert!(validation.warnings.len() >= 4);
+
+    let readme = fs::read_to_string(target.join("README.md")).unwrap();
+    assert!(readme.contains("cargo run --manifest-path core-rs/Cargo.toml -- validate --json"));
+    assert!(!readme.contains("ossplate create"));
+    assert!(!readme.contains("stefdevscore/ossplate"));
+
+    let docs_index = fs::read_to_string(target.join("docs/README.md")).unwrap();
+    assert!(docs_index.contains("generated `ossblade` project"));
+    assert!(!docs_index.contains("Adoption Guide"));
+    assert!(!target.join("docs/customizing-the-template.md").exists());
+    assert!(!target.join("docs/live-e2e.md").exists());
+    let scaffold_payload: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(target.join("scaffold-payload.json")).unwrap())
+            .unwrap();
+    let source_checkout: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(target.join("source-checkout.json")).unwrap())
+            .unwrap();
+    assert!(!scaffold_payload["requiredPaths"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|entry| entry == "docs/customizing-the-template.md"));
+    assert!(!source_checkout["requiredPaths"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|entry| entry == "docs/live-e2e.md"));
+
+    let release_guide = fs::read_to_string(target.join("docs/releases.md")).unwrap();
+    assert!(release_guide.contains("crates.io publishes `ossblade`"));
+    assert!(release_guide.contains("npm publishes `ossblade`"));
+    assert!(!release_guide.contains("publish `ossplate`"));
+
+    let wrapper_package: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(target.join("wrapper-js/package.json")).unwrap())
+            .unwrap();
+    assert_eq!(wrapper_package["name"], "ossblade");
+    assert_eq!(
+        wrapper_package["repository"]["url"],
+        GENERATED_REPOSITORY_PLACEHOLDER
+    );
+    assert_eq!(
+        wrapper_package["author"],
+        "TODO: set author name <you@example.com>"
+    );
+
+    let package_lock: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(target.join("wrapper-js/package-lock.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(package_lock["name"], "ossblade");
+    assert_eq!(package_lock["packages"][""]["name"], "ossblade");
+    assert!(package_lock["packages"]
+        .get("node_modules/ossblade-darwin-arm64")
+        .is_some());
+    assert!(package_lock["packages"]
+        .get("node_modules/ossplate-darwin-arm64")
+        .is_none());
+    assert!(
+        package_lock["packages"]["node_modules/ossblade-darwin-arm64"]
+            .get("resolved")
+            .is_none()
+    );
+
+    let embedded_config =
+        fs::read_to_string(target.join("core-rs/embedded-template-root/ossplate.toml")).unwrap();
+    assert!(embedded_config.contains("name = \"Ossblade\""));
+    assert!(embedded_config.contains("is_canonical = false"));
+    assert!(embedded_config
+        .contains("repository = \"https://example.com/replace-with-your-repository\""));
+    assert!(!embedded_config.contains("stefdevscore/ossplate"));
+    assert!(!target
+        .join("core-rs/embedded-template-root/docs/customizing-the-template.md")
+        .exists());
+    assert!(!target
+        .join("core-rs/embedded-template-root/docs/live-e2e.md")
+        .exists());
+    assert!(!target
+        .join("core-rs/generated-embedded-template-root")
+        .exists());
+
+    fs::remove_dir_all(&source_root).unwrap();
+    fs::remove_dir_all(&target).unwrap();
+}
+
+#[test]
 fn init_hydrates_an_existing_directory() {
     let source_root = make_source_checkout_root();
     let target = unique_temp_path("ossplate-init-target");
@@ -607,10 +978,66 @@ version = "0.1.22"
     .unwrap();
 
     init_scaffold_from(&source_root, &target, &IdentityOverrides::default()).unwrap();
+    let config = load_config(&target).unwrap();
+    assert!(!config.template.is_canonical);
     assert!(target.join("wrapper-js/package.json").exists());
     assert!(target.join("wrapper-py/pyproject.toml").exists());
     assert!(validate_repo(&target).unwrap().ok);
 
+    fs::remove_dir_all(&target).unwrap();
+}
+
+#[test]
+fn init_preserves_resolved_runtime_entries_when_npm_identity_is_unchanged() {
+    let source_root = make_source_checkout_root();
+    let target = unique_temp_path("ossplate-init-lockfile-preserve");
+    if target.exists() {
+        fs::remove_dir_all(&target).unwrap();
+    }
+
+    create_scaffold_from(&source_root, &target, &IdentityOverrides::default()).unwrap();
+
+    let lock_path = target.join("wrapper-js/package-lock.json");
+    let mut lock: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&lock_path).unwrap()).unwrap();
+    let runtime_entry = lock["packages"]
+        .get_mut("node_modules/ossplate-darwin-arm64")
+        .unwrap()
+        .as_object_mut()
+        .unwrap();
+    runtime_entry.insert(
+        "resolved".into(),
+        serde_json::Value::String("https://registry.npmjs.org/ossplate-darwin-arm64".to_string()),
+    );
+    runtime_entry.insert(
+        "integrity".into(),
+        serde_json::Value::String("sha512-test".to_string()),
+    );
+    let mut rendered = serde_json::to_string_pretty(&lock).unwrap();
+    rendered.push('\n');
+    fs::write(&lock_path, rendered).unwrap();
+
+    init_scaffold_from(&source_root, &target, &IdentityOverrides::default()).unwrap();
+
+    let reloaded: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&lock_path).unwrap()).unwrap();
+    let runtime_entry = reloaded["packages"]
+        .get("node_modules/ossplate-darwin-arm64")
+        .unwrap();
+    assert_eq!(
+        runtime_entry
+            .get("resolved")
+            .and_then(serde_json::Value::as_str),
+        Some("https://registry.npmjs.org/ossplate-darwin-arm64")
+    );
+    assert_eq!(
+        runtime_entry
+            .get("integrity")
+            .and_then(serde_json::Value::as_str),
+        Some("sha512-test")
+    );
+
+    fs::remove_dir_all(&source_root).unwrap();
     fs::remove_dir_all(&target).unwrap();
 }
 
@@ -879,7 +1306,7 @@ fn create_fails_when_target_is_inside_source_tree() {
 }
 
 #[test]
-fn sync_preserves_unowned_root_readme_content() {
+fn sync_restores_canonical_root_readme_content() {
     let root = make_fixture_root();
     let config = load_config(&root).unwrap();
     let original = fs::read_to_string(root.join("README.md")).unwrap();
@@ -891,8 +1318,48 @@ fn sync_preserves_unowned_root_readme_content() {
 
     sync_repo(&root, false).unwrap();
     let synced = fs::read_to_string(root.join("README.md")).unwrap();
-    assert!(synced.contains("## What It Does"));
+    assert!(synced.contains("## Learn More"));
     assert!(synced.contains(&config.project.description));
+}
+
+#[test]
+fn template_detection_does_not_depend_on_exact_maintainer_identity() {
+    let root = make_fixture_root();
+    let mut config = load_config(&root).unwrap();
+    config.project.repository = "https://github.com/acme/ossplate".to_string();
+    config.author.name = "Acme".to_string();
+    config.author.email = "oss@acme.dev".to_string();
+
+    assert!(is_template_project(&config));
+}
+
+#[test]
+fn template_detection_uses_explicit_canonical_marker() {
+    let root = make_fixture_root();
+    let mut config = load_config(&root).unwrap();
+    config.project.name = "Rebranded Template".to_string();
+    config.packages.command = "rebrand".to_string();
+    config.packages.rust_crate = "rebrand".to_string();
+    config.packages.npm_package = "rebrand".to_string();
+    config.packages.python_package = "rebrand".to_string();
+    config.template.is_canonical = true;
+
+    assert!(is_template_project(&config));
+
+    config.template.is_canonical = false;
+    assert!(!is_template_project(&config));
+}
+
+#[test]
+fn template_detection_trusts_explicit_canonical_marker_even_with_placeholders() {
+    let root = make_fixture_root();
+    let mut config = load_config(&root).unwrap();
+    config.template.is_canonical = true;
+    config.project.repository = GENERATED_REPOSITORY_PLACEHOLDER.to_string();
+    config.author.name = GENERATED_AUTHOR_NAME_PLACEHOLDER.to_string();
+    config.author.email = GENERATED_AUTHOR_EMAIL_PLACEHOLDER.to_string();
+
+    assert!(is_template_project(&config));
 }
 
 #[test]
@@ -1025,6 +1492,10 @@ fn embedded_template_root_materializes_required_scaffold_files() {
         &root,
         "wrapper-py/pyproject.toml"
     ));
+    assert!(!embedded_template_contains(
+        &root,
+        "docs/customizing-the-template.md"
+    ));
     ensure_scaffold_source_root(&root).unwrap();
     fs::remove_dir_all(&root).unwrap();
 }
@@ -1047,6 +1518,69 @@ fn create_scaffold_from_embedded_template_root_preserves_create_contract() {
 
     fs::remove_dir_all(&source_root).unwrap();
     fs::remove_dir_all(&target).unwrap();
+}
+
+#[test]
+fn create_from_generated_embedded_template_root_preserves_generated_identity_baseline() {
+    let source_root = make_source_checkout_root();
+    let generated_root = unique_temp_path("ossplate-generated-embedded-source");
+    if generated_root.exists() {
+        fs::remove_dir_all(&generated_root).unwrap();
+    }
+
+    create_scaffold_from(
+        &source_root,
+        &generated_root,
+        &IdentityOverrides {
+            name: Some("Dogfood Control Plane".to_string()),
+            description: Some(
+                "Ship the dogfood-control CLI across Cargo, npm, and PyPI.".to_string(),
+            ),
+            repository: Some("https://github.com/acme/dogfood-control".to_string()),
+            license: Some("Apache-2.0".to_string()),
+            author_name: Some("Acme OSS".to_string()),
+            author_email: Some("oss@acme.dev".to_string()),
+            rust_crate: Some("dogfood-control".to_string()),
+            npm_package: Some("@acme/dogfood-control".to_string()),
+            python_package: Some("dogfood_control".to_string()),
+            command: Some("dogfood-control".to_string()),
+        },
+    )
+    .unwrap();
+
+    let rebootstrap_root = unique_temp_path("ossplate-generated-embedded-rebootstrap");
+    if rebootstrap_root.exists() {
+        fs::remove_dir_all(&rebootstrap_root).unwrap();
+    }
+
+    create_scaffold_from(
+        &generated_root.join("core-rs/embedded-template-root"),
+        &rebootstrap_root,
+        &IdentityOverrides::default(),
+    )
+    .unwrap();
+
+    let config = load_config(&rebootstrap_root).unwrap();
+    assert_eq!(config.project.name, "Dogfood Control Plane");
+    assert_eq!(
+        config.project.description,
+        "Ship the dogfood-control CLI across Cargo, npm, and PyPI."
+    );
+    assert_eq!(
+        config.project.repository,
+        "https://github.com/acme/dogfood-control"
+    );
+    assert_eq!(config.author.name, "Acme OSS");
+    assert_eq!(config.author.email, "oss@acme.dev");
+    assert_eq!(config.packages.rust_crate, "dogfood-control");
+    assert_eq!(config.packages.npm_package, "@acme/dogfood-control");
+    assert_eq!(config.packages.python_package, "dogfood_control");
+    assert_eq!(config.packages.command, "dogfood-control");
+    assert!(!config.template.is_canonical);
+
+    fs::remove_dir_all(&source_root).unwrap();
+    fs::remove_dir_all(&generated_root).unwrap();
+    fs::remove_dir_all(&rebootstrap_root).unwrap();
 }
 
 fn assert_release_check_scaffold_assets(root: &Path) {
@@ -1073,18 +1607,88 @@ fn make_fixture_root() -> PathBuf {
     root
 }
 
+fn repo_root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .to_path_buf()
+}
+
 fn make_source_checkout_root() -> PathBuf {
     let unique = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_nanos();
     let root = std::env::temp_dir().join(format!("ossplate-source-fixture-{unique}"));
-    let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .to_path_buf();
+    let repo_root = repo_root();
     copy_required_paths_from_manifest(&repo_root, &root);
     root
+}
+
+fn make_previous_version_descendant() -> PathBuf {
+    let source_root = repo_root();
+    let target = unique_temp_path("ossplate-previous-descendant");
+    create_scaffold_from(&source_root, &target, &IdentityOverrides::default()).unwrap();
+
+    let mut config = load_config(&target).unwrap();
+    config.template.scaffold_version = Some(2);
+    write_config(&target, &config).unwrap();
+
+    remove_paths_for_version(&target, &["core-rs/src/upgrade_catalog.rs"]);
+
+    target
+}
+
+fn make_version_1_descendant() -> PathBuf {
+    let target = make_previous_version_descendant();
+
+    let mut config = load_config(&target).unwrap();
+    config.template.scaffold_version = Some(1);
+    write_config(&target, &config).unwrap();
+
+    let removed_paths = [
+        "core-rs/build.rs",
+        "core-rs/src/embedded_template.rs",
+        "core-rs/src/upgrade.rs",
+        "core-rs/src/verify.rs",
+        "scripts/stage-embedded-template.mjs",
+        "scripts/package-js.mjs",
+    ];
+    remove_paths_for_version(&target, &removed_paths);
+
+    target
+}
+
+fn remove_paths_for_version(root: &Path, removed_paths: &[&str]) {
+    for relative_path in removed_paths {
+        let target = root.join(relative_path);
+        if target.exists() {
+            fs::remove_file(target).unwrap();
+        }
+    }
+    for manifest_path in [
+        root.join("scaffold-payload.json"),
+        root.join("source-checkout.json"),
+        root.join("core-rs/source-checkout.json"),
+    ] {
+        remove_required_paths_from_json(&manifest_path, removed_paths);
+    }
+}
+
+fn remove_required_path_from_json(path: &Path, required_path: &str) {
+    remove_required_paths_from_json(path, &[required_path]);
+}
+
+fn remove_required_paths_from_json(path: &Path, required_paths_to_remove: &[&str]) {
+    let mut value: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap();
+    let required_paths = value["requiredPaths"].as_array_mut().unwrap();
+    required_paths.retain(|entry| {
+        entry
+            .as_str()
+            .is_none_or(|path| !required_paths_to_remove.contains(&path))
+    });
+    fs::write(path, serde_json::to_string_pretty(&value).unwrap() + "\n").unwrap();
 }
 
 fn copy_required_paths_from_manifest(source_root: &Path, target_root: &Path) {

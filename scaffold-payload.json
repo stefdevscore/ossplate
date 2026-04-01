@@ -61,6 +61,8 @@
     "core-rs/src/sync.rs",
     "core-rs/src/sync/metadata.rs",
     "core-rs/src/sync/text.rs",
+    "core-rs/src/upgrade.rs",
+    "core-rs/src/upgrade_catalog.rs",
     "scripts/bump-version.mjs",
     "scripts/assert-js-lockfile-state.mjs",
     "scripts/publish-local.mjs",

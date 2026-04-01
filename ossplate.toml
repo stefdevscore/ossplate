@@ -14,6 +14,10 @@ npm_package = "ossplate"
 python_package = "ossplate"
 command = "ossplate"
 
+[template]
+is_canonical = true
+scaffold_version = 3
+
 [metadata]
 rust_keywords = ["cli", "bootstrap", "distribution", "packaging", "multi-registry"]
 rust_categories = ["command-line-utilities", "development-tools"]
