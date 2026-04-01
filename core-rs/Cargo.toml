@@ -1,6 +1,6 @@
 [package]
 name = "ossplate"
-version = "0.5.0"
+version = "0.5.1"
 edition = "2021"
 authors = ["Stef <stefdevscore@github.com>"]
 description = "Scaffold and maintain one Rust-core CLI that ships cleanly through Cargo, npm, and PyPI."
