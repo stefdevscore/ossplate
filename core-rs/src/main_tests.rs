@@ -1581,11 +1581,12 @@ fn sync_repo_keeps_cargo_template_manifest_aligned() {
         .as_str()
         .unwrap()
         .to_string();
-    fs::write(
-        &template_path,
-        fs::read_to_string(repo_root().join("core-rs/Cargo.template.toml")).unwrap(),
-    )
-    .unwrap();
+    let original_template = if template_path.is_file() {
+        fs::read_to_string(&template_path).unwrap()
+    } else {
+        crate::sync::normalize_cargo_template_from_live_manifest(&live_manifest).unwrap()
+    };
+    fs::write(&template_path, original_template).unwrap();
     fs::write(
         &template_path,
         fs::read_to_string(&template_path)

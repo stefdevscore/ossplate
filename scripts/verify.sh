@@ -18,8 +18,9 @@ find_python() {
 }
 
 PYTHON_BIN="$(find_python)"
+JS_PACKAGE_NAME="$(node -p "require('$ROOT_DIR/wrapper-js/package.json').name")"
 JS_VERSION="$(node -p "require('$ROOT_DIR/wrapper-js/package.json').version")"
-if npm view "ossplate@$JS_VERSION" version >/dev/null 2>&1; then
+if npm view "$JS_PACKAGE_NAME@$JS_VERSION" version >/dev/null 2>&1; then
   JS_LOCKFILE_MODE="resolved"
   JS_INSTALLABLE=true
 else

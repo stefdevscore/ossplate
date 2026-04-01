@@ -10,6 +10,8 @@ CAPTURE_FILE="$CAPTURE_DIR/live-e2e-$MODE-$TIMESTAMP.log"
 NPM_PACKAGE_SPEC="${OSSPLATE_LIVE_E2E_NPM_PACKAGE_SPEC:-ossplate}"
 NPM_RUNTIME_SPEC="${OSSPLATE_LIVE_E2E_NPM_RUNTIME_SPEC:-}"
 SCOPED_NPM_PACKAGE="${OSSPLATE_LIVE_E2E_SCOPED_NPM_PACKAGE:-@acme/blade-live}"
+CARGO_INSTALL_SPEC="${OSSPLATE_LIVE_E2E_CARGO_INSTALL_SPEC:-ossplate}"
+PYTHON_PACKAGE_SPEC="${OSSPLATE_LIVE_E2E_PYTHON_PACKAGE_SPEC:-ossplate}"
 
 find_python() {
   local candidate
@@ -635,7 +637,7 @@ run_cargo_flow() {
     bin_path="$install_root/bin/ossplate.exe"
   fi
 
-  run_step "cargo:install" cargo install --root "$install_root" --force ossplate
+  run_step "cargo:install" cargo install --root "$install_root" --force $CARGO_INSTALL_SPEC
   run_step "cargo:e2e" run_common_cli_flow "$bin_path" "$cargo_root"
 }
 
@@ -678,7 +680,7 @@ run_python_flow() {
 
   run_step "python:venv" "$PYTHON_BIN" -m venv "$venv_dir"
   run_step "python:install" "$python_path" -m pip install --upgrade pip
-  run_step "python:install-package" "$python_path" -m pip install ossplate
+  run_step "python:install-package" "$python_path" -m pip install "$PYTHON_PACKAGE_SPEC"
   run_step "python:e2e" run_common_cli_flow "$tool_path" "$py_root"
 }
 
