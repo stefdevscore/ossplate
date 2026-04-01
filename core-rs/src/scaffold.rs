@@ -5,9 +5,11 @@ mod template_root;
 use crate::config::IdentityOverrides;
 use crate::config::{is_template_project, load_config};
 use crate::output::render_bootstrap_output;
+use crate::scaffold_manifest::{
+    read_path_manifest, template_only_paths_from_root, write_path_manifest,
+};
 use crate::sync::sync_repo;
 use anyhow::{Context, Result};
-use serde_json::Value;
 use std::fs;
 use std::path::Path;
 
@@ -63,15 +65,8 @@ pub(crate) fn init_scaffold_json(target: &Path, overrides: &IdentityOverrides) -
     render_bootstrap_output("init", &target_root, config)
 }
 
-pub(crate) fn upgrade_scaffold_from(source_root: &Path, target: &Path) -> Result<()> {
-    finalize_scaffold_from(
-        source_root,
-        target,
-        &IdentityOverrides::default(),
-        "init",
-        true,
-    )
-    .map(|_| ())
+pub(crate) fn refresh_embedded_template_root(root: &Path) -> Result<()> {
+    project_embedded_template_root(root)
 }
 
 fn finalize_scaffold_from(
@@ -98,7 +93,7 @@ fn finalize_scaffold_from(
     let config = load_config(&target_root)?;
     remove_template_only_paths(&target_root, &config)?;
     prune_template_only_manifest_paths(&target_root, &config)?;
-    project_embedded_template_root(&target_root)?;
+    refresh_embedded_template_root(&target_root)?;
     if !quiet {
         match action {
             "create" => println!("created scaffold at {}", target_root.display()),
@@ -132,23 +127,12 @@ fn project_embedded_template_root(root: &Path) -> Result<()> {
         "scaffold-payload.json".to_string(),
         "source-checkout.json".to_string(),
     ];
-    let template_only_paths = template_only_paths(root)?;
+    let template_only_paths = template_only_paths_from_root(root)?;
     for manifest_name in ["scaffold-payload.json", "source-checkout.json"] {
-        let manifest: Value =
-            serde_json::from_str(&fs::read_to_string(root.join(manifest_name)).with_context(
-                || format!("failed to read {}", root.join(manifest_name).display()),
-            )?)
-            .with_context(|| format!("failed to parse {}", root.join(manifest_name).display()))?;
-        let paths = manifest
-            .get("requiredPaths")
-            .and_then(serde_json::Value::as_array)
-            .with_context(|| format!("missing requiredPaths in {}", manifest_name))?;
-        for path in paths {
-            let relative_path = path
-                .as_str()
-                .with_context(|| format!("non-string required path in {}", manifest_name))?;
+        let manifest = read_path_manifest(&root.join(manifest_name))?;
+        for relative_path in manifest.required_paths {
             if !relative_path.starts_with("core-rs/") {
-                required_paths.push(relative_path.to_string());
+                required_paths.push(relative_path);
             }
         }
     }
@@ -176,7 +160,7 @@ fn remove_template_only_paths(root: &Path, config: &crate::config::ToolConfig) -
         return Ok(());
     }
 
-    for relative_path in template_only_paths(root)? {
+    for relative_path in template_only_paths_from_root(root)? {
         let target = root.join(&relative_path);
         if target.exists() {
             if target.is_dir() {
@@ -199,69 +183,18 @@ fn prune_template_only_manifest_paths(
         return Ok(());
     }
 
-    let template_only_paths = template_only_paths(root)?;
+    let template_only_paths = template_only_paths_from_root(root)?;
 
     for relative_path in ["scaffold-payload.json", "source-checkout.json"] {
         let manifest_path = root.join(relative_path);
-        let mut manifest: Value = serde_json::from_str(
-            &fs::read_to_string(&manifest_path)
-                .with_context(|| format!("failed to read {}", manifest_path.display()))?,
-        )
-        .with_context(|| format!("failed to parse {}", manifest_path.display()))?;
-
-        let required_paths = manifest
-            .get_mut("requiredPaths")
-            .and_then(serde_json::Value::as_array_mut)
-            .with_context(|| format!("missing requiredPaths in {}", manifest_path.display()))?;
-        required_paths.retain(|entry| {
-            entry
-                .as_str()
-                .is_none_or(|path| !template_only_paths.contains(path))
-        });
-
-        let mut rendered = serde_json::to_string_pretty(&manifest)?;
-        rendered.push('\n');
-        fs::write(&manifest_path, rendered)
-            .with_context(|| format!("failed to write {}", manifest_path.display()))?;
+        let mut manifest = read_path_manifest(&manifest_path)?;
+        manifest
+            .required_paths
+            .retain(|path| !template_only_paths.contains(path));
+        write_path_manifest(&manifest_path, &manifest)?;
     }
 
     Ok(())
-}
-
-fn template_only_paths(root: &Path) -> Result<std::collections::HashSet<String>> {
-    let scaffold_payload = manifest_template_only_paths(&root.join("scaffold-payload.json"))?;
-    let source_checkout = manifest_template_only_paths(&root.join("source-checkout.json"))?;
-    if scaffold_payload != source_checkout {
-        anyhow::bail!(
-            "templateOnlyPaths must match between scaffold-payload.json and source-checkout.json"
-        );
-    }
-    Ok(scaffold_payload)
-}
-
-fn manifest_template_only_paths(manifest_path: &Path) -> Result<std::collections::HashSet<String>> {
-    let manifest: Value = serde_json::from_str(
-        &fs::read_to_string(manifest_path)
-            .with_context(|| format!("failed to read {}", manifest_path.display()))?,
-    )
-    .with_context(|| format!("failed to parse {}", manifest_path.display()))?;
-
-    let paths = manifest
-        .get("templateOnlyPaths")
-        .and_then(Value::as_array)
-        .with_context(|| format!("missing templateOnlyPaths in {}", manifest_path.display()))?;
-
-    paths
-        .iter()
-        .map(|entry| {
-            entry.as_str().map(str::to_string).with_context(|| {
-                format!(
-                    "non-string templateOnlyPaths entry in {}",
-                    manifest_path.display()
-                )
-            })
-        })
-        .collect()
 }
 
 fn collect_core_embedded_paths(root: &Path) -> Result<Vec<String>> {

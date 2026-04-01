@@ -497,6 +497,25 @@ fn inspect_json_maps_unversioned_exact_match_descendant_to_known_upgrade_path() 
 }
 
 #[test]
+fn inspect_json_rejects_unversioned_descendant_with_drifted_manifest_contract() {
+    let root = make_previous_version_descendant();
+    let mut config = load_config(&root).unwrap();
+    config.template.scaffold_version = None;
+    write_config(&root, &config).unwrap();
+    remove_required_path_from_json(&root.join("source-checkout.json"), "scripts/package-js.mjs");
+    let output: serde_json::Value =
+        serde_json::from_str(&inspect_repo_json(&root).unwrap()).unwrap();
+    assert_eq!(output["compatibility"], "recreate_recommended");
+    assert_eq!(output["recommendedAction"], "recreate");
+    assert_eq!(output["upgradePath"], serde_json::json!([]));
+    assert!(output["blockingReason"]
+        .as_str()
+        .unwrap()
+        .contains("does not exactly match"));
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn upgrade_plan_json_is_stable_and_non_mutating() {
     let root = make_version_1_descendant();
     let before = fs::read_to_string(root.join("ossplate.toml")).unwrap();
@@ -513,6 +532,14 @@ fn upgrade_plan_json_is_stable_and_non_mutating() {
     assert_eq!(output["stepPlans"].as_array().unwrap().len(), 2);
     assert_eq!(output["stepPlans"][0]["step"], "1->2");
     assert_eq!(output["stepPlans"][1]["step"], "2->3");
+    assert!(output["stepPlans"][0]["changedFiles"]
+        .as_array()
+        .unwrap()
+        .contains(&serde_json::json!("core-rs/src/upgrade.rs")));
+    assert!(output["stepPlans"][1]["changedFiles"]
+        .as_array()
+        .unwrap()
+        .contains(&serde_json::json!("core-rs/src/upgrade_catalog.rs")));
     let after = fs::read_to_string(root.join("ossplate.toml")).unwrap();
     assert_eq!(before, after);
     fs::remove_dir_all(root).unwrap();
@@ -1607,19 +1634,7 @@ fn make_previous_version_descendant() -> PathBuf {
     config.template.scaffold_version = Some(2);
     write_config(&target, &config).unwrap();
 
-    fs::remove_file(target.join("core-rs/src/upgrade_catalog.rs")).unwrap();
-    remove_required_path_from_json(
-        &target.join("scaffold-payload.json"),
-        "core-rs/src/upgrade_catalog.rs",
-    );
-    remove_required_path_from_json(
-        &target.join("source-checkout.json"),
-        "core-rs/src/upgrade_catalog.rs",
-    );
-    remove_required_path_from_json(
-        &target.join("core-rs/source-checkout.json"),
-        "core-rs/src/upgrade_catalog.rs",
-    );
+    remove_paths_for_version(&target, &["core-rs/src/upgrade_catalog.rs"]);
 
     target
 }
@@ -1631,25 +1646,48 @@ fn make_version_1_descendant() -> PathBuf {
     config.template.scaffold_version = Some(1);
     write_config(&target, &config).unwrap();
 
-    for relative_path in [
+    let removed_paths = [
         "core-rs/build.rs",
         "core-rs/src/embedded_template.rs",
         "core-rs/src/upgrade.rs",
         "core-rs/src/verify.rs",
         "scripts/stage-embedded-template.mjs",
         "scripts/package-js.mjs",
-    ] {
-        fs::remove_file(target.join(relative_path)).unwrap();
-    }
+    ];
+    remove_paths_for_version(&target, &removed_paths);
 
     target
 }
 
+fn remove_paths_for_version(root: &Path, removed_paths: &[&str]) {
+    for relative_path in removed_paths {
+        let target = root.join(relative_path);
+        if target.exists() {
+            fs::remove_file(target).unwrap();
+        }
+    }
+    for manifest_path in [
+        root.join("scaffold-payload.json"),
+        root.join("source-checkout.json"),
+        root.join("core-rs/source-checkout.json"),
+    ] {
+        remove_required_paths_from_json(&manifest_path, removed_paths);
+    }
+}
+
 fn remove_required_path_from_json(path: &Path, required_path: &str) {
+    remove_required_paths_from_json(path, &[required_path]);
+}
+
+fn remove_required_paths_from_json(path: &Path, required_paths_to_remove: &[&str]) {
     let mut value: serde_json::Value =
         serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap();
     let required_paths = value["requiredPaths"].as_array_mut().unwrap();
-    required_paths.retain(|entry| entry.as_str() != Some(required_path));
+    required_paths.retain(|entry| {
+        entry
+            .as_str()
+            .is_none_or(|path| !required_paths_to_remove.contains(&path))
+    });
     fs::write(path, serde_json::to_string_pretty(&value).unwrap() + "\n").unwrap();
 }
 
