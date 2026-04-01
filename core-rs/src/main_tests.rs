@@ -409,6 +409,15 @@ fn authored_versions_stay_aligned_with_current_scaffold_contract() {
         latest.fingerprint.forbidden_paths.is_empty(),
         "current scaffold fingerprint should not rely on forbidden-path exceptions"
     );
+
+    let root_scaffold_payload =
+        crate::scaffold_manifest::read_path_manifest(&repo_root().join("scaffold-payload.json"))
+            .unwrap();
+    let core_scaffold_payload = crate::scaffold_manifest::read_path_manifest(
+        &repo_root().join("core-rs/scaffold-payload.json"),
+    )
+    .unwrap();
+    assert_eq!(root_scaffold_payload, core_scaffold_payload);
 }
 
 #[test]

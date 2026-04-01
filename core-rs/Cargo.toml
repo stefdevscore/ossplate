@@ -18,6 +18,7 @@ include = [
   "README.md",
   "build.rs",
   "runtime-targets.json",
+  "scaffold-payload.json",
   "source-checkout.json",
   "src/**",
   "generated-embedded-template-root/**"

@@ -32,7 +32,7 @@ pub(crate) fn current_core_source_checkout_manifest() -> PathManifest {
 
 pub(crate) fn current_repo_source_checkout_manifest() -> PathManifest {
     parse_manifest_str(
-        include_str!("../../source-checkout.json"),
+        include_str!("../source-checkout.json"),
         "source-checkout.json",
     )
     .expect("source-checkout.json must parse")
@@ -40,7 +40,7 @@ pub(crate) fn current_repo_source_checkout_manifest() -> PathManifest {
 
 pub(crate) fn current_scaffold_payload_manifest() -> PathManifest {
     parse_manifest_str(
-        include_str!("../../scaffold-payload.json"),
+        include_str!("../scaffold-payload.json"),
         "scaffold-payload.json",
     )
     .expect("scaffold-payload.json must parse")

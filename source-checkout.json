@@ -5,6 +5,7 @@
     "README.md",
     "core-rs/Cargo.toml",
     "core-rs/build.rs",
+    "core-rs/scaffold-payload.json",
     "core-rs/src/config.rs",
     "core-rs/src/embedded_template.rs",
     "core-rs/src/main.rs",

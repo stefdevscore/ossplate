@@ -203,6 +203,7 @@ fn collect_core_embedded_paths(root: &Path) -> Result<Vec<String>> {
         "core-rs/Cargo.lock".to_string(),
         "core-rs/build.rs".to_string(),
         "core-rs/runtime-targets.json".to_string(),
+        "core-rs/scaffold-payload.json".to_string(),
         "core-rs/source-checkout.json".to_string(),
     ];
     let src_root = root.join("core-rs/src");

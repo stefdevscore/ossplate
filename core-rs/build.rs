@@ -130,6 +130,7 @@ fn collect_core_entries(
         "Cargo.lock",
         "build.rs",
         "runtime-targets.json",
+        "scaffold-payload.json",
         "source-checkout.json",
     ] {
         let path = manifest_dir.join(relative_path);
