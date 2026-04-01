@@ -40,7 +40,12 @@ Each installed CLI must pass the same checks:
 - `ossplate inspect --path <tmp> --json`
 - `ossplate sync --path <tmp> --check --json`
 - `ossplate init --path <tmp>`
+- `ossplate inspect --path <tmp> --json`
 - `ossplate validate --path <tmp> --json`
+- `ossplate sync --path <tmp> --check --json`
+- `ossplate create <tmp> --name ... --rust-crate ... --npm-package ... --python-package ... --command ...`
+- `ossplate validate --path <tmp> --json`
+- `ossplate inspect --path <tmp> --json`
 - `ossplate sync --path <tmp> --check --json`
 
 ## E2E-02 Single-Ecosystem Runs
@@ -58,7 +63,9 @@ Run only one installer path when debugging:
 - the published package name is installable
 - the installed command is on the expected path
 - the installed CLI can create from its shipped scaffold payload
-- the installed CLI can validate and sync-check created and initialized projects
+- the installed CLI can validate, inspect, and sync-check created and initialized projects
+- the default shipped scaffold still emits the expected placeholder warnings instead of silently pretending it is release-ready
+- the installed CLI preserves non-default package and command identities through shipped scaffold projection
 
 ## E2E-04 What It Does Not Cover Yet
 

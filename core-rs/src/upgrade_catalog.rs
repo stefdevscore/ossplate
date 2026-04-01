@@ -5,12 +5,13 @@ use std::fs;
 use std::path::Path;
 
 use crate::config::{load_config, write_config};
-use crate::scaffold::refresh_embedded_template_root;
+use crate::scaffold::{reapply_config_to_target, refresh_embedded_template_root};
 use crate::scaffold_manifest::{
     current_core_source_checkout_manifest, current_repo_source_checkout_manifest,
     current_scaffold_payload_manifest, normalize_scaffold_payload_manifest_for_config,
     read_path_manifest, write_path_manifest, PathManifest,
 };
+use crate::sync::sync_repo_quiet;
 
 #[derive(Debug, Clone)]
 pub(crate) struct VersionSpec {
@@ -193,6 +194,7 @@ fn apply_v2_to_v3(source_root: &Path, target_root: &Path) -> Result<()> {
 }
 
 fn apply_version_owned_changes(source_root: &Path, target_root: &Path, version: u64) -> Result<()> {
+    let mut preserved_config = load_config(target_root)?;
     for relative_path in owned_descendant_paths_for_version(version) {
         let source_path = source_root.join(&relative_path);
         if !source_path.exists() {
@@ -218,9 +220,11 @@ fn apply_version_owned_changes(source_root: &Path, target_root: &Path, version: 
         &core_source_checkout_for_version(version),
     )?;
 
-    let mut config = load_config(target_root)?;
-    config.template.scaffold_version = Some(version);
-    write_config(target_root, &config)?;
+    preserved_config.template.scaffold_version = Some(version);
+    preserved_config.template.is_canonical = false;
+    reapply_config_to_target(target_root, &preserved_config)?;
+    sync_repo_quiet(target_root, false)?;
+    write_config(target_root, &preserved_config)?;
     refresh_embedded_template_root(target_root)
 }
 

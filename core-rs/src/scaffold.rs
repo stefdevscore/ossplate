@@ -14,6 +14,7 @@ use std::fs;
 use std::path::Path;
 
 use identity_application::apply_config_overrides_to_target;
+pub(crate) use identity_application::reapply_config_to_target;
 use projection::{copy_tree, ensure_scaffold_layout, prepare_create_target, prepare_init_target};
 pub(crate) use template_root::{discover_template_root, ensure_scaffold_source_root};
 

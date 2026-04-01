@@ -33,6 +33,15 @@ pub(crate) fn apply_config_overrides_to_target(
     write_config(target_root, &config)
 }
 
+pub(crate) fn reapply_config_to_target(target_root: &Path, config: &ToolConfig) -> Result<()> {
+    let original = load_config(target_root)?;
+    relocate_generated_identity_paths(target_root, &original, config)?;
+    remove_generated_python_runtime_dirs(target_root, &original, config)?;
+    normalize_cargo_lock_identity(target_root, &original, config)?;
+    normalize_package_lock_identity(target_root, &original, config, "upgrade")?;
+    write_config(target_root, config)
+}
+
 fn apply_template_mode(
     config: &mut ToolConfig,
     action: &str,

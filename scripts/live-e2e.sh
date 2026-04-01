@@ -58,7 +58,48 @@ assert_version_output() {
   fi
 }
 
-assert_validate_ok() {
+assert_validate_with_mode() {
+  local output="$1"
+  local mode="$2"
+  local status
+  status="$("$PYTHON_BIN" -c '
+import json
+import sys
+
+try:
+    payload = json.loads(sys.argv[1])
+except Exception:
+    print("invalid")
+    raise SystemExit(0)
+
+mode = sys.argv[2]
+ok = payload.get("ok") is True
+issues = payload.get("issues")
+warnings = payload.get("warnings")
+
+placeholder_warnings = [
+    "project.description still uses the generated placeholder; replace it before release",
+    "project.repository still uses the generated placeholder; set the real repository URL before release",
+    "author.name still uses the generated placeholder; set the real maintainer name before release",
+    "author.email still uses the generated placeholder; set the real maintainer email before release",
+]
+
+if not ok or issues != []:
+    print("invalid")
+elif mode == "placeholder":
+    print("ok" if warnings == placeholder_warnings else "invalid")
+elif mode == "clean":
+    print("ok" if warnings == [] else "invalid")
+else:
+    print("invalid")
+' "$output" "$mode")"
+  if [[ "$status" != "ok" ]]; then
+    printf '%s: unexpected validate output: %s\n' "$SCRIPT_NAME" "$output" >&2
+    return 1
+  fi
+}
+
+assert_sync_ok() {
   local output="$1"
   local status
   status="$("$PYTHON_BIN" -c '
@@ -72,13 +113,335 @@ except Exception:
     raise SystemExit(0)
 
 ok = payload.get("ok") is True
-issues = payload.get("issues")
-print("ok" if ok and issues == [] else "invalid")
+changes = payload.get("changedFiles")
+print("ok" if ok and (changes == [] or changes is None) else "invalid")
 ' "$output")"
   if [[ "$status" != "ok" ]]; then
-    printf '%s: unexpected validate output: %s\n' "$SCRIPT_NAME" "$output" >&2
+    printf '%s: unexpected sync output: %s\n' "$SCRIPT_NAME" "$output" >&2
     return 1
   fi
+}
+
+assert_inspect_current() {
+  local output="$1"
+  local project_name="$2"
+  local rust_crate="$3"
+  local npm_package="$4"
+  local python_package="$5"
+  local command_name="$6"
+  local status
+  status="$("$PYTHON_BIN" -c '
+import json
+import sys
+
+try:
+    payload = json.loads(sys.argv[1])
+except Exception:
+    print("invalid")
+    raise SystemExit(0)
+
+project_name, rust_crate, npm_package, python_package, command_name = sys.argv[2:7]
+config = payload.get("config", {})
+packages = config.get("packages", {})
+project = config.get("project", {})
+derived = payload.get("derived", {})
+paths = derived.get("paths", {})
+runtime_packages = derived.get("runtimePackages", [])
+
+expected_runtime_names = {
+    f"{npm_package}-darwin-arm64",
+    f"{npm_package}-darwin-x64",
+    f"{npm_package}-linux-x64",
+    f"{npm_package}-windows-x64",
+}
+actual_runtime_names = {entry.get("packageName") for entry in runtime_packages}
+
+checks = [
+    payload.get("compatibility") == "current",
+    payload.get("scaffoldVersion") == payload.get("latestScaffoldVersion"),
+    payload.get("upgradePath") == [],
+    project.get("name") == project_name,
+    packages.get("rust_crate") == rust_crate,
+    packages.get("npm_package") == npm_package,
+    packages.get("python_package") == python_package,
+    packages.get("command") == command_name,
+    paths.get("pythonModule") == python_package,
+    paths.get("pythonEntrypoint") == f"{python_package}.cli:main",
+    paths.get("pythonPackageDir") == f"wrapper-py/src/{python_package}",
+    paths.get("pythonCliModulePath") == f"wrapper-py/src/{python_package}/cli.py",
+    paths.get("jsWrapperLauncher") == f"wrapper-js/bin/{command_name}.js",
+    actual_runtime_names == expected_runtime_names,
+]
+
+print("ok" if all(checks) else "invalid")
+' "$output" "$project_name" "$rust_crate" "$npm_package" "$python_package" "$command_name")"
+  if [[ "$status" != "ok" ]]; then
+    printf '%s: unexpected inspect output: %s\n' "$SCRIPT_NAME" "$output" >&2
+    return 1
+  fi
+}
+
+assert_inspect_upgrade_supported() {
+  local output="$1"
+  local from_version="$2"
+  local expected_path_json="$3"
+  local status
+  status="$("$PYTHON_BIN" -c '
+import json
+import sys
+
+try:
+    payload = json.loads(sys.argv[1])
+except Exception:
+    print("invalid")
+    raise SystemExit(0)
+
+from_version = int(sys.argv[2])
+expected_path = json.loads(sys.argv[3])
+
+checks = [
+    payload.get("scaffoldVersion") == from_version,
+    payload.get("latestScaffoldVersion") == 3,
+    payload.get("compatibility") == "upgrade_supported",
+    payload.get("recommendedAction") == "upgrade",
+    payload.get("upgradePath") == expected_path,
+    payload.get("blockingReason") is None,
+]
+print("ok" if all(checks) else "invalid")
+' "$output" "$from_version" "$expected_path_json")"
+  if [[ "$status" != "ok" ]]; then
+    printf '%s: unexpected upgrade inspect output: %s\n' "$SCRIPT_NAME" "$output" >&2
+    return 1
+  fi
+}
+
+assert_upgrade_plan() {
+  local output="$1"
+  local from_version="$2"
+  local to_version="$3"
+  local expected_path_json="$4"
+  local step_count="$5"
+  local required_changed_path="$6"
+  local status
+  status="$("$PYTHON_BIN" -c '
+import json
+import sys
+
+try:
+    payload = json.loads(sys.argv[1])
+except Exception:
+    print("invalid")
+    raise SystemExit(0)
+
+from_version = int(sys.argv[2])
+to_version = int(sys.argv[3])
+expected_path = json.loads(sys.argv[4])
+step_count = int(sys.argv[5])
+required_changed_path = sys.argv[6]
+
+step_plans = payload.get("stepPlans") or []
+changed_files = payload.get("changedFiles") or []
+
+checks = [
+    payload.get("ok") is True,
+    payload.get("apply") is False,
+    payload.get("fromVersion") == from_version,
+    payload.get("toVersion") == to_version,
+    payload.get("compatibility") == "upgrade_supported",
+    payload.get("canApply") is True,
+    payload.get("upgradePath") == expected_path,
+    len(step_plans) == step_count,
+    required_changed_path in changed_files,
+]
+print("ok" if all(checks) else "invalid")
+' "$output" "$from_version" "$to_version" "$expected_path_json" "$step_count" "$required_changed_path")"
+  if [[ "$status" != "ok" ]]; then
+    printf '%s: unexpected upgrade plan output: %s\n' "$SCRIPT_NAME" "$output" >&2
+    return 1
+  fi
+}
+
+assert_upgrade_apply() {
+  local output="$1"
+  local from_version="$2"
+  local to_version="$3"
+  local expected_path_json="$4"
+  local required_changed_path="$5"
+  local status
+  status="$("$PYTHON_BIN" -c '
+import json
+import sys
+
+try:
+    payload = json.loads(sys.argv[1])
+except Exception:
+    print("invalid")
+    raise SystemExit(0)
+
+from_version = int(sys.argv[2])
+to_version = int(sys.argv[3])
+expected_path = json.loads(sys.argv[4])
+required_changed_path = sys.argv[5]
+changed_files = payload.get("changedFiles") or []
+
+checks = [
+    payload.get("ok") is True,
+    payload.get("apply") is True,
+    payload.get("fromVersion") == from_version,
+    payload.get("toVersion") == to_version,
+    payload.get("upgradePath") == expected_path,
+    required_changed_path in changed_files,
+]
+print("ok" if all(checks) else "invalid")
+' "$output" "$from_version" "$to_version" "$expected_path_json" "$required_changed_path")"
+  if [[ "$status" != "ok" ]]; then
+    printf '%s: unexpected upgrade apply output: %s\n' "$SCRIPT_NAME" "$output" >&2
+    return 1
+  fi
+}
+
+downgrade_descendant_to_version() {
+  local root="$1"
+  local version="$2"
+
+  case "$version" in
+    2)
+      "$PYTHON_BIN" - <<'PY' "$root"
+import json
+import pathlib
+
+root = pathlib.Path(__import__("sys").argv[1])
+
+contents = root.joinpath("ossplate.toml").read_text(encoding="utf-8")
+root.joinpath("ossplate.toml").write_text(
+    contents.replace("scaffold_version = 3", "scaffold_version = 2"),
+    encoding="utf-8",
+)
+
+target = root / "core-rs/src/upgrade_catalog.rs"
+if target.exists():
+    target.unlink()
+
+for manifest_rel in ["scaffold-payload.json", "source-checkout.json", "core-rs/source-checkout.json"]:
+    path = root / manifest_rel
+    data = json.loads(path.read_text())
+    data["requiredPaths"] = [p for p in data["requiredPaths"] if p != "core-rs/src/upgrade_catalog.rs"]
+    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+PY
+      ;;
+    1)
+      downgrade_descendant_to_version "$root" 2
+      "$PYTHON_BIN" - <<'PY' "$root"
+import json
+import pathlib
+
+root = pathlib.Path(__import__("sys").argv[1])
+
+contents = root.joinpath("ossplate.toml").read_text(encoding="utf-8")
+root.joinpath("ossplate.toml").write_text(
+    contents.replace("scaffold_version = 2", "scaffold_version = 1"),
+    encoding="utf-8",
+)
+
+removed = [
+    "core-rs/build.rs",
+    "core-rs/src/embedded_template.rs",
+    "core-rs/src/upgrade.rs",
+    "core-rs/src/verify.rs",
+    "scripts/stage-embedded-template.mjs",
+    "scripts/package-js.mjs",
+]
+for rel in removed:
+    path = root / rel
+    if path.exists():
+        path.unlink()
+
+for manifest_rel in ["scaffold-payload.json", "source-checkout.json", "core-rs/source-checkout.json"]:
+    path = root / manifest_rel
+    data = json.loads(path.read_text())
+    data["requiredPaths"] = [p for p in data["requiredPaths"] if p not in removed]
+    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+PY
+      ;;
+    *)
+      printf '%s: unsupported downgrade version %s\n' "$SCRIPT_NAME" "$version" >&2
+      return 1
+      ;;
+  esac
+}
+
+run_upgrade_flow() {
+  local tool="$1"
+  local target_root="$2"
+  local v2_dir="$target_root/upgrade-v2"
+  local v1_dir="$target_root/upgrade-v1"
+  local inspect_output
+  local plan_output
+  local apply_output
+  local validate_output
+  local sync_output
+
+  "$tool" create "$v2_dir" \
+    --name "upgrade-v2" \
+    --description "Live upgrade fixture." \
+    --repository "https://example.com/upgrade-v2" \
+    --license "Apache-2.0" \
+    --author-name "Upgrade Fixture" \
+    --author-email "upgrade@example.com" \
+    --rust-crate "upgrade_v2" \
+    --npm-package "upgrade-v2" \
+    --python-package "upgrade_v2" \
+    --command "upgrade-v2"
+  downgrade_descendant_to_version "$v2_dir" 2
+  inspect_output="$("$tool" inspect --path "$v2_dir" --json)"
+  printf '%s\n' "$inspect_output"
+  assert_inspect_upgrade_supported "$inspect_output" 2 '["2->3"]'
+  plan_output="$("$tool" upgrade --path "$v2_dir" --plan --json)"
+  printf '%s\n' "$plan_output"
+  assert_upgrade_plan "$plan_output" 2 3 '["2->3"]' 1 "core-rs/src/upgrade_catalog.rs"
+  apply_output="$("$tool" upgrade --path "$v2_dir" --json)"
+  printf '%s\n' "$apply_output"
+  assert_upgrade_apply "$apply_output" 2 3 '["2->3"]' "core-rs/src/upgrade_catalog.rs"
+  validate_output="$("$tool" validate --path "$v2_dir" --json)"
+  printf '%s\n' "$validate_output"
+  assert_validate_with_mode "$validate_output" "clean"
+  inspect_output="$("$tool" inspect --path "$v2_dir" --json)"
+  printf '%s\n' "$inspect_output"
+  assert_inspect_current "$inspect_output" "upgrade-v2" "upgrade_v2" "upgrade-v2" "upgrade_v2" "upgrade-v2"
+  sync_output="$("$tool" sync --path "$v2_dir" --check --json)"
+  printf '%s\n' "$sync_output"
+  assert_sync_ok "$sync_output"
+
+  "$tool" create "$v1_dir" \
+    --name "upgrade-v1" \
+    --description "Live chained upgrade fixture." \
+    --repository "https://example.com/upgrade-v1" \
+    --license "Apache-2.0" \
+    --author-name "Upgrade Fixture" \
+    --author-email "upgrade@example.com" \
+    --rust-crate "upgrade_v1" \
+    --npm-package "upgrade-v1" \
+    --python-package "upgrade_v1" \
+    --command "upgrade-v1"
+  downgrade_descendant_to_version "$v1_dir" 1
+  inspect_output="$("$tool" inspect --path "$v1_dir" --json)"
+  printf '%s\n' "$inspect_output"
+  assert_inspect_upgrade_supported "$inspect_output" 1 '["1->2","2->3"]'
+  plan_output="$("$tool" upgrade --path "$v1_dir" --plan --json)"
+  printf '%s\n' "$plan_output"
+  assert_upgrade_plan "$plan_output" 1 3 '["1->2","2->3"]' 2 "core-rs/src/upgrade.rs"
+  apply_output="$("$tool" upgrade --path "$v1_dir" --json)"
+  printf '%s\n' "$apply_output"
+  assert_upgrade_apply "$apply_output" 1 3 '["1->2","2->3"]' "core-rs/src/upgrade_catalog.rs"
+  validate_output="$("$tool" validate --path "$v1_dir" --json)"
+  printf '%s\n' "$validate_output"
+  assert_validate_with_mode "$validate_output" "clean"
+  inspect_output="$("$tool" inspect --path "$v1_dir" --json)"
+  printf '%s\n' "$inspect_output"
+  assert_inspect_current "$inspect_output" "upgrade-v1" "upgrade_v1" "upgrade-v1" "upgrade_v1" "upgrade-v1"
+  sync_output="$("$tool" sync --path "$v1_dir" --check --json)"
+  printf '%s\n' "$sync_output"
+  assert_sync_ok "$sync_output"
 }
 
 run_common_cli_flow() {
@@ -86,6 +449,7 @@ run_common_cli_flow() {
   local target_root="$2"
   local create_dir="$target_root/created"
   local init_dir="$target_root/inited"
+  local custom_dir="$target_root/customized"
 
   mkdir -p "$target_root"
 
@@ -96,17 +460,52 @@ run_common_cli_flow() {
 
   "$tool" create "$create_dir"
   local validate_output
+  local inspect_output
+  local sync_output
   validate_output="$("$tool" validate --path "$create_dir" --json)"
   printf '%s\n' "$validate_output"
-  assert_validate_ok "$validate_output"
-  "$tool" sync --path "$create_dir" --check
+  assert_validate_with_mode "$validate_output" "placeholder"
+  inspect_output="$("$tool" inspect --path "$create_dir" --json)"
+  printf '%s\n' "$inspect_output"
+  assert_inspect_current "$inspect_output" "Ossplate" "ossplate" "ossplate" "ossplate" "ossplate"
+  sync_output="$("$tool" sync --path "$create_dir" --check --json)"
+  printf '%s\n' "$sync_output"
+  assert_sync_ok "$sync_output"
 
   mkdir -p "$init_dir"
   "$tool" init --path "$init_dir"
   validate_output="$("$tool" validate --path "$init_dir" --json)"
   printf '%s\n' "$validate_output"
-  assert_validate_ok "$validate_output"
-  "$tool" sync --path "$init_dir" --check
+  assert_validate_with_mode "$validate_output" "placeholder"
+  inspect_output="$("$tool" inspect --path "$init_dir" --json)"
+  printf '%s\n' "$inspect_output"
+  assert_inspect_current "$inspect_output" "Ossplate" "ossplate" "ossplate" "ossplate" "ossplate"
+  sync_output="$("$tool" sync --path "$init_dir" --check --json)"
+  printf '%s\n' "$sync_output"
+  assert_sync_ok "$sync_output"
+
+  "$tool" create "$custom_dir" \
+    --name "blade-live" \
+    --description "Live E2E custom identity fixture." \
+    --repository "https://example.com/blade-live" \
+    --license "Apache-2.0" \
+    --author-name "Live E2E" \
+    --author-email "live-e2e@example.com" \
+    --rust-crate "blade_live" \
+    --npm-package "blade-live" \
+    --python-package "blade_live" \
+    --command "blade-live"
+  validate_output="$("$tool" validate --path "$custom_dir" --json)"
+  printf '%s\n' "$validate_output"
+  assert_validate_with_mode "$validate_output" "clean"
+  inspect_output="$("$tool" inspect --path "$custom_dir" --json)"
+  printf '%s\n' "$inspect_output"
+  assert_inspect_current "$inspect_output" "blade-live" "blade_live" "blade-live" "blade_live" "blade-live"
+  sync_output="$("$tool" sync --path "$custom_dir" --check --json)"
+  printf '%s\n' "$sync_output"
+  assert_sync_ok "$sync_output"
+
+  run_upgrade_flow "$tool" "$target_root"
 }
 
 run_cargo_flow() {

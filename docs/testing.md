@@ -59,6 +59,14 @@ The documented operator flow lives in [Live E2E](./live-e2e.md).
 
 This layer matters architecturally because it validates JS and Python as delivery adapters for the Rust core rather than alternate implementations. npm live install E2E is already part of the current confidence path.
 
+The live installed flow now asserts more than installability. Each published-surface run must prove that:
+
+- `create` and `init` both produce descendants that `inspect` classifies as `current`
+- `sync --check --json` reports a clean managed surface
+- the default shipped scaffold still reports the expected placeholder warnings
+- a fully specified custom identity validates without warnings
+- a non-default identity override still projects the expected Rust, npm, Python, command, and runtime package names from the shipped scaffold
+
 Published release confidence now also includes a native-runner post-publish matrix in `.github/workflows/live-e2e-published.yml` across:
 
 - `ubuntu-latest`
