@@ -315,7 +315,11 @@ fn build_cargo_template_sync_change(
             .get("core-rs/Cargo.toml")
             .ok_or_else(|| anyhow!("missing owned file core-rs/Cargo.toml"))?,
     )?;
-    if actual == expected {
+    let actual_value: toml::Value = toml::from_str(&actual)
+        .context("failed to parse core-rs/Cargo.template.toml during sync check")?;
+    let expected_value: toml::Value = toml::from_str(&expected)
+        .context("failed to parse normalized core-rs/Cargo.template.toml during sync check")?;
+    if actual_value == expected_value {
         return Ok(None);
     }
 
