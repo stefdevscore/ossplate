@@ -313,6 +313,18 @@ test("installed js package and matching runtime package can create from scaffold
     assert.equal(validation.ok, true);
     assert.deepEqual(validation.issues, []);
     assert.ok(validation.warnings.length >= 4);
+
+    const syncOutput = execFileSync(
+      "cargo",
+      ["run", "--manifest-path", "core-rs/Cargo.toml", "--", "sync", "--check", "--json"],
+      {
+        cwd: targetDir,
+        encoding: "utf8"
+      }
+    ).trim();
+    const syncCheck = JSON.parse(syncOutput);
+    assert.equal(syncCheck.ok, true);
+    assert.deepEqual(syncCheck.issues, []);
   } finally {
     fs.rmSync(installDir, { recursive: true, force: true });
     fs.rmSync(mainTarball, { force: true });

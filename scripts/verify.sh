@@ -20,11 +20,29 @@ find_python() {
 PYTHON_BIN="$(find_python)"
 JS_PACKAGE_NAME="$(node -p "require('$ROOT_DIR/wrapper-js/package.json').name")"
 JS_VERSION="$(node -p "require('$ROOT_DIR/wrapper-js/package.json').version")"
-if npm view "$JS_PACKAGE_NAME@$JS_VERSION" version >/dev/null 2>&1; then
-  JS_LOCKFILE_MODE="resolved"
+JS_LOCKFILE_MODE="$(node - "$ROOT_DIR" <<'NODE'
+const fs = require("fs");
+const path = require("path");
+
+const root = process.argv[2];
+const packageJson = JSON.parse(fs.readFileSync(path.join(root, "wrapper-js", "package.json"), "utf8"));
+const packageLock = JSON.parse(fs.readFileSync(path.join(root, "wrapper-js", "package-lock.json"), "utf8"));
+const optionalDependencies = Object.keys(packageJson.optionalDependencies ?? {});
+const runtimeEntries = optionalDependencies.map((name) => packageLock.packages?.[`node_modules/${name}`]).filter(Boolean);
+
+if (runtimeEntries.length === 0) {
+  console.log("placeholder");
+  process.exit(0);
+}
+
+const allResolved = runtimeEntries.every((entry) => typeof entry.resolved === "string" && entry.resolved.length > 0);
+const allIntegrity = runtimeEntries.every((entry) => typeof entry.integrity === "string" && entry.integrity.length > 0);
+console.log(allResolved && allIntegrity ? "resolved" : "placeholder");
+NODE
+)"
+if [ -e "$ROOT_DIR/wrapper-js/test/cli.test.js" ] && npm view "$JS_PACKAGE_NAME@$JS_VERSION" version >/dev/null 2>&1; then
   JS_INSTALLABLE=true
 else
-  JS_LOCKFILE_MODE="placeholder"
   JS_INSTALLABLE=false
 fi
 
@@ -64,10 +82,10 @@ run_step "js:lockfile-assert" node "$ROOT_DIR/scripts/assert-js-lockfile-state.m
 run_step "publish:assert" node "$ROOT_DIR/scripts/release-check.mjs" publish-readiness publish
 if [ "$JS_INSTALLABLE" = true ]; then
   run_optional_step "js:test" "$ROOT_DIR/wrapper-js/test/cli.test.js" bash -lc "cd \"$ROOT_DIR/wrapper-js\" && npm test"
-  run_step "js:pack" node "$ROOT_DIR/scripts/package-js.mjs" dry-run-json
+  run_optional_step "js:pack" "$ROOT_DIR/wrapper-js/test/cli.test.js" node "$ROOT_DIR/scripts/package-js.mjs" dry-run-json
 else
   printf '\n[js:test]\n'
-  printf 'skipped: current npm version %s is not published yet; placeholder lockfile state is expected\n' "$JS_VERSION"
+  printf 'skipped: local JS test harness is unavailable or current npm version %s is not published yet\n' "$JS_VERSION"
 fi
 run_optional_step "py:test" "$ROOT_DIR/wrapper-py/tests" bash -lc "cd \"$ROOT_DIR/wrapper-py\" && PYTHONPATH=src \"$PYTHON_BIN\" -m unittest discover -s tests -p 'test_*.py'"
 run_step "package:cleanliness" node "$ROOT_DIR/scripts/release-check.mjs" package-cleanliness
