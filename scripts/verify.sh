@@ -35,27 +35,39 @@ run_step() {
   "$@"
 }
 
+run_optional_step() {
+  local label="$1"
+  local path="$2"
+  shift 2
+  if [ -e "$path" ]; then
+    run_step "$label" "$@"
+  else
+    printf '\n[%s]\n' "$label"
+    printf 'skipped: %s is not present in this repo shape\n' "$path"
+  fi
+}
+
 run_step "rust:fmt" cargo fmt --check --manifest-path "$ROOT_DIR/core-rs/Cargo.toml"
 run_step "rust:prepare-embedded-template" node "$ROOT_DIR/scripts/stage-distribution-assets.mjs" embedded-template
 run_step "rust:clippy" cargo clippy --manifest-path "$ROOT_DIR/core-rs/Cargo.toml" -- -D warnings
 run_step "rust:test" cargo test --manifest-path "$ROOT_DIR/core-rs/Cargo.toml"
 run_step "tool:validate" cargo run --quiet --manifest-path "$ROOT_DIR/core-rs/Cargo.toml" -- validate --path "$ROOT_DIR" --json
 run_step "tool:sync-check" cargo run --quiet --manifest-path "$ROOT_DIR/core-rs/Cargo.toml" -- sync --path "$ROOT_DIR" --check
-run_step "release:plan-test" node --test "$ROOT_DIR/scripts/release-plan.test.mjs"
-run_step "release:check-test" node --test "$ROOT_DIR/scripts/release-check.test.mjs"
-run_step "release:state-test" node --test "$ROOT_DIR/scripts/release-state.test.mjs"
-run_step "bootstrap:pattern1-test" node --test "$ROOT_DIR/scripts/bootstrap-pattern1.test.mjs"
-run_step "publish:local-test" node --test "$ROOT_DIR/scripts/publish-local.test.mjs"
+run_optional_step "release:plan-test" "$ROOT_DIR/scripts/release-plan.test.mjs" node --test "$ROOT_DIR/scripts/release-plan.test.mjs"
+run_optional_step "release:check-test" "$ROOT_DIR/scripts/release-check.test.mjs" node --test "$ROOT_DIR/scripts/release-check.test.mjs"
+run_optional_step "release:state-test" "$ROOT_DIR/scripts/release-state.test.mjs" node --test "$ROOT_DIR/scripts/release-state.test.mjs"
+run_optional_step "bootstrap:pattern1-test" "$ROOT_DIR/scripts/bootstrap-pattern1.test.mjs" node --test "$ROOT_DIR/scripts/bootstrap-pattern1.test.mjs"
+run_optional_step "publish:local-test" "$ROOT_DIR/scripts/publish-local.test.mjs" node --test "$ROOT_DIR/scripts/publish-local.test.mjs"
 run_step "scaffold:assets-assert" node "$ROOT_DIR/scripts/release-check.mjs" scaffold-assets
 run_step "release:assert" node "$ROOT_DIR/scripts/release-check.mjs" release-state
 run_step "js:lockfile-assert" node "$ROOT_DIR/scripts/assert-js-lockfile-state.mjs" "$JS_LOCKFILE_MODE"
 run_step "publish:assert" node "$ROOT_DIR/scripts/release-check.mjs" publish-readiness publish
 if [ "$JS_INSTALLABLE" = true ]; then
-  run_step "js:test" bash -lc "cd \"$ROOT_DIR/wrapper-js\" && npm test"
+  run_optional_step "js:test" "$ROOT_DIR/wrapper-js/test/cli.test.js" bash -lc "cd \"$ROOT_DIR/wrapper-js\" && npm test"
   run_step "js:pack" node "$ROOT_DIR/scripts/package-js.mjs" dry-run-json
 else
   printf '\n[js:test]\n'
   printf 'skipped: current npm version %s is not published yet; placeholder lockfile state is expected\n' "$JS_VERSION"
 fi
-run_step "py:test" bash -lc "cd \"$ROOT_DIR/wrapper-py\" && PYTHONPATH=src \"$PYTHON_BIN\" -m unittest discover -s tests -p 'test_*.py'"
+run_optional_step "py:test" "$ROOT_DIR/wrapper-py/tests" bash -lc "cd \"$ROOT_DIR/wrapper-py\" && PYTHONPATH=src \"$PYTHON_BIN\" -m unittest discover -s tests -p 'test_*.py'"
 run_step "package:cleanliness" node "$ROOT_DIR/scripts/release-check.mjs" package-cleanliness
