@@ -31,6 +31,7 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
       - uses: actions/setup-node@v5
         with:
           node-version: '24'
@@ -95,6 +96,9 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      - name: Prepare embedded template artifact
+        if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
+        run: node ./scripts/stage-distribution-assets.mjs embedded-template
       - name: Bump versions
         if: steps.validated.outputs.proceed == 'true' && steps.commit.outputs.skip != 'true' && steps.plan.outputs.should_release == 'true'
         run: node ./scripts/bump-version.mjs "${{ steps.plan.outputs.next_version }}"

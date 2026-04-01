@@ -51,8 +51,8 @@ writeJson(packageLockPath, packageLock);
 replaceInFile(joinPath("core-rs", "src", "main.rs"), /version = "\d+\.\d+\.\d+"/g, `version = "${nextVersion}"`);
 
 exec("cargo", ["generate-lockfile", "--manifest-path", joinPath("core-rs", "Cargo.toml")]);
-exec("cargo", ["run", "--quiet", "--manifest-path", joinPath("core-rs", "Cargo.toml"), "--", "sync", "--path", joinPath()]);
 exec("node", [joinPath("scripts", "stage-distribution-assets.mjs"), "embedded-template"]);
+exec("cargo", ["run", "--quiet", "--manifest-path", joinPath("core-rs", "Cargo.toml"), "--", "sync", "--path", joinPath()]);
 
 function replaceInFile(filePath, pattern, replacement) {
   const content = readFileSync(filePath, "utf8");
