@@ -10,6 +10,7 @@ if (!nextVersion) {
 }
 
 replaceInFile(joinPath("core-rs", "Cargo.toml"), /^version = ".*"$/m, `version = "${nextVersion}"`);
+replaceInFile(joinPath("core-rs", "Cargo.template.toml"), /^version = ".*"$/m, `version = "${nextVersion}"`);
 replaceInFile(joinPath("wrapper-py", "pyproject.toml"), /^version = ".*"$/m, `version = "${nextVersion}"`);
 
 const packageJsonPath = joinPath("wrapper-js", "package.json");

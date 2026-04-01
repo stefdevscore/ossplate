@@ -26,9 +26,6 @@ function stageEmbeddedTemplate() {
   for (const manifestName of ["scaffold-payload.json", "source-checkout.json"]) {
     const manifest = JSON.parse(readFileSync(join(repoRoot, manifestName), "utf8"));
     for (const relativePath of manifest.requiredPaths) {
-      if (relativePath.startsWith("core-rs/")) {
-        continue;
-      }
       if (templateOnlyPaths.has(relativePath)) {
         continue;
       }

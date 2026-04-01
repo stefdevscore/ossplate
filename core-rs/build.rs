@@ -15,12 +15,14 @@ fn main() {
         "core-rs/embedded-template-root/",
         &mut entries,
     );
-    collect_core_entries(&manifest_dir, "core-rs/", &mut entries);
-    collect_core_entries(
-        &manifest_dir,
-        "core-rs/embedded-template-root/core-rs/",
-        &mut entries,
-    );
+    if !template_root.join("core-rs").is_dir() {
+        collect_core_entries(&manifest_dir, "core-rs/", &mut entries);
+        collect_core_entries(
+            &manifest_dir,
+            "core-rs/embedded-template-root/core-rs/",
+            &mut entries,
+        );
+    }
     entries.sort_by(|a, b| a.0.cmp(&b.0));
 
     let mut generated =
@@ -133,13 +135,23 @@ fn collect_core_entries(
         "scaffold-payload.json",
         "source-checkout.json",
     ] {
-        let path = manifest_dir.join(relative_path);
+        let path = core_entry_source_path(manifest_dir, relative_path);
         println!("cargo:rerun-if-changed={}", path.display());
         entries.push((format!("{target_prefix}{relative_path}"), path));
     }
 
     let src_root = manifest_dir.join("src");
     collect_core_src_entries(&src_root, &src_root, target_prefix, entries);
+}
+
+fn core_entry_source_path(manifest_dir: &Path, relative_path: &str) -> PathBuf {
+    if relative_path == "Cargo.toml" {
+        let template_path = manifest_dir.join("Cargo.template.toml");
+        if template_path.is_file() {
+            return template_path;
+        }
+    }
+    manifest_dir.join(relative_path)
 }
 
 fn collect_core_src_entries(

@@ -8,7 +8,8 @@ use crate::config::{load_config, write_config};
 use crate::scaffold::refresh_embedded_template_root;
 use crate::scaffold_manifest::{
     current_core_source_checkout_manifest, current_repo_source_checkout_manifest,
-    current_scaffold_payload_manifest, write_path_manifest, PathManifest,
+    current_scaffold_payload_manifest, normalize_scaffold_payload_manifest_for_config,
+    read_path_manifest, write_path_manifest, PathManifest,
 };
 
 #[derive(Debug, Clone)]
@@ -37,6 +38,7 @@ pub(crate) struct VersionFingerprint {
     pub(crate) required_paths: Vec<String>,
     pub(crate) forbidden_paths: Vec<String>,
     pub(crate) exact_json_files: Vec<JsonFingerprint>,
+    pub(crate) expected_scaffold_payload: Option<PathManifest>,
 }
 
 #[derive(Debug, Clone)]
@@ -63,6 +65,22 @@ impl VersionFingerprint {
                 };
                 actual == fingerprint.expected
             })
+            && self.matches_scaffold_payload(root)
+    }
+
+    fn matches_scaffold_payload(&self, root: &Path) -> bool {
+        let Some(expected_manifest) = &self.expected_scaffold_payload else {
+            return true;
+        };
+        let Ok(config) = load_config(root) else {
+            return false;
+        };
+        let Ok(actual_manifest) = read_path_manifest(&root.join("scaffold-payload.json")) else {
+            return false;
+        };
+
+        normalize_scaffold_payload_manifest_for_config(&config, &actual_manifest)
+            == normalize_scaffold_payload_manifest_for_config(&config, expected_manifest)
     }
 }
 
@@ -127,14 +145,11 @@ fn fingerprint_for_current_version() -> VersionFingerprint {
                 manifest_to_json(&current_repo_source_checkout_manifest()),
             ),
             json_fingerprint(
-                "scaffold-payload.json",
-                manifest_to_json(&current_scaffold_payload_manifest()),
-            ),
-            json_fingerprint(
                 "core-rs/source-checkout.json",
                 manifest_to_json(&current_core_source_checkout_manifest()),
             ),
         ],
+        expected_scaffold_payload: Some(current_scaffold_payload_manifest()),
     }
 }
 
@@ -153,14 +168,11 @@ fn fingerprint_for_historical_version(version: u64) -> VersionFingerprint {
                 manifest_to_json(&repo_source_checkout_for_version(version)),
             ),
             json_fingerprint(
-                "scaffold-payload.json",
-                manifest_to_json(&scaffold_payload_for_version(version)),
-            ),
-            json_fingerprint(
                 "core-rs/source-checkout.json",
                 manifest_to_json(&core_source_checkout_for_version(version)),
             ),
         ],
+        expected_scaffold_payload: Some(scaffold_payload_for_version(version)),
     }
 }
 

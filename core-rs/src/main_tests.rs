@@ -16,7 +16,7 @@ use crate::sync::{
     sync_apply_json, sync_check_json, sync_plan_json, sync_repo, validate_repo,
 };
 use crate::test_support::{fs, load_config, Path};
-use crate::upgrade::{upgrade_apply_json, upgrade_plan_json};
+use crate::upgrade::{inspect_compatibility, upgrade_apply_json, upgrade_plan_json, Compatibility};
 use crate::upgrade_catalog::{authored_versions, latest_authored_version};
 use crate::verify::VerifyStepResult;
 use crate::{Cli, Commands};
@@ -1487,11 +1487,16 @@ fn embedded_template_root_materializes_required_scaffold_files() {
     assert!(embedded_template_contains(&root, "ossplate.toml"));
     assert!(embedded_template_contains(&root, "scaffold-payload.json"));
     assert!(embedded_template_contains(&root, "source-checkout.json"));
+    assert!(embedded_template_contains(&root, "core-rs/Cargo.toml"));
     assert!(embedded_template_contains(
         &root,
         "core-rs/embedded-template-root/ossplate.toml"
     ));
     assert!(embedded_template_contains(&root, "core-rs/src/main.rs"));
+    assert!(embedded_template_contains(
+        &root,
+        "core-rs/embedded-template-root/core-rs/Cargo.toml"
+    ));
     assert!(embedded_template_contains(
         &root,
         "core-rs/embedded-template-root/core-rs/src/main.rs"
@@ -1522,11 +1527,43 @@ fn create_scaffold_from_embedded_template_root_preserves_create_contract() {
     assert!(target.join("README.md").is_file());
     assert!(target.join("wrapper-js/package.json").is_file());
     assert!(target.join("wrapper-py/pyproject.toml").is_file());
+    assert_eq!(
+        inspect_compatibility(&target).unwrap().compatibility,
+        Compatibility::Current
+    );
     ensure_scaffold_source_root(&target.join("core-rs").join("embedded-template-root")).unwrap();
     assert_release_check_scaffold_assets(&target);
 
     fs::remove_dir_all(&source_root).unwrap();
     fs::remove_dir_all(&target).unwrap();
+}
+
+#[test]
+fn sync_repo_keeps_cargo_template_manifest_aligned() {
+    let root = make_source_checkout_root();
+    fs::write(
+        root.join("core-rs/Cargo.template.toml"),
+        fs::read_to_string(repo_root().join("core-rs/Cargo.template.toml")).unwrap(),
+    )
+    .unwrap();
+    fs::write(
+        root.join("core-rs/Cargo.template.toml"),
+        fs::read_to_string(root.join("core-rs/Cargo.template.toml"))
+            .unwrap()
+            .replace("version = \"0.5.3\"", "version = \"9.9.9\"")
+            .replace("name = \"ossplate\"", "name = \"wrong-template\""),
+    )
+    .unwrap();
+
+    sync_repo(&root, false).unwrap();
+
+    let cargo_template = fs::read_to_string(root.join("core-rs/Cargo.template.toml")).unwrap();
+    let expected = fs::read_to_string(repo_root().join("core-rs/Cargo.template.toml")).unwrap();
+    let actual: toml::Value = toml::from_str(&cargo_template).unwrap();
+    let expected: toml::Value = toml::from_str(&expected).unwrap();
+    assert_eq!(actual, expected);
+
+    fs::remove_dir_all(&root).unwrap();
 }
 
 #[test]

@@ -1,0 +1,38 @@
+[[bin]]
+name = "ossplate"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1.0"
+serde_json = "1.0"
+toml = "0.8"
+
+[dependencies.clap]
+features = ["derive"]
+version = "4.5"
+
+[dependencies.serde]
+features = ["derive"]
+version = "1.0"
+
+[package]
+authors = ["Stef <stefdevscore@github.com>"]
+build = "build.rs"
+categories = ["command-line-utilities", "development-tools"]
+default-run = "ossplate"
+description = "Scaffold and maintain one Rust-core CLI that ships cleanly through Cargo, npm, and PyPI."
+edition = "2021"
+homepage = "https://github.com/stefdevscore/ossplate"
+include = ["Cargo.toml", "Cargo.lock", "README.md", "build.rs", "runtime-targets.json", "scaffold-payload.json", "source-checkout.json", "src/**", "generated-embedded-template-root/**"]
+keywords = ["cli", "bootstrap", "distribution", "packaging", "multi-registry"]
+license = "Unlicense"
+name = "ossplate"
+readme = "../README.md"
+repository = "https://github.com/stefdevscore/ossplate"
+version = "0.5.3"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "z"
+strip = true

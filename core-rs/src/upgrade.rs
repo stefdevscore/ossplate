@@ -357,6 +357,7 @@ fn fingerprint_for_version(version: u64) -> crate::upgrade_catalog::VersionFinge
             required_paths: Vec::new(),
             forbidden_paths: Vec::new(),
             exact_json_files: Vec::new(),
+            expected_scaffold_payload: None,
         })
 }
 

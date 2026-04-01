@@ -4,6 +4,8 @@ use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
 
+use crate::config::ToolConfig;
+
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub(crate) struct PathManifest {
     #[serde(rename = "requiredPaths")]
@@ -64,6 +66,40 @@ pub(crate) fn write_path_manifest(path: &Path, manifest: &PathManifest) -> Resul
     Ok(())
 }
 
+pub(crate) fn normalize_scaffold_payload_manifest_for_config(
+    config: &ToolConfig,
+    manifest: &PathManifest,
+) -> PathManifest {
+    let mut normalized = manifest.clone();
+    let expected_js_launcher = format!("wrapper-js/bin/{}.js", config.packages.command);
+    let expected_python_dir = format!("wrapper-py/src/{}", python_module_name(config));
+    let expected_python_init = format!("{expected_python_dir}/__init__.py");
+    let expected_python_cli = format!("{expected_python_dir}/cli.py");
+
+    for path in &mut normalized.required_paths {
+        if path.starts_with("wrapper-js/bin/") && path.ends_with(".js") {
+            *path = expected_js_launcher.clone();
+        } else if path.starts_with("wrapper-py/src/") && path.ends_with("/__init__.py") {
+            *path = expected_python_init.clone();
+        } else if path.starts_with("wrapper-py/src/") && path.ends_with("/cli.py") {
+            *path = expected_python_cli.clone();
+        }
+    }
+
+    if !config.template.is_canonical {
+        let template_only = normalized
+            .template_only_paths
+            .iter()
+            .cloned()
+            .collect::<HashSet<_>>();
+        normalized
+            .required_paths
+            .retain(|path| !template_only.contains(path));
+    }
+
+    normalized
+}
+
 pub(crate) fn template_only_paths_from_root(root: &Path) -> Result<HashSet<String>> {
     let scaffold_payload = read_path_manifest(&root.join("scaffold-payload.json"))?;
     let source_checkout = read_path_manifest(&root.join("source-checkout.json"))?;
@@ -85,4 +121,17 @@ pub(crate) fn template_only_paths_from_root(root: &Path) -> Result<HashSet<Strin
 
 fn parse_manifest_str(contents: &str, label: &str) -> Result<PathManifest> {
     serde_json::from_str(contents).with_context(|| format!("failed to parse {label}"))
+}
+
+fn python_module_name(config: &ToolConfig) -> String {
+    config
+        .packages
+        .python_package
+        .chars()
+        .map(|ch| match ch {
+            'a'..='z' | 'A'..='Z' | '0'..='9' | '_' => ch,
+            '-' | '.' => '_',
+            _ => '_',
+        })
+        .collect()
 }

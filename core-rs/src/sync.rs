@@ -51,10 +51,11 @@ pub(crate) struct ManagedFile {
 
 pub(crate) fn validate_repo(root: &Path) -> Result<ValidationOutput> {
     let config = load_config(root)?;
-    let current = collect_current_files(root)?;
+    let managed_files = managed_files_for_root(root);
+    let current = collect_current_files(root, &managed_files)?;
     let mut issues = Vec::new();
 
-    for file in &managed_files() {
+    for file in &managed_files {
         let actual = current
             .get(file.path)
             .ok_or_else(|| anyhow!("missing owned file {}", file.path))?;
@@ -251,10 +252,11 @@ fn python_module_name(package_name: &str) -> String {
 
 fn build_sync_changes(root: &Path) -> Result<Vec<SyncChange>> {
     let config = load_config(root)?;
-    let current = collect_current_files(root)?;
+    let managed_files = managed_files_for_root(root);
+    let current = collect_current_files(root, &managed_files)?;
     let mut drifted = Vec::new();
 
-    for file in &managed_files() {
+    for file in &managed_files {
         let actual = current
             .get(file.path)
             .ok_or_else(|| anyhow!("missing owned file {}", file.path))?;
@@ -268,12 +270,21 @@ fn build_sync_changes(root: &Path) -> Result<Vec<SyncChange>> {
         }
     }
 
+    if config.template.is_canonical {
+        if let Some(change) = build_cargo_template_sync_change(root, &current)? {
+            drifted.push(change);
+        }
+    }
+
     Ok(drifted)
 }
 
-fn collect_current_files(root: &Path) -> Result<BTreeMap<&'static str, String>> {
+fn collect_current_files(
+    root: &Path,
+    managed_files: &[ManagedFile],
+) -> Result<BTreeMap<&'static str, String>> {
     let mut files = BTreeMap::new();
-    for file in managed_files() {
+    for file in managed_files {
         let path = file.path;
         files.insert(
             path,
@@ -282,6 +293,57 @@ fn collect_current_files(root: &Path) -> Result<BTreeMap<&'static str, String>> 
         );
     }
     Ok(files)
+}
+
+fn managed_files_for_root(_root: &Path) -> Vec<ManagedFile> {
+    managed_files()
+}
+
+fn build_cargo_template_sync_change(
+    root: &Path,
+    current: &BTreeMap<&'static str, String>,
+) -> Result<Option<SyncChange>> {
+    let template_path = root.join("core-rs/Cargo.template.toml");
+    if !template_path.is_file() {
+        return Ok(None);
+    }
+
+    let actual = fs::read_to_string(&template_path)
+        .with_context(|| format!("failed to read {}", template_path.display()))?;
+    let expected = normalize_cargo_template_from_live_manifest(
+        current
+            .get("core-rs/Cargo.toml")
+            .ok_or_else(|| anyhow!("missing owned file core-rs/Cargo.toml"))?,
+    )?;
+    if actual == expected {
+        return Ok(None);
+    }
+
+    Ok(Some(SyncChange {
+        path: "core-rs/Cargo.template.toml",
+        synced: expected.clone(),
+        issues: vec![issue(
+            "core-rs/Cargo.template.toml",
+            "package",
+            "owned metadata differs from the canonical cargo template",
+            Some(expected),
+            Some(actual),
+        )],
+    }))
+}
+
+fn normalize_cargo_template_from_live_manifest(content: &str) -> Result<String> {
+    let mut value: toml::Value =
+        toml::from_str(content).context("failed to parse core-rs/Cargo.toml for template sync")?;
+    let include = value
+        .get_mut("package")
+        .and_then(toml::Value::as_table_mut)
+        .and_then(|package| package.get_mut("include"))
+        .and_then(toml::Value::as_array_mut);
+    if let Some(include) = include {
+        include.retain(|entry| entry.as_str() != Some("Cargo.template.toml"));
+    }
+    Ok(toml::to_string(&value)?)
 }
 
 fn read_json(root: &Path, relative_path: &str) -> Result<serde_json::Value> {
