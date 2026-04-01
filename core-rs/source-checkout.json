@@ -4,7 +4,9 @@
     "scaffold-payload.json",
     "README.md",
     "core-rs/Cargo.toml",
+    "core-rs/build.rs",
     "core-rs/src/config.rs",
+    "core-rs/src/embedded_template.rs",
     "core-rs/src/main.rs",
     "core-rs/src/main_tests.rs",
     "core-rs/src/test_support.rs",
@@ -20,7 +22,16 @@
     "core-rs/src/sync.rs",
     "core-rs/src/sync/metadata.rs",
     "core-rs/src/sync/text.rs",
+    "core-rs/src/upgrade.rs",
+    "core-rs/src/upgrade_catalog.rs",
+    "scripts/stage-distribution-assets.mjs",
+    "scripts/stage-embedded-template.mjs",
+    "scripts/package-js.mjs",
     "wrapper-js/package.json",
     "wrapper-py/pyproject.toml"
+  ],
+  "templateOnlyPaths": [
+    "docs/customizing-the-template.md",
+    "docs/live-e2e.md"
   ]
 }

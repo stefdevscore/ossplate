@@ -22,6 +22,8 @@
     "core-rs/src/sync.rs",
     "core-rs/src/sync/metadata.rs",
     "core-rs/src/sync/text.rs",
+    "core-rs/src/upgrade.rs",
+    "core-rs/src/upgrade_catalog.rs",
     "scripts/stage-distribution-assets.mjs",
     "scripts/stage-embedded-template.mjs",
     "scripts/package-js.mjs",

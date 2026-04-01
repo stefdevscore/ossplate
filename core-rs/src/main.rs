@@ -14,6 +14,8 @@ mod source_checkout;
 mod sync;
 #[cfg(test)]
 mod test_support;
+mod upgrade;
+mod upgrade_catalog;
 mod verify;
 
 use config::IdentityOverrides;
@@ -23,6 +25,7 @@ use scaffold::{create_scaffold, create_scaffold_json, init_scaffold, init_scaffo
 use sync::{
     inspect_repo_json, sync_apply_json, sync_check_json, sync_plan_json, sync_repo, validate_repo,
 };
+use upgrade::{upgrade_apply_json, upgrade_plan_json};
 use verify::verify_repo_output;
 
 #[derive(Parser)]
@@ -105,6 +108,15 @@ enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Upgrade a supported descendant repo to the current scaffold version
+    Upgrade {
+        #[arg(long, default_value = ".")]
+        path: PathBuf,
+        #[arg(long)]
+        plan: bool,
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 fn main() {
@@ -179,6 +191,17 @@ fn run() -> Result<()> {
                 anyhow::bail!("inspect currently requires --json");
             }
             println!("{}", inspect_repo_json(&path)?);
+            Ok(())
+        }
+        Commands::Upgrade { path, plan, json } => {
+            if !json {
+                anyhow::bail!("upgrade currently requires --json");
+            }
+            if plan {
+                println!("{}", upgrade_plan_json(&path)?);
+            } else {
+                println!("{}", upgrade_apply_json(&path)?);
+            }
             Ok(())
         }
         Commands::Publish {

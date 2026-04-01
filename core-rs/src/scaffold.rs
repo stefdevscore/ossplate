@@ -63,6 +63,17 @@ pub(crate) fn init_scaffold_json(target: &Path, overrides: &IdentityOverrides) -
     render_bootstrap_output("init", &target_root, config)
 }
 
+pub(crate) fn upgrade_scaffold_from(source_root: &Path, target: &Path) -> Result<()> {
+    finalize_scaffold_from(
+        source_root,
+        target,
+        &IdentityOverrides::default(),
+        "init",
+        true,
+    )
+    .map(|_| ())
+}
+
 fn finalize_scaffold_from(
     source_root: &Path,
     target: &Path,

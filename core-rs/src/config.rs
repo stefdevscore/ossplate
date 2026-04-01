@@ -8,6 +8,7 @@ pub(crate) const GENERATED_REPOSITORY_PLACEHOLDER: &str =
     "https://example.com/replace-with-your-repository";
 pub(crate) const GENERATED_AUTHOR_NAME_PLACEHOLDER: &str = "TODO: set author name";
 pub(crate) const GENERATED_AUTHOR_EMAIL_PLACEHOLDER: &str = "you@example.com";
+pub(crate) const CURRENT_SCAFFOLD_VERSION: u64 = 3;
 
 #[derive(Debug, Clone, Default, Args)]
 pub(crate) struct IdentityOverrides {
@@ -69,6 +70,8 @@ pub(crate) struct PackageConfig {
 pub(crate) struct TemplateConfig {
     #[serde(default)]
     pub(crate) is_canonical: bool,
+    #[serde(default)]
+    pub(crate) scaffold_version: Option<u64>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -101,6 +104,10 @@ pub(crate) fn generated_project_description(command: &str) -> String {
 
 pub(crate) fn is_template_project(config: &ToolConfig) -> bool {
     config.template.is_canonical
+}
+
+pub(crate) fn latest_scaffold_version() -> u64 {
+    CURRENT_SCAFFOLD_VERSION
 }
 
 pub(crate) fn generated_metadata_warnings(config: &ToolConfig) -> Vec<String> {

@@ -1,7 +1,7 @@
 use crate::config::{
-    generated_project_description, load_config, write_config, IdentityOverrides, ToolConfig,
-    GENERATED_AUTHOR_EMAIL_PLACEHOLDER, GENERATED_AUTHOR_NAME_PLACEHOLDER,
-    GENERATED_REPOSITORY_PLACEHOLDER,
+    generated_project_description, latest_scaffold_version, load_config, write_config,
+    IdentityOverrides, ToolConfig, GENERATED_AUTHOR_EMAIL_PLACEHOLDER,
+    GENERATED_AUTHOR_NAME_PLACEHOLDER, GENERATED_REPOSITORY_PLACEHOLDER,
 };
 use anyhow::{Context, Result};
 use serde::Deserialize;
@@ -41,6 +41,7 @@ fn apply_template_mode(
 ) -> Result<()> {
     if action == "create" {
         config.template.is_canonical = false;
+        config.template.scaffold_version = Some(latest_scaffold_version());
         return Ok(());
     }
 
@@ -51,6 +52,8 @@ fn apply_template_mode(
             config.template.is_canonical = false;
         }
     }
+
+    config.template.scaffold_version = Some(latest_scaffold_version());
 
     Ok(())
 }

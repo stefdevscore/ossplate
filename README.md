@@ -15,7 +15,7 @@ It gives you a working baseline with:
 - one real core CLI
 - thin JavaScript and Python wrappers
 - release-ready workflows for Cargo, npm, and PyPI
-- a scaffold you can create, adopt, and keep in sync
+- a scaffold you can create, upgrade, adopt, and keep in sync
 - machine-checkable validation, planning, repair, inspection, and verification commands for agent loops
 
 ## Installed Usage
@@ -38,6 +38,7 @@ ossplate create ../my-new-project \
 - `cargo run --manifest-path core-rs/Cargo.toml -- create <target>`
 - `cargo run --manifest-path core-rs/Cargo.toml -- validate --json`
 - `cargo run --manifest-path core-rs/Cargo.toml -- inspect --json`
+- `cargo run --manifest-path core-rs/Cargo.toml -- upgrade --plan --json`
 - `cargo run --manifest-path core-rs/Cargo.toml -- sync --check --json`
 - `cargo run --manifest-path core-rs/Cargo.toml -- publish --plan --json`
 - `cargo run --manifest-path core-rs/Cargo.toml -- verify --json`

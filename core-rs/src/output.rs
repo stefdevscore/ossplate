@@ -1,6 +1,7 @@
 use crate::config::ToolConfig;
 use crate::release::PublishRegistry;
 use crate::sync::{SyncChangePlan, ValidationOutput};
+use crate::upgrade::Compatibility;
 use crate::verify::VerifyStepResult;
 use anyhow::{bail, Result};
 use serde::Serialize;
@@ -51,6 +52,19 @@ pub(crate) struct BootstrapOutput {
 #[derive(Debug, Clone, Serialize)]
 pub(crate) struct InspectOutput {
     pub(crate) config: ToolConfig,
+    #[serde(rename = "scaffoldVersion")]
+    pub(crate) scaffold_version: Option<u64>,
+    #[serde(rename = "latestScaffoldVersion")]
+    pub(crate) latest_scaffold_version: u64,
+    pub(crate) compatibility: Compatibility,
+    #[serde(rename = "recommendedAction")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) recommended_action: Option<String>,
+    #[serde(rename = "upgradePath")]
+    pub(crate) upgrade_path: Vec<String>,
+    #[serde(rename = "blockingReason")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) blocking_reason: Option<String>,
     #[serde(rename = "managedFiles")]
     pub(crate) managed_files: Vec<String>,
     #[serde(rename = "runtimeTargets")]
@@ -85,6 +99,35 @@ pub(crate) struct PublishPlanOutput {
 pub(crate) struct VerifyOutput {
     pub(crate) ok: bool,
     pub(crate) steps: Vec<VerifyStepResult>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub(crate) struct UpgradeOutput {
+    pub(crate) ok: bool,
+    pub(crate) apply: bool,
+    #[serde(rename = "fromVersion")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) from_version: Option<u64>,
+    #[serde(rename = "toVersion")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) to_version: Option<u64>,
+    pub(crate) compatibility: Compatibility,
+    #[serde(rename = "recommendedAction")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) recommended_action: Option<String>,
+    #[serde(rename = "upgradePath")]
+    pub(crate) upgrade_path: Vec<String>,
+    #[serde(rename = "blockingReason")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) blocking_reason: Option<String>,
+    #[serde(rename = "changedFiles")]
+    pub(crate) changed_files: Vec<String>,
+    #[serde(rename = "manualFollowUps")]
+    pub(crate) manual_follow_ups: Vec<String>,
+    #[serde(rename = "canApply")]
+    pub(crate) can_apply: bool,
+    #[serde(rename = "stepPlans")]
+    pub(crate) step_plans: Vec<crate::upgrade::StepPlan>,
 }
 
 pub(crate) fn render_sync_output(
@@ -136,6 +179,10 @@ pub(crate) fn render_publish_plan_output(output: PublishPlanOutput) -> Result<St
 pub(crate) fn render_verify_output(steps: Vec<VerifyStepResult>) -> Result<String> {
     let ok = steps.iter().all(|step| step.ok || step.skipped);
     Ok(serde_json::to_string(&VerifyOutput { ok, steps })?)
+}
+
+pub(crate) fn render_upgrade_output(output: UpgradeOutput) -> Result<String> {
+    Ok(serde_json::to_string(&output)?)
 }
 
 pub(crate) fn print_validation_output(output: &ValidationOutput, as_json: bool) -> Result<()> {
